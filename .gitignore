@@ -1,0 +1,69 @@
+*.iml
+.gradle
+/local.properties
+/.idea/caches
+/.idea/libraries
+/.idea/modules.xml
+/.idea/workspace.xml
+/.idea/navEditor.xml
+/.idea/assetWizardSettings.xml
+.DS_Store
+/build
+/app/build
+/captures
+.externalNativeBuild
+.cxx
+local.properties
+
+# Android
+*.apk
+*.aab
+*.ap_
+*.dex
+bin/
+gen/
+out/
+.gradle/
+*.log
+*.hprof
+
+# Kotlin
+*.class
+*.jar
+*.war
+*.nar
+*.ear
+
+# Misc
+*.swp
+*.swo
+*~
+.DS_Store?
+
+# AndroidStudio
+.idea/
+*.iws
+*.ipr
+.settings/
+.project
+.classpath
+
+# NDK
+.externalNativeBuild/
+.cxx/
+
+# Keystore
+*.jks
+*.keystore
+debug.keystore
+
+# Gradle
+build/
+!gradle/wrapper/gradle-wrapper.jar
+
+# App build
+app/build/
+app/release/
+
+# Screenshots
+screenshot.png

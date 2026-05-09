@@ -1,0 +1,95 @@
+package com.needai.chat.ui.chat.components
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.needai.chat.domain.model.Message
+import com.needai.chat.domain.model.MessageRole
+import com.needai.chat.ui.theme.AiBubbleLight
+import com.needai.chat.ui.theme.UserBubbleLight
+
+@Composable
+fun MessageBubble(
+    message: Message,
+    modifier: Modifier = Modifier,
+    fontSize: Float = 16f
+) {
+    val isUser = message.role == MessageRole.USER
+    val bubbleColor = if (isUser) UserBubbleLight else AiBubbleLight
+    val textColor = if (isUser) Color.White else MaterialTheme.colorScheme.onSurface
+    val alignment = if (isUser) Alignment.End else Alignment.Start
+    val shape = if (isUser) {
+        RoundedCornerShape(
+            topStart = 16.dp,
+            topEnd = 4.dp,
+            bottomStart = 16.dp,
+            bottomEnd = 16.dp
+        )
+    } else {
+        RoundedCornerShape(
+            topStart = 4.dp,
+            topEnd = 16.dp,
+            bottomStart = 16.dp,
+            bottomEnd = 16.dp
+        )
+    }
+
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 4.dp),
+        horizontalAlignment = if (isUser) Alignment.End else Alignment.Start
+    ) {
+        Box(
+            modifier = Modifier
+                .widthIn(max = 280.dp)
+                .clip(shape)
+                .background(bubbleColor)
+                .padding(horizontal = 16.dp, vertical = 10.dp)
+        ) {
+            Text(
+                text = message.content,
+                color = textColor,
+                style = MaterialTheme.typography.bodyLarge.copy(fontSize = fontSize.sp)
+            )
+        }
+    }
+}
+
+@Composable
+fun StreamingBubble(
+    content: String,
+    isStreaming: Boolean,
+    modifier: Modifier = Modifier,
+    fontSize: Float = 16f
+) {
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 4.dp),
+        horizontalAlignment = Alignment.Start
+    ) {
+        Box(
+            modifier = Modifier
+                .widthIn(max = 280.dp)
+                .clip(RoundedCornerShape(topStart = 4.dp, topEnd = 16.dp, bottomStart = 16.dp, bottomEnd = 16.dp))
+                .background(AiBubbleLight)
+                .padding(horizontal = 16.dp, vertical = 10.dp)
+        ) {
+            StreamingText(
+                text = content,
+                isStreaming = isStreaming,
+                fontSize = fontSize
+            )
+        }
+    }
+}
