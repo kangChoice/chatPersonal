@@ -42,6 +42,7 @@ fun SettingsScreen(
     val saveSuccess by viewModel.saveSuccess.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
+    var showAddChoice by remember { mutableStateOf(false) }
     var showAddDialog by remember { mutableStateOf(false) }
     var showQuickCreate by remember { mutableStateOf(false) }
     val context = LocalContext.current
@@ -73,6 +74,7 @@ fun SettingsScreen(
         }
     }
     var editConfig by remember { mutableStateOf<ModelConfig?>(null) }
+    var configToDelete by remember { mutableStateOf<ModelConfig?>(null) }
     var showGenParamsDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(saveSuccess) {
@@ -129,11 +131,8 @@ fun SettingsScreen(
                             }) {
                                 Icon(Icons.Default.Refresh, contentDescription = "导入配置")
                             }
-                            FilledTonalIconButton(onClick = { showAddDialog = true }) {
+                            FilledTonalIconButton(onClick = { showAddChoice = true }) {
                                 Icon(Icons.Default.Add, contentDescription = "添加配置")
-                            }
-                            FilledTonalIconButton(onClick = { showQuickCreate = true }) {
-                                Icon(Icons.Default.PlayArrow, contentDescription = "快速创建")
                             }
                         }
                     }
@@ -154,7 +153,7 @@ fun SettingsScreen(
                                 isSelected = config.id == modelConfig.id,
                                 onSelect = { viewModel.selectConfig(config.id) },
                                 onEdit = { editConfig = config },
-                                onDelete = { viewModel.deleteConfig(config.id) }
+                                onDelete = { configToDelete = config }
                             )
                         }
                     }
@@ -197,17 +196,51 @@ fun SettingsScreen(
                     Text("关于", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "Need AI Chat v1.0",
+                        text = "哥只是个传说~，叫哥哥",
                         style = MaterialTheme.typography.bodyMedium
                     )
-                    Text(
-                        text = "基于 Kotlin + Jetpack Compose 构建",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                     )
                 }
             }
         }
+    }
+
+    if (showAddChoice) {
+        AlertDialog(
+            onDismissRequest = { showAddChoice = false },
+            title = { Text("新建模型配置", fontWeight = FontWeight.Bold) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = "选择创建方式：",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    Button(
+                        onClick = {
+                            showAddChoice = false
+                            showQuickCreate = true
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("快速创建（选择供应商）")
+                    }
+                    OutlinedButton(
+                        onClick = {
+                            showAddChoice = false
+                            showAddDialog = true
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("手动创建（自定义配置）")
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showAddChoice = false }) {
+                    Text("取消")
+                }
+            }
+        )
     }
 
     if (showQuickCreate) {
@@ -216,6 +249,35 @@ fun SettingsScreen(
             onSave = { config ->
                 viewModel.addConfig(config)
                 showQuickCreate = false
+            }
+        )
+    }
+
+    if (configToDelete != null) {
+        AlertDialog(
+            onDismissRequest = { configToDelete = null },
+            icon = { Icon(Icons.Default.Delete, contentDescription = null) },
+            title = { Text("删除配置") },
+            text = {
+                Text("确定要删除「${configToDelete!!.name.ifEmpty { configToDelete!!.remoteModelName }}」吗？此操作不可撤销。")
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.deleteConfig(configToDelete!!.id)
+                        configToDelete = null
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error
+                    )
+                ) {
+                    Text("删除")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { configToDelete = null }) {
+                    Text("取消")
+                }
             }
         )
     }

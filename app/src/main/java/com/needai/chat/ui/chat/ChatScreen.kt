@@ -50,6 +50,7 @@ fun ChatScreen(
     val coroutineScope = rememberCoroutineScope()
     val context = LocalContext.current
     var pendingExportSessionId by remember { mutableStateOf<String?>(null) }
+    var showModelTip by remember { mutableStateOf(false) }
 
     // Launcher for exporting current session
     val exportCurrentLauncher = rememberLauncherForActivityResult(
@@ -120,12 +121,24 @@ fun ChatScreen(
                 },
                 actions = {
                     if (!uiState.isModelConfigured) {
-                        Icon(
-                            Icons.Default.Warning,
-                            contentDescription = "未配置远程模型",
-                            tint = MaterialTheme.colorScheme.error,
-                            modifier = Modifier.padding(end = 4.dp)
-                        )
+                        Box {
+                            IconButton(onClick = { showModelTip = true }) {
+                                Icon(
+                                    Icons.Default.Warning,
+                                    contentDescription = "未配置模型",
+                                    tint = MaterialTheme.colorScheme.error
+                                )
+                            }
+                            DropdownMenu(
+                                expanded = showModelTip,
+                                onDismissRequest = { showModelTip = false }
+                            ) {
+                                DropdownMenuItem(
+                                    text = { Text("当前未配置或选择模型！") },
+                                    onClick = { showModelTip = false }
+                                )
+                            }
+                        }
                     }
                     IconButton(onClick = { showSkillSelector = true }) {
                         Icon(Icons.Default.AutoAwesome, contentDescription = "切换技能")
