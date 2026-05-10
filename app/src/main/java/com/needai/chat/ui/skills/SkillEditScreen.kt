@@ -26,12 +26,12 @@ fun SkillEditScreen(
         skills.find { it.id == skillId }
     }
 
-    var name by remember { mutableStateOf(existingSkill?.name ?: "") }
-    var description by remember { mutableStateOf(existingSkill?.description ?: "") }
-    var systemPrompt by remember { mutableStateOf(existingSkill?.systemPrompt ?: "") }
-    var avatar by remember { mutableStateOf(existingSkill?.avatar ?: "🤖") }
-    var greeting by remember { mutableStateOf(existingSkill?.greeting ?: "你好！") }
-    var temperature by remember { mutableStateOf(existingSkill?.temperature?.toString() ?: "0.7") }
+    var name by remember(existingSkill) { mutableStateOf(existingSkill?.name ?: "") }
+    var description by remember(existingSkill) { mutableStateOf(existingSkill?.description ?: "") }
+    var systemPrompt by remember(existingSkill) { mutableStateOf(existingSkill?.systemPrompt ?: "") }
+    var avatar by remember(existingSkill) { mutableStateOf(existingSkill?.avatar ?: "🤖") }
+    var greeting by remember(existingSkill) { mutableStateOf(existingSkill?.greeting ?: "你好！") }
+    var temperature by remember(existingSkill) { mutableStateOf(existingSkill?.temperature?.toString() ?: "0.7") }
     var showDeleteConfirm by remember { mutableStateOf(false) }
 
     val isBuiltin = existingSkill?.isBuiltin == true

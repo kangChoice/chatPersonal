@@ -2,6 +2,8 @@ package com.needai.chat.app
 
 import android.app.Application
 import androidx.room.Room
+import com.google.gson.Gson
+import com.needai.chat.data.local.config.ModelConfigFileManager
 import com.needai.chat.data.local.db.AppDatabase
 import com.needai.chat.data.local.db.entity.SkillEntity
 import dagger.hilt.android.HiltAndroidApp
@@ -16,7 +18,12 @@ class NeedAiApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        initializeConfigFile()
         initializeDefaultSkills()
+    }
+
+    private fun initializeConfigFile() {
+        ModelConfigFileManager(this, Gson()).ensureConfigExists()
     }
 
     private fun initializeDefaultSkills() {

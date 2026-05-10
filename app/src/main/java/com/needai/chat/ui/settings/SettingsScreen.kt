@@ -3,9 +3,10 @@ package com.needai.chat.ui.settings
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -13,7 +14,8 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
-import com.needai.chat.ui.settings.components.ModelConfigForm
+import com.needai.chat.ui.settings.components.GenerationParamsDialog
+import com.needai.chat.ui.settings.components.ModelConfigEditDialog
 import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -26,6 +28,8 @@ fun SettingsScreen(
     val chatFontSize by viewModel.chatFontSize.collectAsStateWithLifecycle()
     val saveSuccess by viewModel.saveSuccess.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
+    var showModelConfigDialog by remember { mutableStateOf(false) }
+    var showGenParamsDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(saveSuccess) {
         if (saveSuccess) {
@@ -41,11 +45,6 @@ fun SettingsScreen(
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
-                    }
-                },
-                actions = {
-                    IconButton(onClick = { viewModel.saveConfig() }) {
-                        Icon(Icons.Default.Check, contentDescription = "保存")
                     }
                 }
             )
@@ -92,26 +91,50 @@ fun SettingsScreen(
             // 模型配置
             Card(modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    Text(
-                        text = "模型配置",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
-                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "连接配置",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                        FilledTonalIconButton(onClick = { showModelConfigDialog = true }) {
+                            Icon(Icons.Default.Settings, contentDescription = "编辑连接配置")
+                        }
+                    }
                     Spacer(modifier = Modifier.height(8.dp))
-                    ModelConfigForm(
-                        config = modelConfig,
-                        onConfigChanged = { viewModel.updateModelConfig(it) }
-                    )
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        ModelConfigSummary(label = "协议", value = modelConfig.protocol.value.uppercase())
+                        ModelConfigSummary(label = "Base URL", value = modelConfig.remoteBaseUrl.ifEmpty { "未设置" })
+                        ModelConfigSummary(label = "模型名称", value = modelConfig.remoteModelName.ifEmpty { "未设置" })
+                    }
+
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "生成参数",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                        FilledTonalIconButton(onClick = { showGenParamsDialog = true }) {
+                            Icon(Icons.Default.Settings, contentDescription = "编辑生成参数")
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        ModelConfigSummary(label = "Temperature", value = modelConfig.temperature.toString())
+                        ModelConfigSummary(label = "Max Tokens", value = modelConfig.maxTokens.toString())
+                        ModelConfigSummary(label = "Top P", value = modelConfig.topP.toString())
+                    }
                 }
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Button(
-                onClick = { viewModel.saveConfig() },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("保存配置")
             }
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -136,5 +159,46 @@ fun SettingsScreen(
                 }
             }
         }
+    }
+
+    if (showModelConfigDialog) {
+        ModelConfigEditDialog(
+            currentConfig = modelConfig,
+            onDismiss = { showModelConfigDialog = false },
+            onSave = { newConfig ->
+                viewModel.saveModelConfigDirectly(newConfig)
+                showModelConfigDialog = false
+            }
+        )
+    }
+
+    if (showGenParamsDialog) {
+        GenerationParamsDialog(
+            currentConfig = modelConfig,
+            onDismiss = { showGenParamsDialog = false },
+            onSave = { newConfig ->
+                viewModel.saveModelConfigDirectly(newConfig)
+                showGenParamsDialog = false
+            }
+        )
+    }
+}
+
+@Composable
+private fun ModelConfigSummary(label: String, value: String) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.Medium
+        )
     }
 }

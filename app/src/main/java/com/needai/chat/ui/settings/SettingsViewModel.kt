@@ -38,12 +38,24 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
+    fun saveModelConfigDirectly(config: ModelConfig) {
+        _modelConfig.value = config
+        viewModelScope.launch {
+            modelConfigRepository.saveModelConfig(config)
+            _saveSuccess.value = true
+        }
+    }
+
     fun updateModelConfig(config: ModelConfig) {
         _modelConfig.value = config
     }
 
     fun updateChatFontSize(size: Float) {
         _chatFontSize.value = size
+        viewModelScope.launch {
+            settingsDataStore.setChatFontSize(size)
+            _saveSuccess.value = true
+        }
     }
 
     fun saveConfig() {

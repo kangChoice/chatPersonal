@@ -1,9 +1,13 @@
 package com.needai.chat.data.remote.client
 
 import com.google.gson.Gson
+import com.needai.chat.data.remote.dto.AnthropicMessage
+import com.needai.chat.data.remote.dto.AnthropicRequest
+import com.needai.chat.data.remote.dto.AnthropicStreamEvent
 import com.needai.chat.data.remote.dto.ChatMessageDto
 import com.needai.chat.data.remote.dto.ChatRequest
 import com.needai.chat.data.remote.dto.ChatStreamChunk
+import com.needai.chat.domain.model.ApiProtocol
 import com.needai.chat.domain.model.ModelConfig
 import com.needai.chat.domain.model.Skill
 import com.needai.chat.domain.usecase.ChatMessage
@@ -12,7 +16,6 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import okhttp3.MediaType.Companion.toMediaType
-import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
@@ -38,26 +41,14 @@ class RemoteModelClient @Inject constructor(
             .writeTimeout(30, TimeUnit.SECONDS)
             .build()
 
-        val chatRequest = ChatRequest(
-            model = config.remoteModelName,
-            messages = messages.map { ChatMessageDto(role = it.role, content = it.content) },
-            stream = true,
-            temperature = if (skill.temperature != 0.7) skill.temperature else config.temperature,
-            maxTokens = config.maxTokens,
-            topP = config.topP
-        )
-
-        val url = "${config.remoteBaseUrl.trimEnd('/')}/v1/chat/completions"
-        val jsonBody = gson.toJson(chatRequest)
-
-        val request = Request.Builder()
-            .url(url)
-            .addHeader("Authorization", "Bearer ${config.remoteApiKey}")
-            .addHeader("Content-Type", "application/json")
-            .post(jsonBody.toRequestBody("application/json".toMediaType()))
-            .build()
-
         try {
+            val finalTemperature = if (skill.temperature != 0.7) skill.temperature else config.temperature
+
+            val request = when (config.protocol) {
+                ApiProtocol.OPENAI -> buildOpenAIRequest(messages, config, finalTemperature)
+                ApiProtocol.ANTHROPIC -> buildAnthropicRequest(messages, config, finalTemperature)
+            }
+
             val response = client.newCall(request).execute()
             if (!response.isSuccessful) {
                 val errorBody = response.body?.string() ?: "Unknown error"
@@ -68,21 +59,43 @@ class RemoteModelClient @Inject constructor(
             val body = response.body ?: return@flow
             val reader = BufferedReader(InputStreamReader(body.byteStream(), "UTF-8"))
             var line: String?
+            var currentSseEvent = ""
 
             while (reader.readLine().also { line = it } != null) {
                 val currentLine = line ?: continue
-                if (currentLine.startsWith("data: ")) {
-                    val data = currentLine.removePrefix("data: ")
-                    if (data == "[DONE]") break
-
-                    try {
-                        val chunk = gson.fromJson(data, ChatStreamChunk::class.java)
-                        val content = chunk.choices?.firstOrNull()?.delta?.content
-                        if (!content.isNullOrEmpty()) {
-                            emit(content)
+                when (config.protocol) {
+                    ApiProtocol.OPENAI -> {
+                        if (currentLine.startsWith("data: ")) {
+                            val data = currentLine.removePrefix("data: ")
+                            if (data == "[DONE]") break
+                            try {
+                                val chunk = gson.fromJson(data, ChatStreamChunk::class.java)
+                                val content = chunk.choices?.firstOrNull()?.delta?.content
+                                if (!content.isNullOrEmpty()) {
+                                    emit(content)
+                                }
+                            } catch (_: Exception) { }
                         }
-                    } catch (e: Exception) {
-                        // Skip malformed chunks
+                    }
+                    ApiProtocol.ANTHROPIC -> {
+                        when {
+                            currentLine.startsWith("event: ") -> {
+                                currentSseEvent = currentLine.removePrefix("event: ").trim()
+                            }
+                            currentLine.startsWith("data: ") -> {
+                                val data = currentLine.removePrefix("data: ")
+                                if (currentSseEvent == "content_block_delta") {
+                                    try {
+                                        val event = gson.fromJson(data, AnthropicStreamEvent::class.java)
+                                        val text = event.delta?.text
+                                        if (!text.isNullOrEmpty()) {
+                                            emit(text)
+                                        }
+                                    } catch (_: Exception) { }
+                                }
+                                currentSseEvent = ""
+                            }
+                        }
                     }
                 }
             }
@@ -93,6 +106,58 @@ class RemoteModelClient @Inject constructor(
         }
     }.flowOn(Dispatchers.IO)
 
+    private fun buildOpenAIRequest(
+        messages: List<ChatMessage>,
+        config: ModelConfig,
+        temperature: Double
+    ): Request {
+        val chatRequest = ChatRequest(
+            model = config.remoteModelName,
+            messages = messages.map { ChatMessageDto(role = it.role, content = it.content) },
+            stream = true,
+            temperature = temperature,
+            maxTokens = config.maxTokens,
+            topP = config.topP
+        )
+        val url = "${config.remoteBaseUrl.trimEnd('/')}/v1/chat/completions"
+        return Request.Builder()
+            .url(url)
+            .addHeader("Authorization", "Bearer ${config.remoteApiKey}")
+            .addHeader("Content-Type", "application/json")
+            .post(gson.toJson(chatRequest).toRequestBody("application/json".toMediaType()))
+            .build()
+    }
+
+    private fun buildAnthropicRequest(
+        messages: List<ChatMessage>,
+        config: ModelConfig,
+        temperature: Double
+    ): Request {
+        val systemPrompt = messages.firstOrNull { it.role == "system" }?.content
+        val anthropicMessages = messages
+            .filter { it.role != "system" }
+            .map { AnthropicMessage(role = it.role, content = it.content) }
+            .ifEmpty { listOf(AnthropicMessage(role = "user", content = "...")) }
+
+        val anthropicRequest = AnthropicRequest(
+            model = config.remoteModelName,
+            maxTokens = config.maxTokens,
+            system = systemPrompt,
+            messages = anthropicMessages,
+            stream = true,
+            temperature = temperature,
+            topP = config.topP
+        )
+        val url = "${config.remoteBaseUrl.trimEnd('/')}/v1/messages"
+        return Request.Builder()
+            .url(url)
+            .addHeader("x-api-key", config.remoteApiKey)
+            .addHeader("anthropic-version", "2023-06-01")
+            .addHeader("Content-Type", "application/json")
+            .post(gson.toJson(anthropicRequest).toRequestBody("application/json".toMediaType()))
+            .build()
+    }
+
     override suspend fun validateConfig(config: ModelConfig): Result<Boolean> {
         return try {
             val client = OkHttpClient.Builder()
@@ -100,28 +165,43 @@ class RemoteModelClient @Inject constructor(
                 .readTimeout(10, TimeUnit.SECONDS)
                 .build()
 
-            val url = "${config.remoteBaseUrl.trimEnd('/')}/v1/chat/completions"
-            val minimalRequest = ChatRequest(
-                model = config.remoteModelName,
-                messages = listOf(ChatMessageDto(role = "user", content = "hi")),
-                stream = false,
-                maxTokens = 1
-            )
-            val jsonBody = gson.toJson(minimalRequest)
-
-            val request = Request.Builder()
-                .url(url)
-                .addHeader("Authorization", "Bearer ${config.remoteApiKey}")
-                .addHeader("Content-Type", "application/json")
-                .post(jsonBody.toRequestBody("application/json".toMediaType()))
-                .build()
+            val request = when (config.protocol) {
+                ApiProtocol.OPENAI -> {
+                    val url = "${config.remoteBaseUrl.trimEnd('/')}/v1/chat/completions"
+                    val body = ChatRequest(
+                        model = config.remoteModelName,
+                        messages = listOf(ChatMessageDto(role = "user", content = "hi")),
+                        stream = false,
+                        maxTokens = 1
+                    )
+                    Request.Builder()
+                        .url(url)
+                        .addHeader("Authorization", "Bearer ${config.remoteApiKey}")
+                        .addHeader("Content-Type", "application/json")
+                        .post(gson.toJson(body).toRequestBody("application/json".toMediaType()))
+                        .build()
+                }
+                ApiProtocol.ANTHROPIC -> {
+                    val url = "${config.remoteBaseUrl.trimEnd('/')}/v1/messages"
+                    val body = AnthropicRequest(
+                        model = config.remoteModelName,
+                        maxTokens = 1,
+                        messages = listOf(AnthropicMessage(role = "user", content = "hi")),
+                        stream = false
+                    )
+                    Request.Builder()
+                        .url(url)
+                        .addHeader("x-api-key", config.remoteApiKey)
+                        .addHeader("anthropic-version", "2023-06-01")
+                        .addHeader("Content-Type", "application/json")
+                        .post(gson.toJson(body).toRequestBody("application/json".toMediaType()))
+                        .build()
+                }
+            }
 
             val response = client.newCall(request).execute()
-            if (response.isSuccessful) {
-                Result.success(true)
-            } else {
-                Result.failure(Exception("配置验证失败: HTTP ${response.code}"))
-            }
+            if (response.isSuccessful) Result.success(true)
+            else Result.failure(Exception("配置验证失败: HTTP ${response.code}"))
         } catch (e: Exception) {
             Result.failure(e)
         }

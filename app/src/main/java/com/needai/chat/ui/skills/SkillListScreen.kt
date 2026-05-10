@@ -1,5 +1,6 @@
 package com.needai.chat.ui.skills
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -9,11 +10,15 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
+import com.needai.chat.R
 import com.needai.chat.ui.navigation.Screen
 import com.needai.chat.ui.skills.components.SkillCard
 
@@ -27,11 +32,35 @@ fun SkillListScreen(
     val selectedSkillId by viewModel.selectedSkillId.collectAsStateWithLifecycle()
     var showCreateDialog by remember { mutableStateOf(false) }
 
+    val uriHandler = LocalUriHandler.current
+
     Scaffold(
         topBar = {
             TopAppBar(
                 title = {
-                    Text("技能管理", fontWeight = FontWeight.Bold)
+                    Column {
+                        Text("技能管理", fontWeight = FontWeight.Bold)
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .clickable { uriHandler.openUri("https://github.com/kangChoice") }
+                                .padding(top = 2.dp)
+                        ) {
+                            Icon(
+                                painter = painterResource(R.drawable.ic_github),
+                                contentDescription = "GitHub",
+                                modifier = Modifier.size(14.dp),
+                                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                            )
+                            Spacer(Modifier.width(4.dp))
+                            Text(
+                                text = "power by",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                                fontSize = 12.sp
+                            )
+                        }
+                    }
                 }
             )
         },

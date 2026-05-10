@@ -1,6 +1,8 @@
 package com.needai.chat.di
 
 import android.content.Context
+import com.google.gson.Gson
+import com.needai.chat.data.local.config.ModelConfigFileManager
 import com.needai.chat.data.local.datastore.ModelConfigDataStore
 import com.needai.chat.data.local.datastore.SettingsDataStore
 import com.needai.chat.data.remote.client.ModelClient
@@ -52,7 +54,19 @@ object DataStoreModule {
 
     @Provides
     @Singleton
-    fun provideModelConfigDataStore(@ApplicationContext context: Context): ModelConfigDataStore {
-        return ModelConfigDataStore(context)
+    fun provideModelConfigFileManager(
+        @ApplicationContext context: Context,
+        gson: Gson
+    ): ModelConfigFileManager {
+        return ModelConfigFileManager(context, gson)
+    }
+
+    @Provides
+    @Singleton
+    fun provideModelConfigDataStore(
+        @ApplicationContext context: Context,
+        configFileManager: ModelConfigFileManager
+    ): ModelConfigDataStore {
+        return ModelConfigDataStore(context, configFileManager)
     }
 }
