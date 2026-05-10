@@ -1,6 +1,7 @@
 package com.needai.chat.app
 
 import android.app.Application
+import android.content.Context
 import androidx.room.Room
 import com.google.gson.Gson
 import com.needai.chat.data.local.config.ModelConfigFileManager
@@ -28,14 +29,18 @@ class NeedAiApplication : Application() {
     }
 
     private fun initializeDefaultSkills() {
+        // Skip if already initialized on a previous launch
+        val prefs = getSharedPreferences("app_init", Context.MODE_PRIVATE)
+        if (prefs.getBoolean("defaults_initialized", false)) return
+
         applicationScope.launch {
             val db = Room.databaseBuilder(
                 this@NeedAiApplication,
                 AppDatabase::class.java,
                 "needai_chat.db"
             ).build()
-            val count = db.skillDao().getCount()
-            if (count == 0) {
+            val skillCount = db.skillDao().getCount()
+            if (skillCount == 0) {
                 val now = System.currentTimeMillis()
                 db.skillDao().upsertSkill(
                     SkillEntity(
@@ -73,6 +78,7 @@ class NeedAiApplication : Application() {
                 )
             }
             db.close()
+            prefs.edit().putBoolean("defaults_initialized", true).apply()
         }
     }
 }

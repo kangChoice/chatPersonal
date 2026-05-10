@@ -9,6 +9,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FileDownload
@@ -37,6 +38,7 @@ import com.needai.chat.ui.settings.components.QuickCreateProviderDialog
 @Composable
 fun SettingsScreen(
     navController: NavController,
+    onStartOnboarding: () -> Unit = {},
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
     val modelConfig by viewModel.modelConfig.collectAsStateWithLifecycle()
@@ -213,6 +215,35 @@ fun SettingsScreen(
                     Switch(
                         checked = isDarkMode,
                         onCheckedChange = { viewModel.setDarkMode(it) }
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // 新手指引
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                onClick = onStartOnboarding
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("新手指引", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        Text(
+                            text = "查看功能介绍和操作说明",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                        )
+                    }
+                    Icon(
+                        Icons.Default.AutoAwesome,
+                        contentDescription = "新手指引",
+                        tint = MaterialTheme.colorScheme.primary
                     )
                 }
             }
