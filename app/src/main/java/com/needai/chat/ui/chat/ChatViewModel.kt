@@ -184,6 +184,7 @@ class ChatViewModel @Inject constructor(
                         )
 
                         val fullContent = StringBuilder()
+                        var hasTokenUsage = false
                         modelClient.streamChat(chatMessages, config, skill).collect { event ->
                             when (event) {
                                 is StreamEvent.Token -> {
@@ -195,6 +196,7 @@ class ChatViewModel @Inject constructor(
                                         chatRepository.updateMessageTokenUsage(
                                             assistantId, event.promptTokens, event.completionTokens, event.totalTokens
                                         )
+                                        hasTokenUsage = true
                                     }
                                 }
                             }
@@ -202,6 +204,17 @@ class ChatViewModel @Inject constructor(
 
                         // Streaming done, save full content
                         chatRepository.updateMessageContent(assistantId, fullContent.toString())
+
+                        // Fallback: estimate token count if API didn't provide it
+                        if (!hasTokenUsage && fullContent.isNotEmpty()) {
+                            val inputLength = chatMessages.sumOf { it.content.length }
+                            val estimatedPrompt = (inputLength * 0.4).toInt().coerceAtLeast(1)
+                            val estimatedCompletion = (fullContent.length * 0.4).toInt().coerceAtLeast(1)
+                            val estimatedTotal = estimatedPrompt + estimatedCompletion
+                            chatRepository.updateMessageTokenUsage(
+                                assistantId, estimatedPrompt, estimatedCompletion, estimatedTotal
+                            )
+                        }
                         _uiState.update {
                             it.copy(
                                 isStreaming = false,

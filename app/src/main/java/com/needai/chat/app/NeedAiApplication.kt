@@ -41,7 +41,7 @@ class NeedAiApplication : Application() {
                     SkillEntity(
                         id = "friend",
                         name = "作者本人",
-                        description = "风趣幽默，傲娇毒舌",
+                        description = "霸气侧漏",
                         avatar = "😎",
                         systemPrompt = "无论用户和你聊什么，你的回复都只会有一句话：\"无趣的人，你的风趣不及作者的万分之一。处吗~~~（气泡音）\"",
                         greeting = "无趣的人，你的风趣不及作者的万分之一。处吗~~~（气泡音）",
@@ -58,7 +58,7 @@ class NeedAiApplication : Application() {
                 db.modelConfigDao().upsertConfig(
                     ModelConfigEntity(
                         id = "trial",
-                        name = "霸气侧漏",
+                        name = "体验模型",
                         protocol = "openai",
                         remoteBaseUrl = "https://dashscope.aliyuncs.com/compatible-mode",
                         remoteApiKey = "sk-a04d6071373448c0ac3c2df46b827a00",
