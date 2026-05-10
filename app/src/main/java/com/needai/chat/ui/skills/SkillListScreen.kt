@@ -4,8 +4,11 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -13,6 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -130,6 +134,7 @@ fun SkillEditDialog(
     var avatar by remember { mutableStateOf(initialSkill?.avatar ?: "🤖") }
     var greeting by remember { mutableStateOf(initialSkill?.greeting ?: "你好！") }
     var temperature by remember { mutableStateOf(initialSkill?.temperature?.toString() ?: "0.7") }
+    var showSystemPromptDialog by remember { mutableStateOf(false) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -138,6 +143,8 @@ fun SkillEditDialog(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .heightIn(max = 480.dp)
+                    .verticalScroll(rememberScrollState())
                     .padding(vertical = 8.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
@@ -169,13 +176,48 @@ fun SkillEditDialog(
                     maxLines = 2,
                     modifier = Modifier.fillMaxWidth()
                 )
-                OutlinedTextField(
-                    value = systemPrompt,
-                    onValueChange = { systemPrompt = it },
-                    label = { Text("系统提示词 (System Prompt)") },
-                    maxLines = 6,
-                    modifier = Modifier.fillMaxWidth()
-                )
+                // System prompt card - click to open full-screen editor
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { showSystemPromptDialog = true },
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                    )
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(12.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.Top
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "系统提示词 (System Prompt)",
+                                style = MaterialTheme.typography.labelLarge,
+                                fontWeight = FontWeight.Medium
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = systemPrompt.ifEmpty { "点击编辑系统提示词..." },
+                                style = MaterialTheme.typography.bodySmall,
+                                color = if (systemPrompt.isEmpty())
+                                    MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
+                                else
+                                    MaterialTheme.colorScheme.onSurface,
+                                maxLines = 3,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                        Icon(
+                            Icons.Default.Edit,
+                            contentDescription = "编辑",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                }
                 OutlinedTextField(
                     value = temperature,
                     onValueChange = { temperature = it },
@@ -186,7 +228,7 @@ fun SkillEditDialog(
             }
         },
         confirmButton = {
-            TextButton(
+            Button(
                 onClick = {
                     if (name.isNotBlank() && systemPrompt.isNotBlank()) {
                         val temp = temperature.toDoubleOrNull() ?: 0.7
@@ -204,4 +246,16 @@ fun SkillEditDialog(
             }
         }
     )
+
+    if (showSystemPromptDialog) {
+        SystemPromptEditDialog(
+            initialPrompt = systemPrompt,
+            isBuiltin = false,
+            onDismiss = { showSystemPromptDialog = false },
+            onSave = { newPrompt ->
+                systemPrompt = newPrompt
+                showSystemPromptDialog = false
+            }
+        )
+    }
 }

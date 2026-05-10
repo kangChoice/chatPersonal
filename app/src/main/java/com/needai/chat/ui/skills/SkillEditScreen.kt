@@ -1,14 +1,20 @@
 package com.needai.chat.ui.skills
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 
@@ -33,6 +39,7 @@ fun SkillEditScreen(
     var greeting by remember(existingSkill) { mutableStateOf(existingSkill?.greeting ?: "你好！") }
     var temperature by remember(existingSkill) { mutableStateOf(existingSkill?.temperature?.toString() ?: "0.7") }
     var showDeleteConfirm by remember { mutableStateOf(false) }
+    var showSystemPromptDialog by remember { mutableStateOf(false) }
 
     val isBuiltin = existingSkill?.isBuiltin == true
     val isCurrentSkill = existingSkill?.id == selectedSkillId
@@ -60,7 +67,8 @@ fun SkillEditScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .padding(16.dp),
+                .padding(16.dp)
+                .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             OutlinedTextField(
@@ -99,14 +107,49 @@ fun SkillEditScreen(
                 enabled = !isBuiltin
             )
 
-            OutlinedTextField(
-                value = systemPrompt,
-                onValueChange = { systemPrompt = it },
-                label = { Text("系统提示词 (System Prompt)") },
-                maxLines = 8,
-                modifier = Modifier.fillMaxWidth(),
-                enabled = !isBuiltin
-            )
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(enabled = !isBuiltin) { showSystemPromptDialog = true },
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                )
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.Top
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "系统提示词 (System Prompt)",
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.Medium
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = systemPrompt.ifEmpty { "点击编辑系统提示词..." },
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = if (systemPrompt.isEmpty())
+                                MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
+                            else
+                                MaterialTheme.colorScheme.onSurface,
+                            maxLines = 3,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                    if (!isBuiltin) {
+                        Icon(
+                            Icons.Default.Edit,
+                            contentDescription = "编辑",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+            }
 
             OutlinedTextField(
                 value = temperature,
@@ -165,6 +208,18 @@ fun SkillEditScreen(
                 )
             }
         }
+    }
+
+    if (showSystemPromptDialog) {
+        SystemPromptEditDialog(
+            initialPrompt = systemPrompt,
+            isBuiltin = isBuiltin,
+            onDismiss = { showSystemPromptDialog = false },
+            onSave = { newPrompt ->
+                systemPrompt = newPrompt
+                showSystemPromptDialog = false
+            }
+        )
     }
 
     if (showDeleteConfirm) {
