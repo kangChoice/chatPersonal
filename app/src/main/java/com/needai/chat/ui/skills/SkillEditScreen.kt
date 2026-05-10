@@ -7,7 +7,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -27,7 +26,6 @@ fun SkillEditScreen(
 ) {
     val isNew = skillId == "new"
     val skills by viewModel.skills.collectAsState()
-    val selectedSkillId by viewModel.selectedSkillId.collectAsState()
     val existingSkill = remember(skills, skillId) {
         skills.find { it.id == skillId }
     }
@@ -42,7 +40,6 @@ fun SkillEditScreen(
     var showSystemPromptDialog by remember { mutableStateOf(false) }
 
     val isBuiltin = existingSkill?.isBuiltin == true
-    val isCurrentSkill = existingSkill?.id == selectedSkillId
 
     Scaffold(
         topBar = {
@@ -161,21 +158,6 @@ fun SkillEditScreen(
             )
 
             Spacer(modifier = Modifier.weight(1f))
-
-            if (!isNew && !isCurrentSkill) {
-                OutlinedButton(
-                    onClick = {
-                        viewModel.selectSkill(existingSkill!!)
-                        onNavigateBack()
-                    },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("使用此技能")
-                }
-                Spacer(modifier = Modifier.height(8.dp))
-            }
 
             Button(
                 onClick = {

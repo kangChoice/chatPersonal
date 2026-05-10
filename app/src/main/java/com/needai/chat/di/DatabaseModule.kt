@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.room.Room
 import com.needai.chat.data.local.db.AppDatabase
 import com.needai.chat.data.local.db.dao.MessageDao
+import com.needai.chat.data.local.db.dao.SessionDao
 import com.needai.chat.data.local.db.dao.SkillDao
 import dagger.Module
 import dagger.Provides
@@ -23,7 +24,8 @@ object DatabaseModule {
             context,
             AppDatabase::class.java,
             "needai_chat.db"
-        ).build()
+        ).fallbackToDestructiveMigration()
+            .build()
     }
 
     @Provides
@@ -31,4 +33,7 @@ object DatabaseModule {
 
     @Provides
     fun provideMessageDao(database: AppDatabase): MessageDao = database.messageDao()
+
+    @Provides
+    fun provideSessionDao(database: AppDatabase): SessionDao = database.sessionDao()
 }

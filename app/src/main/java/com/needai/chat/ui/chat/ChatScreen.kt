@@ -9,6 +9,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -19,9 +20,11 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import com.needai.chat.ui.chat.components.ChatInputBar
+import com.needai.chat.ui.chat.components.HistorySessionSheet
 import com.needai.chat.ui.chat.components.MessageBubble
 import com.needai.chat.ui.chat.components.SkillSelectorSheet
 import com.needai.chat.ui.chat.components.StreamingBubble
+import com.needai.chat.domain.model.Skill
 import com.needai.chat.ui.chat.state.ChatUiState
 import com.needai.chat.ui.navigation.Screen
 
@@ -34,6 +37,8 @@ fun ChatScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var showSkillSelector by remember { mutableStateOf(false) }
     var showMenu by remember { mutableStateOf(false) }
+    var showHistorySession by remember { mutableStateOf(false) }
+    var pendingSkill by remember { mutableStateOf<Skill?>(null) }
     val listState = rememberLazyListState()
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -70,6 +75,14 @@ fun ChatScreen(
                     }
                 },
                 actions = {
+                    if (!uiState.isModelConfigured) {
+                        Icon(
+                            Icons.Default.Warning,
+                            contentDescription = "未配置远程模型",
+                            tint = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.padding(end = 4.dp)
+                        )
+                    }
                     IconButton(onClick = { showSkillSelector = true }) {
                         Icon(Icons.Default.AutoAwesome, contentDescription = "切换技能")
                     }
@@ -81,6 +94,13 @@ fun ChatScreen(
                             expanded = showMenu,
                             onDismissRequest = { showMenu = false }
                         ) {
+                            DropdownMenuItem(
+                                text = { Text("历史会话") },
+                                onClick = {
+                                    showMenu = false
+                                    showHistorySession = true
+                                }
+                            )
                             DropdownMenuItem(
                                 text = { Text("新建对话") },
                                 onClick = {
@@ -168,9 +188,47 @@ fun ChatScreen(
             skills = uiState.availableSkills,
             currentSkillId = uiState.currentSkill.id,
             onSkillSelected = { skill ->
-                viewModel.switchSkill(skill)
+                if (skill.id != uiState.currentSkill.id) {
+                    pendingSkill = skill
+                }
             },
             onDismiss = { showSkillSelector = false }
+        )
+    }
+
+    // History session sheet
+    if (showHistorySession) {
+        HistorySessionSheet(
+            sessions = uiState.historySessions,
+            currentSessionId = uiState.sessionId,
+            onSessionSelected = { session ->
+                viewModel.switchToHistorySession(session)
+            },
+            onDismiss = { showHistorySession = false }
+        )
+    }
+
+    // Confirm skill switch
+    if (pendingSkill != null) {
+        AlertDialog(
+            onDismissRequest = { pendingSkill = null },
+            title = { Text("切换技能") },
+            text = {
+                Text("切换到「${pendingSkill!!.name}」将开启新的对话，确定要切换吗？")
+            },
+            confirmButton = {
+                Button(onClick = {
+                    viewModel.switchSkill(pendingSkill!!)
+                    pendingSkill = null
+                }) {
+                    Text("确定")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingSkill = null }) {
+                    Text("取消")
+                }
+            }
         )
     }
 }

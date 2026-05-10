@@ -1,9 +1,6 @@
 package com.needai.chat.ui.skills.components
 
 import androidx.compose.foundation.layout.*
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -16,25 +13,19 @@ import com.needai.chat.domain.model.Skill
 @Composable
 fun SkillCard(
     skill: Skill,
-    isSelected: Boolean,
     onClick: () -> Unit,
-    onSelect: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Card(
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 4.dp),
-        onClick = onClick,
-        colors = CardDefaults.cardColors(
-            containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer
-            else MaterialTheme.colorScheme.surface
-        )
+        onClick = onClick
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(start = 16.dp, end = 4.dp, top = 16.dp, bottom = 16.dp),
+                .padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
@@ -71,21 +62,6 @@ fun SkillCard(
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
-            }
-            IconButton(onClick = onSelect) {
-                if (isSelected) {
-                    Icon(
-                        imageVector = Icons.Default.Check,
-                        contentDescription = "当前使用",
-                        tint = MaterialTheme.colorScheme.primary
-                    )
-                } else {
-                    Icon(
-                        imageVector = Icons.Default.ChevronRight,
-                        contentDescription = "使用此技能",
-                        tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
-                    )
-                }
             }
         }
     }

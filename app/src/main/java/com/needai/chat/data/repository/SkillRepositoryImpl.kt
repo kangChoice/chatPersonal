@@ -1,6 +1,8 @@
 package com.needai.chat.data.repository
 
 import com.needai.chat.data.local.datastore.SettingsDataStore
+import com.needai.chat.data.local.db.dao.MessageDao
+import com.needai.chat.data.local.db.dao.SessionDao
 import com.needai.chat.data.local.db.dao.SkillDao
 import com.needai.chat.data.mapper.SkillMapper
 import com.needai.chat.domain.model.Skill
@@ -14,6 +16,8 @@ import javax.inject.Singleton
 @Singleton
 class SkillRepositoryImpl @Inject constructor(
     private val skillDao: SkillDao,
+    private val sessionDao: SessionDao,
+    private val messageDao: MessageDao,
     private val settingsDataStore: SettingsDataStore
 ) : SkillRepository {
 
@@ -36,7 +40,15 @@ class SkillRepositoryImpl @Inject constructor(
     }
 
     override suspend fun deleteSkill(id: String) {
-        skillDao.getSkillById(id)?.let { skillDao.deleteSkill(it) }
+        skillDao.getSkillById(id)?.let {
+            // Cascade delete: remove all sessions and their messages for this skill
+            val sessions = sessionDao.getSessionsBySkillId(id)
+            for (s in sessions) {
+                messageDao.clearSession(s.id)
+            }
+            sessionDao.deleteSessionsBySkillId(id)
+            skillDao.deleteSkill(it)
+        }
     }
 
     override suspend fun getSelectedSkillId(): String {

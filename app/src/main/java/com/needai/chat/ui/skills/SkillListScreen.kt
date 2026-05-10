@@ -33,7 +33,6 @@ fun SkillListScreen(
     viewModel: SkillViewModel = hiltViewModel()
 ) {
     val skills by viewModel.skills.collectAsStateWithLifecycle()
-    val selectedSkillId by viewModel.selectedSkillId.collectAsStateWithLifecycle()
     var showCreateDialog by remember { mutableStateOf(false) }
 
     val uriHandler = LocalUriHandler.current
@@ -97,12 +96,8 @@ fun SkillListScreen(
                 items(skills, key = { it.id }) { skill ->
                     SkillCard(
                         skill = skill,
-                        isSelected = skill.id == selectedSkillId,
                         onClick = {
                             navController.navigate(Screen.skillEdit(skill.id))
-                        },
-                        onSelect = {
-                            viewModel.selectSkill(skill)
                         }
                     )
                 }

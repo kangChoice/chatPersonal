@@ -2,17 +2,25 @@ package com.needai.chat.ui.chat
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.needai.chat.domain.model.ChatSession
 import com.needai.chat.domain.model.Message
 import com.needai.chat.domain.model.MessageRole
 import com.needai.chat.domain.model.ModelType
 import com.needai.chat.domain.model.Skill
 import com.needai.chat.domain.repository.ChatRepository
 import com.needai.chat.domain.repository.ModelConfigRepository
+import com.needai.chat.domain.repository.SessionRepository
 import com.needai.chat.domain.repository.SkillRepository
 import com.needai.chat.ui.chat.state.ChatUiState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -20,13 +28,16 @@ import javax.inject.Inject
 class ChatViewModel @Inject constructor(
     private val chatRepository: ChatRepository,
     private val skillRepository: SkillRepository,
-    private val modelConfigRepository: ModelConfigRepository
+    private val modelConfigRepository: ModelConfigRepository,
+    private val sessionRepository: SessionRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ChatUiState())
     val uiState: StateFlow<ChatUiState> = _uiState.asStateFlow()
 
     private var streamingJob: Job? = null
+
+    private val sessionIdFlow = MutableStateFlow("")
 
     init {
         loadInitialData()
@@ -36,20 +47,31 @@ class ChatViewModel @Inject constructor(
         viewModelScope.launch {
             // Load session
             val sessionId = chatRepository.getCurrentSessionId()
+            sessionIdFlow.value = sessionId
             _uiState.update { it.copy(sessionId = sessionId) }
+        }
 
-            // Load messages
-            chatRepository.getMessages(sessionId)
-                .catch { e -> _uiState.update { it.copy(error = "加载消息失败: ${e.localizedMessage}") } }
-                .collect { messages ->
-                    _uiState.update { it.copy(messages = messages) }
-                }
+        viewModelScope.launch {
+            // Reactively observe messages for current session
+            sessionIdFlow.flatMapLatest { sid ->
+                chatRepository.getMessages(sid)
+                    .catch { e -> _uiState.update { it.copy(error = "加载消息失败: ${e.localizedMessage}") } }
+            }.collect { messages ->
+                _uiState.update { it.copy(messages = messages) }
+            }
         }
 
         viewModelScope.launch {
             // Load skills
             skillRepository.getAllSkills().collect { skills ->
                 _uiState.update { it.copy(availableSkills = skills) }
+            }
+        }
+
+        viewModelScope.launch {
+            // Load history sessions
+            sessionRepository.getAllSessions().collect { sessions ->
+                _uiState.update { it.copy(historySessions = sessions) }
             }
         }
 
@@ -65,7 +87,15 @@ class ChatViewModel @Inject constructor(
         viewModelScope.launch {
             // Load model config for model type
             modelConfigRepository.getModelConfig().collect { config ->
-                _uiState.update { it.copy(currentModel = config.modelType) }
+                val isConfigured = config.remoteBaseUrl.isNotBlank()
+                        && config.remoteApiKey.isNotBlank()
+                        && config.remoteModelName.isNotBlank()
+                _uiState.update {
+                    it.copy(
+                        currentModel = config.modelType,
+                        isModelConfigured = isConfigured
+                    )
+                }
             }
         }
     }
@@ -184,8 +214,42 @@ class ChatViewModel @Inject constructor(
 
     fun switchSkill(skill: Skill) {
         viewModelScope.launch {
+            saveCurrentSession()
             skillRepository.setSelectedSkillId(skill.id)
-            _uiState.update { it.copy(currentSkill = skill) }
+            val newId = chatRepository.createNewSession()
+            sessionIdFlow.value = newId
+            _uiState.update {
+                it.copy(
+                    currentSkill = skill,
+                    sessionId = newId,
+                    messages = emptyList(),
+                    currentStreamingMessage = "",
+                    isStreaming = false
+                )
+            }
+        }
+    }
+
+    fun switchToHistorySession(session: ChatSession) {
+        viewModelScope.launch {
+            saveCurrentSession()
+
+            // Load the session's skill
+            val skill = skillRepository.getSkillById(session.skillId)
+            if (skill != null) {
+                skillRepository.setSelectedSkillId(skill.id)
+            }
+
+            // Switch session ID so the message flow picks it up
+            sessionIdFlow.value = session.id
+            _uiState.update {
+                it.copy(
+                    sessionId = session.id,
+                    currentSkill = skill ?: it.currentSkill,
+                    currentStreamingMessage = "",
+                    isStreaming = false
+                )
+            }
         }
     }
 
@@ -205,7 +269,9 @@ class ChatViewModel @Inject constructor(
 
     fun newSession() {
         viewModelScope.launch {
+            saveCurrentSession()
             val newId = chatRepository.createNewSession()
+            sessionIdFlow.value = newId
             _uiState.update {
                 it.copy(
                     sessionId = newId,
@@ -215,6 +281,32 @@ class ChatViewModel @Inject constructor(
                 )
             }
         }
+    }
+
+    private suspend fun saveCurrentSession() {
+        val state = _uiState.value
+        val messages = state.messages
+        if (messages.isEmpty()) return
+
+        val firstUserMessage = messages.firstOrNull { it.role == MessageRole.USER }
+        val title = firstUserMessage?.content?.take(50)?.replace("\n", " ") ?: "空对话"
+        val timestamps = messages.map { it.timestamp }
+        val skillId = state.currentSkill.id
+
+        if (skillId.isBlank()) return
+
+        sessionRepository.saveSession(
+            ChatSession(
+                id = state.sessionId,
+                skillId = skillId,
+                skillName = state.currentSkill.name,
+                skillAvatar = state.currentSkill.avatar,
+                title = title,
+                messageCount = messages.size,
+                createdAt = timestamps.minOrNull() ?: System.currentTimeMillis(),
+                updatedAt = timestamps.maxOrNull() ?: System.currentTimeMillis()
+            )
+        )
     }
 
     fun dismissError() {

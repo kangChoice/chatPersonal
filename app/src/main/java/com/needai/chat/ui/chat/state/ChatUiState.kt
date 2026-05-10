@@ -1,5 +1,6 @@
 package com.needai.chat.ui.chat.state
 
+import com.needai.chat.domain.model.ChatSession
 import com.needai.chat.domain.model.Message
 import com.needai.chat.domain.model.ModelType
 import com.needai.chat.domain.model.Skill
@@ -18,7 +19,9 @@ data class ChatUiState(
         isBuiltin = true
     ),
     val availableSkills: List<Skill> = emptyList(),
+    val historySessions: List<ChatSession> = emptyList(),
     val currentModel: ModelType = ModelType.REMOTE,
+    val isModelConfigured: Boolean = false,
     val error: String? = null,
     val isLoading: Boolean = false,
     val inputText: String = "",
