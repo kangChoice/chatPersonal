@@ -30,7 +30,6 @@ import com.needai.chat.domain.model.ModelConfig
 import com.needai.chat.ui.settings.components.GenerationParamsDialog
 import com.needai.chat.ui.settings.components.ModelConfigEditDialog
 import com.needai.chat.ui.settings.components.QuickCreateProviderDialog
-import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -40,7 +39,6 @@ fun SettingsScreen(
 ) {
     val modelConfig by viewModel.modelConfig.collectAsStateWithLifecycle()
     val configs by viewModel.configs.collectAsStateWithLifecycle()
-    val chatFontSize by viewModel.chatFontSize.collectAsStateWithLifecycle()
     val saveSuccess by viewModel.saveSuccess.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
@@ -104,37 +102,6 @@ fun SettingsScreen(
                 .padding(16.dp)
                 .verticalScroll(rememberScrollState())
         ) {
-            // 聊天字体大小
-            Card(modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text(
-                        text = "聊天字体大小",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text("小", style = MaterialTheme.typography.bodySmall)
-                        Text(
-                            "${chatFontSize.roundToInt()}sp",
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                        Text("大", style = MaterialTheme.typography.bodySmall)
-                    }
-                    Slider(
-                        value = chatFontSize,
-                        onValueChange = { viewModel.updateChatFontSize(it) },
-                        valueRange = 12f..24f,
-                        steps = 11
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
             // 模型配置列表
             Card(modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.padding(16.dp)) {

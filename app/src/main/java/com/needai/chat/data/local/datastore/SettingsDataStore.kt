@@ -4,7 +4,6 @@ import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
-import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
@@ -17,7 +16,6 @@ class SettingsDataStore(private val context: Context) {
     companion object {
         private val SELECTED_SKILL_ID = stringPreferencesKey("selected_skill_id")
         private val CURRENT_SESSION_ID = stringPreferencesKey("current_session_id")
-        private val CHAT_FONT_SIZE = floatPreferencesKey("chat_font_size")
         private val SELECTED_MODEL_CONFIG_ID = stringPreferencesKey("selected_model_config_id")
     }
 
@@ -27,10 +25,6 @@ class SettingsDataStore(private val context: Context) {
 
     val currentSessionId: Flow<String> = context.settingsStore.data.map { preferences ->
         preferences[CURRENT_SESSION_ID] ?: java.util.UUID.randomUUID().toString()
-    }
-
-    val chatFontSize: Flow<Float> = context.settingsStore.data.map { preferences ->
-        preferences[CHAT_FONT_SIZE] ?: 16f
     }
 
     val selectedModelConfigId: Flow<String> = context.settingsStore.data.map { preferences ->
@@ -52,12 +46,6 @@ class SettingsDataStore(private val context: Context) {
     suspend fun setCurrentSessionId(id: String) {
         context.settingsStore.edit { preferences ->
             preferences[CURRENT_SESSION_ID] = id
-        }
-    }
-
-    suspend fun setChatFontSize(size: Float) {
-        context.settingsStore.edit { preferences ->
-            preferences[CHAT_FONT_SIZE] = size
         }
     }
 }
