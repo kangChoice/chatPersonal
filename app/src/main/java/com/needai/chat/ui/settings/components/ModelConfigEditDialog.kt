@@ -1,10 +1,13 @@
 package com.needai.chat.ui.settings.components
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.needai.chat.domain.model.ApiProtocol
 import com.needai.chat.domain.model.ModelConfig
@@ -15,6 +18,7 @@ fun ModelConfigEditDialog(
     onDismiss: () -> Unit,
     onSave: (ModelConfig) -> Unit
 ) {
+    var name by remember { mutableStateOf(currentConfig.name) }
     var protocol by remember { mutableStateOf(currentConfig.protocol) }
     var baseUrl by remember { mutableStateOf(currentConfig.remoteBaseUrl) }
     var apiKey by remember { mutableStateOf(currentConfig.remoteApiKey) }
@@ -28,8 +32,19 @@ fun ModelConfigEditDialog(
         text = {
             Column(
                 verticalArrangement = Arrangement.spacedBy(12.dp),
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
             ) {
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text("配置名称") },
+                    placeholder = { Text("例如: DeepSeek, Claude") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+
                 // Protocol selector
                 Text("协议", style = MaterialTheme.typography.labelLarge)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -69,7 +84,7 @@ fun ModelConfigEditDialog(
                     label = { Text("API Key") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
-                    visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation()
+                    visualTransformation = PasswordVisualTransformation()
                 )
 
                 OutlinedTextField(
@@ -85,6 +100,7 @@ fun ModelConfigEditDialog(
         confirmButton = {
             Button(onClick = {
                 onSave(currentConfig.copy(
+                    name = name,
                     protocol = protocol,
                     remoteBaseUrl = baseUrl,
                     remoteApiKey = apiKey,

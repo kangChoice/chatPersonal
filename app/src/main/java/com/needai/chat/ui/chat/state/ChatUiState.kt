@@ -21,6 +21,7 @@ data class ChatUiState(
     val availableSkills: List<Skill> = emptyList(),
     val historySessions: List<ChatSession> = emptyList(),
     val currentModel: ModelType = ModelType.REMOTE,
+    val currentModelName: String = "",
     val isModelConfigured: Boolean = false,
     val error: String? = null,
     val isLoading: Boolean = false,

@@ -1,9 +1,13 @@
 package com.needai.chat.ui.settings
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -14,6 +18,8 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
+import com.needai.chat.domain.model.ApiProtocol
+import com.needai.chat.domain.model.ModelConfig
 import com.needai.chat.ui.settings.components.GenerationParamsDialog
 import com.needai.chat.ui.settings.components.ModelConfigEditDialog
 import kotlin.math.roundToInt
@@ -25,10 +31,12 @@ fun SettingsScreen(
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
     val modelConfig by viewModel.modelConfig.collectAsStateWithLifecycle()
+    val configs by viewModel.configs.collectAsStateWithLifecycle()
     val chatFontSize by viewModel.chatFontSize.collectAsStateWithLifecycle()
     val saveSuccess by viewModel.saveSuccess.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
-    var showModelConfigDialog by remember { mutableStateOf(false) }
+    var showAddDialog by remember { mutableStateOf(false) }
+    var editConfig by remember { mutableStateOf<ModelConfig?>(null) }
     var showGenParamsDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(saveSuccess) {
@@ -56,6 +64,7 @@ fun SettingsScreen(
                 .fillMaxSize()
                 .padding(innerPadding)
                 .padding(16.dp)
+                .verticalScroll(rememberScrollState())
         ) {
             // 聊天字体大小
             Card(modifier = Modifier.fillMaxWidth()) {
@@ -88,7 +97,7 @@ fun SettingsScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // 模型配置
+            // 模型配置列表
             Card(modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Row(
@@ -97,42 +106,59 @@ fun SettingsScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "连接配置",
+                            text = "模型配置",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold
                         )
-                        FilledTonalIconButton(onClick = { showModelConfigDialog = true }) {
-                            Icon(Icons.Default.Settings, contentDescription = "编辑连接配置")
+                        FilledTonalIconButton(onClick = { showAddDialog = true }) {
+                            Icon(Icons.Default.Add, contentDescription = "添加配置")
                         }
                     }
+
                     Spacer(modifier = Modifier.height(8.dp))
-                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        ModelConfigSummary(label = "协议", value = modelConfig.protocol.value.uppercase())
-                        ModelConfigSummary(label = "Base URL", value = modelConfig.remoteBaseUrl.ifEmpty { "未设置" })
-                        ModelConfigSummary(label = "模型名称", value = modelConfig.remoteModelName.ifEmpty { "未设置" })
-                    }
 
-                    HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
+                    if (configs.isEmpty()) {
                         Text(
-                            text = "生成参数",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold
+                            text = "暂无配置，点击 + 添加",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                            modifier = Modifier.padding(vertical = 8.dp)
                         )
-                        FilledTonalIconButton(onClick = { showGenParamsDialog = true }) {
-                            Icon(Icons.Default.Settings, contentDescription = "编辑生成参数")
+                    } else {
+                        configs.forEach { config ->
+                            ModelConfigItem(
+                                config = config,
+                                isSelected = config.id == modelConfig.id,
+                                onSelect = { viewModel.selectConfig(config.id) },
+                                onEdit = { editConfig = config },
+                                onDelete = { viewModel.deleteConfig(config.id) }
+                            )
                         }
                     }
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        ModelConfigSummary(label = "Temperature", value = modelConfig.temperature.toString())
-                        ModelConfigSummary(label = "Max Tokens", value = modelConfig.maxTokens.toString())
-                        ModelConfigSummary(label = "Top P", value = modelConfig.topP.toString())
+
+                    if (modelConfig.id.isNotEmpty()) {
+                        HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "生成参数",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold
+                            )
+                            FilledTonalIconButton(onClick = { showGenParamsDialog = true }) {
+                                Icon(Icons.Default.Edit, contentDescription = "编辑生成参数")
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            ModelConfigSummary(label = "Temperature", value = modelConfig.temperature.toString())
+                            ModelConfigSummary(label = "Max Tokens", value = modelConfig.maxTokens.toString())
+                            ModelConfigSummary(label = "Top P", value = modelConfig.topP.toString())
+                        }
                     }
                 }
             }
@@ -161,13 +187,24 @@ fun SettingsScreen(
         }
     }
 
-    if (showModelConfigDialog) {
+    if (showAddDialog) {
         ModelConfigEditDialog(
-            currentConfig = modelConfig,
-            onDismiss = { showModelConfigDialog = false },
+            currentConfig = ModelConfig(),
+            onDismiss = { showAddDialog = false },
             onSave = { newConfig ->
-                viewModel.saveModelConfigDirectly(newConfig)
-                showModelConfigDialog = false
+                viewModel.addConfig(newConfig)
+                showAddDialog = false
+            }
+        )
+    }
+
+    if (editConfig != null) {
+        ModelConfigEditDialog(
+            currentConfig = editConfig!!,
+            onDismiss = { editConfig = null },
+            onSave = { newConfig ->
+                viewModel.updateConfig(newConfig)
+                editConfig = null
             }
         )
     }
@@ -177,10 +214,60 @@ fun SettingsScreen(
             currentConfig = modelConfig,
             onDismiss = { showGenParamsDialog = false },
             onSave = { newConfig ->
-                viewModel.saveModelConfigDirectly(newConfig)
+                viewModel.updateConfig(newConfig)
                 showGenParamsDialog = false
             }
         )
+    }
+}
+
+@Composable
+private fun ModelConfigItem(
+    config: ModelConfig,
+    isSelected: Boolean,
+    onSelect: () -> Unit,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit
+) {
+    Surface(
+        onClick = onSelect,
+        shape = MaterialTheme.shapes.medium,
+        color = if (isSelected) MaterialTheme.colorScheme.primaryContainer
+        else MaterialTheme.colorScheme.surface,
+        tonalElevation = if (isSelected) 2.dp else 0.dp,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = config.name.ifEmpty { config.remoteModelName.ifEmpty { "未命名配置" } },
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Medium
+                )
+                Text(
+                    text = "${config.protocol.value.uppercase()} · ${config.remoteModelName.ifEmpty { "未设置模型" }}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                )
+            }
+            IconButton(onClick = onEdit) {
+                Icon(Icons.Default.Edit, contentDescription = "编辑", modifier = Modifier.size(20.dp))
+            }
+            IconButton(onClick = onDelete) {
+                Icon(
+                    Icons.Default.Delete, contentDescription = "删除",
+                    modifier = Modifier.size(20.dp),
+                    tint = MaterialTheme.colorScheme.error
+                )
+            }
+        }
     }
 }
 

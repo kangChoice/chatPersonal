@@ -2,6 +2,7 @@ package com.needai.chat.data.repository
 
 import com.needai.chat.data.local.datastore.SettingsDataStore
 import com.needai.chat.data.local.db.dao.MessageDao
+import com.needai.chat.data.local.db.dao.TokenTotals
 import com.needai.chat.data.mapper.MessageMapper
 import com.needai.chat.domain.model.Message
 import com.needai.chat.domain.repository.ChatRepository
@@ -32,6 +33,10 @@ class ChatRepositoryImpl @Inject constructor(
         messageDao.updateContent(messageId, content)
     }
 
+    override suspend fun updateMessageTokenUsage(messageId: Long, promptTokens: Int?, completionTokens: Int?, totalTokens: Int?) {
+        messageDao.updateTokenUsage(messageId, promptTokens, completionTokens, totalTokens)
+    }
+
     override suspend fun clearSession(sessionId: String) {
         messageDao.clearSession(sessionId)
     }
@@ -44,5 +49,23 @@ class ChatRepositoryImpl @Inject constructor(
         val newId = UUID.randomUUID().toString()
         settingsDataStore.setCurrentSessionId(newId)
         return newId
+    }
+
+    override suspend fun getTokenTotalsBySession(sessionId: String): TokenTotals {
+        return TokenTotals(
+            promptTokens = messageDao.getTotalPromptTokensByUser(sessionId),
+            completionTokens = messageDao.getTotalCompletionTokensByAssistant(sessionId),
+            totalTokens = messageDao.getTotalTokens(sessionId)
+        )
+    }
+
+    override suspend fun getTokenTotalsByModelConfig(modelConfigId: String): TokenTotals {
+        return messageDao.getTokenTotalsByModelConfig(modelConfigId)
+            ?: TokenTotals()
+    }
+
+    override suspend fun getTokenTotalsByTimeRange(startTime: Long, endTime: Long): TokenTotals {
+        return messageDao.getTokenTotalsByTimeRange(startTime, endTime)
+            ?: TokenTotals()
     }
 }

@@ -7,6 +7,7 @@ import com.needai.chat.domain.model.Message
 import com.needai.chat.domain.model.MessageRole
 import com.needai.chat.domain.model.ModelType
 import com.needai.chat.domain.model.Skill
+import com.needai.chat.domain.model.StreamEvent
 import com.needai.chat.domain.repository.ChatRepository
 import com.needai.chat.domain.repository.ModelConfigRepository
 import com.needai.chat.domain.repository.SessionRepository
@@ -93,6 +94,7 @@ class ChatViewModel @Inject constructor(
                 _uiState.update {
                     it.copy(
                         currentModel = config.modelType,
+                        currentModelName = config.remoteModelName,
                         isModelConfigured = isConfigured
                     )
                 }
@@ -128,13 +130,15 @@ class ChatViewModel @Inject constructor(
             _uiState.update { it.copy(isStreaming = true, currentStreamingMessage = "") }
 
             // Create placeholder assistant message
+            val activeConfig = modelConfigRepository.getModelConfig().first()
             val assistantMsg = Message(
                 sessionId = sessionId,
                 role = MessageRole.ASSISTANT,
                 content = "",
                 skillId = currentSkill.id,
                 timestamp = System.currentTimeMillis() + 1,
-                isStreaming = true
+                isStreaming = true,
+                modelConfigId = activeConfig.id.ifEmpty { null }
             )
             val assistantId = chatRepository.insertMessage(assistantMsg)
 
@@ -180,9 +184,20 @@ class ChatViewModel @Inject constructor(
                         )
 
                         val fullContent = StringBuilder()
-                        modelClient.streamChat(chatMessages, config, skill).collect { token ->
-                            fullContent.append(token)
-                            _uiState.update { it.copy(currentStreamingMessage = fullContent.toString()) }
+                        modelClient.streamChat(chatMessages, config, skill).collect { event ->
+                            when (event) {
+                                is StreamEvent.Token -> {
+                                    fullContent.append(event.text)
+                                    _uiState.update { it.copy(currentStreamingMessage = fullContent.toString()) }
+                                }
+                                is StreamEvent.Done -> {
+                                    if (event.totalTokens != null || event.promptTokens != null) {
+                                        chatRepository.updateMessageTokenUsage(
+                                            assistantId, event.promptTokens, event.completionTokens, event.totalTokens
+                                        )
+                                    }
+                                }
+                            }
                         }
 
                         // Streaming done, save full content

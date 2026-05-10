@@ -1,6 +1,7 @@
 package com.needai.chat.data.remote.client
 
 import com.google.gson.Gson
+import com.google.gson.JsonObject
 import com.needai.chat.data.remote.dto.AnthropicMessage
 import com.needai.chat.data.remote.dto.AnthropicRequest
 import com.needai.chat.data.remote.dto.AnthropicStreamEvent
@@ -10,6 +11,7 @@ import com.needai.chat.data.remote.dto.ChatStreamChunk
 import com.needai.chat.domain.model.ApiProtocol
 import com.needai.chat.domain.model.ModelConfig
 import com.needai.chat.domain.model.Skill
+import com.needai.chat.domain.model.StreamEvent
 import com.needai.chat.domain.usecase.ChatMessage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -34,7 +36,7 @@ class RemoteModelClient @Inject constructor(
         messages: List<ChatMessage>,
         config: ModelConfig,
         skill: Skill
-    ): Flow<String> = flow {
+    ): Flow<StreamEvent> = flow {
         val client = OkHttpClient.Builder()
             .connectTimeout(30, TimeUnit.SECONDS)
             .readTimeout(60, TimeUnit.SECONDS)
@@ -52,7 +54,7 @@ class RemoteModelClient @Inject constructor(
             val response = client.newCall(request).execute()
             if (!response.isSuccessful) {
                 val errorBody = response.body?.string() ?: "Unknown error"
-                emit("[错误] 服务器返回 ${response.code}: $errorBody")
+                emit(StreamEvent.Token("[错误] 服务器返回 ${response.code}: $errorBody"))
                 return@flow
             }
 
@@ -60,6 +62,7 @@ class RemoteModelClient @Inject constructor(
             val reader = BufferedReader(InputStreamReader(body.byteStream(), "UTF-8"))
             var line: String?
             var currentSseEvent = ""
+            var lastUsage: StreamEvent.Done? = null
 
             while (reader.readLine().also { line = it } != null) {
                 val currentLine = line ?: continue
@@ -72,7 +75,15 @@ class RemoteModelClient @Inject constructor(
                                 val chunk = gson.fromJson(data, ChatStreamChunk::class.java)
                                 val content = chunk.choices?.firstOrNull()?.delta?.content
                                 if (!content.isNullOrEmpty()) {
-                                    emit(content)
+                                    emit(StreamEvent.Token(content))
+                                }
+                                // Capture usage from the last chunk
+                                if (chunk.usage != null) {
+                                    lastUsage = StreamEvent.Done(
+                                        promptTokens = chunk.usage.promptTokens,
+                                        completionTokens = chunk.usage.completionTokens,
+                                        totalTokens = chunk.usage.totalTokens
+                                    )
                                 }
                             } catch (_: Exception) { }
                         }
@@ -84,23 +95,58 @@ class RemoteModelClient @Inject constructor(
                             }
                             currentLine.startsWith("data: ") -> {
                                 val data = currentLine.removePrefix("data: ")
-                                if (currentSseEvent == "content_block_delta") {
-                                    try {
-                                        val event = gson.fromJson(data, AnthropicStreamEvent::class.java)
-                                        val text = event.delta?.text
-                                        if (!text.isNullOrEmpty()) {
-                                            emit(text)
+                                try {
+                                    when (currentSseEvent) {
+                                        "content_block_delta" -> {
+                                            val event = gson.fromJson(data, AnthropicStreamEvent::class.java)
+                                            val text = event.delta?.text
+                                            if (!text.isNullOrEmpty()) {
+                                                emit(StreamEvent.Token(text))
+                                            }
                                         }
-                                    } catch (_: Exception) { }
-                                }
+                                        "message_delta" -> {
+                                            // Parse usage from message_delta event
+                                            val jsonObj = gson.fromJson(data, JsonObject::class.java)
+                                            val usage = jsonObj?.getAsJsonObject("usage")
+                                            if (usage != null) {
+                                                lastUsage = StreamEvent.Done(
+                                                    completionTokens = usage.get("output_tokens")?.asInt
+                                                )
+                                            }
+                                        }
+                                        "message_start" -> {
+                                            // Parse input tokens from message_start
+                                            val jsonObj = gson.fromJson(data, JsonObject::class.java)
+                                            val message = jsonObj?.getAsJsonObject("message")
+                                            val usage = message?.getAsJsonObject("usage")
+                                            if (usage != null) {
+                                                val inputTokens = usage.get("input_tokens")?.asInt
+                                                if (inputTokens != null) {
+                                                    lastUsage = StreamEvent.Done(
+                                                        promptTokens = inputTokens,
+                                                        completionTokens = 0
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
+                                } catch (_: Exception) { }
                                 currentSseEvent = ""
                             }
                         }
                     }
                 }
             }
+
+            // Emit usage data if captured
+            if (lastUsage != null) {
+                emit(lastUsage!!)
+            } else {
+                emit(StreamEvent.Done())
+            }
+
         } catch (e: Exception) {
-            emit("[错误] 网络请求失败: ${e.localizedMessage ?: "未知错误"}")
+            emit(StreamEvent.Token("[错误] 网络请求失败: ${e.localizedMessage ?: "未知错误"}"))
         } finally {
             client.dispatcher.executorService.shutdown()
         }

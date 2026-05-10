@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.room.Room
 import com.needai.chat.data.local.db.AppDatabase
 import com.needai.chat.data.local.db.dao.MessageDao
+import com.needai.chat.data.local.db.dao.ModelConfigDao
 import com.needai.chat.data.local.db.dao.SessionDao
 import com.needai.chat.data.local.db.dao.SkillDao
 import dagger.Module
@@ -36,4 +37,7 @@ object DatabaseModule {
 
     @Provides
     fun provideSessionDao(database: AppDatabase): SessionDao = database.sessionDao()
+
+    @Provides
+    fun provideModelConfigDao(database: AppDatabase): ModelConfigDao = database.modelConfigDao()
 }

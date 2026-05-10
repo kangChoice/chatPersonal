@@ -1,7 +1,11 @@
 package com.needai.chat.domain.usecase
 
 import com.needai.chat.data.remote.client.ModelClient
-import com.needai.chat.domain.model.*
+import com.needai.chat.domain.model.Message
+import com.needai.chat.domain.model.MessageRole
+import com.needai.chat.domain.model.ModelConfig
+import com.needai.chat.domain.model.Skill
+import com.needai.chat.domain.model.StreamEvent
 import com.needai.chat.domain.repository.ChatRepository
 import com.needai.chat.domain.repository.ModelConfigRepository
 import com.needai.chat.domain.repository.SkillRepository
@@ -17,7 +21,7 @@ class SendMessageUseCase @Inject constructor(
     suspend operator fun invoke(
         sessionId: String,
         userMessage: String
-    ): Flow<String> {
+    ): Flow<StreamEvent> {
         val config = modelConfigRepository.getModelConfig().let {
             var last: ModelConfig? = null
             it.collect { last = it }

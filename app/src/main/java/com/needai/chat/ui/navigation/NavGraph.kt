@@ -3,6 +3,7 @@ package com.needai.chat.ui.navigation
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
@@ -21,10 +22,12 @@ import com.needai.chat.ui.chat.ChatScreen
 import com.needai.chat.ui.settings.SettingsScreen
 import com.needai.chat.ui.skills.SkillEditScreen
 import com.needai.chat.ui.skills.SkillListScreen
+import com.needai.chat.ui.stats.StatsScreen
 
 sealed class Screen(val route: String, val title: String, val icon: ImageVector? = null) {
     data object Chat : Screen("chat", "聊天", Icons.Default.Chat)
     data object SkillList : Screen("skill_list", "技能", Icons.Default.AutoAwesome)
+    data object Stats : Screen("stats", "统计", Icons.Default.BarChart)
     data object SkillEdit : Screen("skill_edit/{skillId}", "编辑技能")
     data object Settings : Screen("settings", "设置", Icons.Default.Settings)
 
@@ -33,7 +36,7 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector?
     }
 }
 
-val bottomNavItems = listOf(Screen.Chat, Screen.SkillList, Screen.Settings)
+val bottomNavItems = listOf(Screen.Chat, Screen.SkillList, Screen.Stats, Screen.Settings)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -79,6 +82,9 @@ fun MainScreen() {
             }
             composable(Screen.SkillList.route) {
                 SkillListScreen(navController = navController)
+            }
+            composable(Screen.Stats.route) {
+                StatsScreen()
             }
             composable(Screen.SkillEdit.route) { backStackEntry ->
                 val skillId = backStackEntry.arguments?.getString("skillId") ?: ""

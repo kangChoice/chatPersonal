@@ -18,6 +18,7 @@ class SettingsDataStore(private val context: Context) {
         private val SELECTED_SKILL_ID = stringPreferencesKey("selected_skill_id")
         private val CURRENT_SESSION_ID = stringPreferencesKey("current_session_id")
         private val CHAT_FONT_SIZE = floatPreferencesKey("chat_font_size")
+        private val SELECTED_MODEL_CONFIG_ID = stringPreferencesKey("selected_model_config_id")
     }
 
     val selectedSkillId: Flow<String> = context.settingsStore.data.map { preferences ->
@@ -30,6 +31,16 @@ class SettingsDataStore(private val context: Context) {
 
     val chatFontSize: Flow<Float> = context.settingsStore.data.map { preferences ->
         preferences[CHAT_FONT_SIZE] ?: 16f
+    }
+
+    val selectedModelConfigId: Flow<String> = context.settingsStore.data.map { preferences ->
+        preferences[SELECTED_MODEL_CONFIG_ID] ?: ""
+    }
+
+    suspend fun setSelectedModelConfigId(id: String) {
+        context.settingsStore.edit { preferences ->
+            preferences[SELECTED_MODEL_CONFIG_ID] = id
+        }
     }
 
     suspend fun setSelectedSkillId(id: String) {

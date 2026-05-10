@@ -18,7 +18,11 @@ object MessageMapper {
             content = entity.content,
             skillId = entity.skillId,
             timestamp = entity.timestamp,
-            isStreaming = entity.isStreaming
+            isStreaming = entity.isStreaming,
+            promptTokens = entity.promptTokens,
+            completionTokens = entity.completionTokens,
+            totalTokens = entity.totalTokens,
+            modelConfigId = entity.modelConfigId
         )
     }
 
@@ -30,7 +34,11 @@ object MessageMapper {
             content = message.content,
             skillId = message.skillId,
             timestamp = message.timestamp,
-            isStreaming = message.isStreaming
+            isStreaming = message.isStreaming,
+            promptTokens = message.promptTokens,
+            completionTokens = message.completionTokens,
+            totalTokens = message.totalTokens,
+            modelConfigId = message.modelConfigId
         )
     }
 }

@@ -68,7 +68,9 @@ fun ChatScreen(
                             fontWeight = FontWeight.Bold
                         )
                         Text(
-                            text = if (uiState.currentModel == com.needai.chat.domain.model.ModelType.REMOTE) "远程模型" else "本地模型",
+                            text = uiState.currentModelName.ifEmpty {
+                                if (uiState.currentModel == com.needai.chat.domain.model.ModelType.REMOTE) "远程模型" else "本地模型"
+                            },
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                         )

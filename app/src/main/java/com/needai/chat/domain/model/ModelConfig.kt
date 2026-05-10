@@ -1,6 +1,8 @@
 package com.needai.chat.domain.model
 
 data class ModelConfig(
+    val id: String = "",
+    val name: String = "",
     val modelType: ModelType = ModelType.REMOTE,
     val protocol: ApiProtocol = ApiProtocol.OPENAI,
     val remoteBaseUrl: String = "",

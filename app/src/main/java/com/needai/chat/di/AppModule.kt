@@ -37,7 +37,7 @@ abstract class AppModule {
 
     @Binds
     @Singleton
-    abstract fun bindModelConfigRepository(impl: ModelConfigRepositoryImpl): ModelConfigRepository
+    abstract fun bindModelConfigRepository(impl: com.needai.chat.data.repository.ModelConfigRepositoryImpl): ModelConfigRepository
 
     @Binds
     @Singleton

@@ -11,5 +11,9 @@ data class MessageEntity(
     val content: String,
     val skillId: String?,
     val timestamp: Long,
-    val isStreaming: Boolean
+    val isStreaming: Boolean,
+    val promptTokens: Int? = null,
+    val completionTokens: Int? = null,
+    val totalTokens: Int? = null,
+    val modelConfigId: String? = null
 )

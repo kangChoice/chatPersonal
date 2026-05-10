@@ -7,7 +7,11 @@ data class Message(
     val content: String,
     val skillId: String? = null,
     val timestamp: Long,
-    val isStreaming: Boolean = false
+    val isStreaming: Boolean = false,
+    val promptTokens: Int? = null,
+    val completionTokens: Int? = null,
+    val totalTokens: Int? = null,
+    val modelConfigId: String? = null
 )
 
 enum class MessageRole {
