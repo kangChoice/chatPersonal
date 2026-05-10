@@ -368,4 +368,75 @@ class ChatViewModel @Inject constructor(
             }
         }
     }
+
+    fun importSession(context: android.content.Context, uri: android.net.Uri, onResult: (Boolean, String) -> Unit) {
+        viewModelScope.launch {
+            val json = com.needai.chat.data.import.ImportUtils.readFromUri(context, uri)
+            if (json == null) {
+                onResult(false, "读取文件失败")
+                return@launch
+            }
+            val result = com.needai.chat.data.import.ImportUtils.parseSessionMarkdown(json)
+            if (result.isFailure) {
+                onResult(false, result.exceptionOrNull()?.localizedMessage ?: "解析失败")
+                return@launch
+            }
+            val data = result.getOrThrow()
+            if (data.messages.isEmpty()) {
+                onResult(false, "没有找到消息")
+                return@launch
+            }
+
+            saveCurrentSession()
+
+            // Use the current/default skill instead of creating one from import data
+            val skills = skillRepository.getAllSkills().first()
+            val skill = skills.firstOrNull() ?: _uiState.value.currentSkill
+
+            // Create new session
+            val sessionId = java.util.UUID.randomUUID().toString()
+            val baseTime = System.currentTimeMillis()
+            val session = ChatSession(
+                id = sessionId,
+                skillId = skill.id,
+                skillName = skill.name,
+                skillAvatar = skill.avatar,
+                title = data.title.ifEmpty { "导入的会话" },
+                messageCount = data.messages.size,
+                createdAt = baseTime,
+                updatedAt = baseTime
+            )
+            sessionRepository.saveSession(session)
+
+            // Save messages
+            data.messages.forEachIndexed { index, msg ->
+                val role = when (msg.role) {
+                    "User" -> MessageRole.USER
+                    "Assistant" -> MessageRole.ASSISTANT
+                    "System" -> MessageRole.SYSTEM
+                    else -> MessageRole.USER
+                }
+                chatRepository.insertMessage(
+                    Message(
+                        sessionId = sessionId,
+                        role = role,
+                        content = msg.content,
+                        skillId = skill.id,
+                        timestamp = baseTime + index
+                    )
+                )
+            }
+
+            // Switch to imported session (keep current skill)
+            sessionIdFlow.value = sessionId
+            _uiState.update {
+                it.copy(
+                    sessionId = sessionId,
+                    currentStreamingMessage = "",
+                    isStreaming = false
+                )
+            }
+            onResult(true, "会话已导入")
+        }
+    }
 }

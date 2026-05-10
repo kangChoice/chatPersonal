@@ -71,4 +71,11 @@ class SkillViewModel @Inject constructor(
     suspend fun getSkillById(id: String): Skill? {
         return skillRepository.getSkillById(id)
     }
+
+    fun importSkill(skill: Skill, onResult: (Boolean, String) -> Unit) {
+        viewModelScope.launch {
+            skillRepository.insertSkill(skill)
+            onResult(true, "技能已导入")
+        }
+    }
 }

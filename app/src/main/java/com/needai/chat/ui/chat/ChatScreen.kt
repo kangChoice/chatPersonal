@@ -31,6 +31,7 @@ import com.needai.chat.ui.chat.state.ChatUiState
 import com.needai.chat.ui.navigation.Screen
 import java.text.SimpleDateFormat
 import java.util.*
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -46,6 +47,7 @@ fun ChatScreen(
     var showExportDialog by remember { mutableStateOf(false) }
     val listState = rememberLazyListState()
     val snackbarHostState = remember { SnackbarHostState() }
+    val coroutineScope = rememberCoroutineScope()
     val context = LocalContext.current
     var pendingExportSessionId by remember { mutableStateOf<String?>(null) }
 
@@ -66,6 +68,18 @@ fun ChatScreen(
             pendingExportSessionId?.let { sessionId ->
                 viewModel.exportSessionToFile(context, sessionId, uri)
                 pendingExportSessionId = null
+            }
+        }
+    }
+
+    val importSessionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) {
+            viewModel.importSession(context, uri) { success, msg ->
+                coroutineScope.launch {
+                    snackbarHostState.showSnackbar(msg)
+                }
             }
         }
     }
@@ -136,6 +150,13 @@ fun ChatScreen(
                                 onClick = {
                                     showMenu = false
                                     showExportDialog = true
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("导入会话") },
+                                onClick = {
+                                    showMenu = false
+                                    importSessionLauncher.launch(arrayOf("text/*", "*/*"))
                                 }
                             )
                             DropdownMenuItem(

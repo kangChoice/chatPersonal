@@ -11,8 +11,11 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FileDownload
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -26,6 +29,7 @@ import com.needai.chat.domain.model.ApiProtocol
 import com.needai.chat.domain.model.ModelConfig
 import com.needai.chat.ui.settings.components.GenerationParamsDialog
 import com.needai.chat.ui.settings.components.ModelConfigEditDialog
+import com.needai.chat.ui.settings.components.QuickCreateProviderDialog
 import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -39,7 +43,9 @@ fun SettingsScreen(
     val chatFontSize by viewModel.chatFontSize.collectAsStateWithLifecycle()
     val saveSuccess by viewModel.saveSuccess.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
     var showAddDialog by remember { mutableStateOf(false) }
+    var showQuickCreate by remember { mutableStateOf(false) }
     val context = LocalContext.current
 
     val exportConfigLauncher = rememberLauncherForActivityResult(
@@ -48,6 +54,24 @@ fun SettingsScreen(
         if (uri != null) {
             val json = com.needai.chat.data.export.ExportUtils.generateModelConfigJson(modelConfig)
             com.needai.chat.data.export.ExportUtils.writeToUri(context, uri, json)
+        }
+    }
+    val importConfigLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) {
+            val json = com.needai.chat.data.import.ImportUtils.readFromUri(context, uri)
+            if (json != null) {
+                viewModel.importModelConfig(json) { success, msg ->
+                    scope.launch {
+                        snackbarHostState.showSnackbar(msg)
+                    }
+                }
+            } else {
+                scope.launch {
+                    snackbarHostState.showSnackbar("读取文件失败")
+                }
+            }
         }
     }
     var editConfig by remember { mutableStateOf<ModelConfig?>(null) }
@@ -133,8 +157,16 @@ fun SettingsScreen(
                                     Icon(Icons.Default.FileDownload, contentDescription = "导出配置")
                                 }
                             }
+                            FilledTonalIconButton(onClick = {
+                                importConfigLauncher.launch(arrayOf("application/json"))
+                            }) {
+                                Icon(Icons.Default.Refresh, contentDescription = "导入配置")
+                            }
                             FilledTonalIconButton(onClick = { showAddDialog = true }) {
                                 Icon(Icons.Default.Add, contentDescription = "添加配置")
+                            }
+                            FilledTonalIconButton(onClick = { showQuickCreate = true }) {
+                                Icon(Icons.Default.PlayArrow, contentDescription = "快速创建")
                             }
                         }
                     }
@@ -209,6 +241,16 @@ fun SettingsScreen(
                 }
             }
         }
+    }
+
+    if (showQuickCreate) {
+        QuickCreateProviderDialog(
+            onDismiss = { showQuickCreate = false },
+            onSave = { config ->
+                viewModel.addConfig(config)
+                showQuickCreate = false
+            }
+        )
     }
 
     if (showAddDialog) {

@@ -53,6 +53,18 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
+    fun importModelConfig(json: String, onResult: (Boolean, String) -> Unit) {
+        val result = com.needai.chat.data.import.ImportUtils.parseModelConfigJson(json)
+        if (result.isSuccess) {
+            viewModelScope.launch {
+                modelConfigRepository.saveModelConfig(result.getOrThrow())
+                onResult(true, "配置已导入")
+            }
+        } else {
+            onResult(false, result.exceptionOrNull()?.localizedMessage ?: "导入失败")
+        }
+    }
+
     fun updateConfig(config: ModelConfig) {
         viewModelScope.launch {
             modelConfigRepository.saveModelConfig(config)

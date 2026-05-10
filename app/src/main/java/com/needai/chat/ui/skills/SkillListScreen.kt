@@ -31,6 +31,7 @@ import com.needai.chat.data.export.ExportUtils
 import com.needai.chat.domain.model.Skill
 import com.needai.chat.ui.navigation.Screen
 import com.needai.chat.ui.skills.components.SkillCard
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -43,6 +44,8 @@ fun SkillListScreen(
     var skillToDelete by remember { mutableStateOf<Skill?>(null) }
     var skillToExport by remember { mutableStateOf<Skill?>(null) }
     val context = LocalContext.current
+    val snackbarHostState = remember { SnackbarHostState() }
+    val coroutineScope = rememberCoroutineScope()
 
     val exportSkillLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("application/json")
@@ -53,10 +56,36 @@ fun SkillListScreen(
             skillToExport = null
         }
     }
+    val importSkillLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) {
+            val json = com.needai.chat.data.import.ImportUtils.readFromUri(context, uri)
+            if (json != null) {
+                val result = com.needai.chat.data.import.ImportUtils.parseSkillJson(json)
+                result.onSuccess { skill ->
+                    viewModel.importSkill(skill) { success, msg ->
+                        coroutineScope.launch {
+                            snackbarHostState.showSnackbar(msg)
+                        }
+                    }
+                }.onFailure { e ->
+                    coroutineScope.launch {
+                        snackbarHostState.showSnackbar("导入失败: ${e.localizedMessage}")
+                    }
+                }
+            } else {
+                coroutineScope.launch {
+                    snackbarHostState.showSnackbar("读取文件失败")
+                }
+            }
+        }
+    }
 
     val uriHandler = LocalUriHandler.current
 
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = {
@@ -83,13 +112,18 @@ fun SkillListScreen(
                             )
                         }
                     }
+                },
+                actions = {
+                    IconButton(onClick = { showCreateDialog = true }) {
+                        Icon(Icons.Default.Add, contentDescription = "创建技能")
+                    }
+                    TextButton(onClick = {
+                        importSkillLauncher.launch(arrayOf("application/json"))
+                    }) {
+                        Text("导入")
+                    }
                 }
             )
-        },
-        floatingActionButton = {
-            FloatingActionButton(onClick = { showCreateDialog = true }) {
-                Icon(Icons.Default.Add, contentDescription = "创建技能")
-            }
         }
     ) { innerPadding ->
         if (skills.isEmpty()) {
@@ -100,7 +134,7 @@ fun SkillListScreen(
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = "暂无技能，点击 + 创建",
+                    text = "暂无技能，点击右上角 + 创建",
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
                 )
