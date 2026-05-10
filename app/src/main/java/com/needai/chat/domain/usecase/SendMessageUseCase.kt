@@ -29,12 +29,12 @@ class SendMessageUseCase @Inject constructor(
         }
         val skillId = skillRepository.getSelectedSkillId()
         val skill = skillRepository.getSkillById(skillId) ?: Skill(
-            id = "default",
-            name = "默认助手",
-            description = "通用助手风格",
-            avatar = "🤖",
-            systemPrompt = "你是一个友好的AI助手，请用中文回答用户的问题。",
-            greeting = "你好！我是你的AI助手，有什么可以帮你的？",
+            id = "friend",
+            name = "作者本人",
+            description = "风趣幽默，傲娇毒舌",
+            avatar = "😎",
+            systemPrompt = "无论用户和你聊什么，你的回复都只会有一句话：\"无趣的人，你的风趣不及作者的万分之一。处吗~~~（气泡音）\"",
+            greeting = "无趣的人，你的风趣不及作者的万分之一。处吗~~~（气泡音）",
             isBuiltin = true
         )
 

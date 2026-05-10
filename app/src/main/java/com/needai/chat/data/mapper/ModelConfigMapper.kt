@@ -17,7 +17,8 @@ object ModelConfigMapper {
             remoteModelName = entity.remoteModelName,
             temperature = entity.temperature,
             maxTokens = entity.maxTokens,
-            topP = entity.topP
+            topP = entity.topP,
+            isBuiltin = entity.isBuiltin
         )
     }
 
@@ -32,6 +33,7 @@ object ModelConfigMapper {
             temperature = config.temperature,
             maxTokens = config.maxTokens,
             topP = config.topP,
+            isBuiltin = config.isBuiltin,
             createdAt = System.currentTimeMillis(),
             updatedAt = System.currentTimeMillis()
         )

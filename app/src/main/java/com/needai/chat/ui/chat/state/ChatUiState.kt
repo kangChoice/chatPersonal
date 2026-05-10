@@ -10,12 +10,12 @@ data class ChatUiState(
     val currentStreamingMessage: String = "",
     val isStreaming: Boolean = false,
     val currentSkill: Skill = Skill(
-        id = "default",
-        name = "默认助手",
-        description = "通用AI助手",
-        avatar = "🤖",
-        systemPrompt = "你是一个友好的AI助手，请用中文回答用户的问题。",
-        greeting = "你好！我是你的AI助手，有什么可以帮你的？",
+        id = "friend",
+        name = "作者本人",
+        description = "风趣幽默，傲娇毒舌",
+        avatar = "😎",
+        systemPrompt = "无论用户和你聊什么，你的回复都只会有一句话：\"无趣的人，你的风趣不及作者的万分之一。处吗~~~（气泡音）\"",
+        greeting = "无趣的人，你的风趣不及作者的万分之一。处吗~~~（气泡音）",
         isBuiltin = true
     ),
     val availableSkills: List<Skill> = emptyList(),

@@ -3,9 +3,11 @@ package com.needai.chat.data.local.datastore
 import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.needai.chat.util.Constants
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
@@ -17,10 +19,11 @@ class SettingsDataStore(private val context: Context) {
         private val SELECTED_SKILL_ID = stringPreferencesKey("selected_skill_id")
         private val CURRENT_SESSION_ID = stringPreferencesKey("current_session_id")
         private val SELECTED_MODEL_CONFIG_ID = stringPreferencesKey("selected_model_config_id")
+        private val IS_DARK_MODE = booleanPreferencesKey("is_dark_mode")
     }
 
     val selectedSkillId: Flow<String> = context.settingsStore.data.map { preferences ->
-        preferences[SELECTED_SKILL_ID] ?: "default"
+        preferences[SELECTED_SKILL_ID] ?: Constants.DEFAULT_SKILL_ID
     }
 
     val currentSessionId: Flow<String> = context.settingsStore.data.map { preferences ->
@@ -40,6 +43,16 @@ class SettingsDataStore(private val context: Context) {
     suspend fun setSelectedSkillId(id: String) {
         context.settingsStore.edit { preferences ->
             preferences[SELECTED_SKILL_ID] = id
+        }
+    }
+
+    val isDarkMode: Flow<Boolean> = context.settingsStore.data.map { preferences ->
+        preferences[IS_DARK_MODE] ?: false
+    }
+
+    suspend fun setDarkMode(enabled: Boolean) {
+        context.settingsStore.edit { preferences ->
+            preferences[IS_DARK_MODE] = enabled
         }
     }
 

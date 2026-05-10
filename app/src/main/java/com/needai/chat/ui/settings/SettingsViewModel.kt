@@ -2,6 +2,7 @@ package com.needai.chat.ui.settings
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.needai.chat.data.local.datastore.SettingsDataStore
 import com.needai.chat.domain.model.ModelConfig
 import com.needai.chat.domain.repository.ModelConfigRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -11,8 +12,12 @@ import javax.inject.Inject
 
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
-    private val modelConfigRepository: ModelConfigRepository
+    private val modelConfigRepository: ModelConfigRepository,
+    private val settingsDataStore: SettingsDataStore
 ) : ViewModel() {
+
+    val isDarkMode: StateFlow<Boolean> = settingsDataStore.isDarkMode
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
     private val _modelConfig = MutableStateFlow(ModelConfig())
     val modelConfig: StateFlow<ModelConfig> = _modelConfig.asStateFlow()
@@ -89,5 +94,11 @@ class SettingsViewModel @Inject constructor(
 
     fun dismissSaveSuccess() {
         _saveSuccess.value = false
+    }
+
+    fun setDarkMode(enabled: Boolean) {
+        viewModelScope.launch {
+            settingsDataStore.setDarkMode(enabled)
+        }
     }
 }

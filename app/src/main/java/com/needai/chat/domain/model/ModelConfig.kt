@@ -12,5 +12,6 @@ data class ModelConfig(
     val localModelName: String = "",
     val temperature: Double = 0.7,
     val maxTokens: Int = 4096,
-    val topP: Double = 1.0
+    val topP: Double = 1.0,
+    val isBuiltin: Boolean = false
 )

@@ -2,6 +2,7 @@ package com.needai.chat.ui.settings
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -11,20 +12,21 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FileDownload
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.FileUpload
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
+import com.needai.chat.R
 import com.needai.chat.domain.model.ApiProtocol
 import com.needai.chat.domain.model.ModelConfig
 import com.needai.chat.ui.settings.components.GenerationParamsDialog
@@ -40,12 +42,14 @@ fun SettingsScreen(
     val modelConfig by viewModel.modelConfig.collectAsStateWithLifecycle()
     val configs by viewModel.configs.collectAsStateWithLifecycle()
     val saveSuccess by viewModel.saveSuccess.collectAsStateWithLifecycle()
+    val isDarkMode by viewModel.isDarkMode.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     var showAddChoice by remember { mutableStateOf(false) }
     var showAddDialog by remember { mutableStateOf(false) }
     var showQuickCreate by remember { mutableStateOf(false) }
     val context = LocalContext.current
+    val uriHandler = LocalUriHandler.current
 
     val exportConfigLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("application/json")
@@ -118,7 +122,7 @@ fun SettingsScreen(
                             fontWeight = FontWeight.Bold
                         )
                         Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                            if (modelConfig.id.isNotEmpty()) {
+                            if (modelConfig.id.isNotEmpty() && !modelConfig.isBuiltin) {
                                 FilledTonalIconButton(onClick = {
                                     val fileName = "model_config_${modelConfig.name.ifEmpty { "default" }.replace(" ", "_")}.json"
                                     exportConfigLauncher.launch(fileName)
@@ -129,7 +133,7 @@ fun SettingsScreen(
                             FilledTonalIconButton(onClick = {
                                 importConfigLauncher.launch(arrayOf("application/json"))
                             }) {
-                                Icon(Icons.Default.Refresh, contentDescription = "导入配置")
+                                Icon(Icons.Default.FileUpload, contentDescription = "导入配置")
                             }
                             FilledTonalIconButton(onClick = { showAddChoice = true }) {
                                 Icon(Icons.Default.Add, contentDescription = "添加配置")
@@ -171,8 +175,10 @@ fun SettingsScreen(
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold
                             )
-                            FilledTonalIconButton(onClick = { showGenParamsDialog = true }) {
-                                Icon(Icons.Default.Edit, contentDescription = "编辑生成参数")
+                            if (!modelConfig.isBuiltin) {
+                                FilledTonalIconButton(onClick = { showGenParamsDialog = true }) {
+                                    Icon(Icons.Default.Edit, contentDescription = "编辑生成参数")
+                                }
                             }
                         }
                         Spacer(modifier = Modifier.height(8.dp))
@@ -187,8 +193,35 @@ fun SettingsScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
+            // 显示模式
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text("显示模式", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        Text(
+                            text = if (isDarkMode) "暗黑模式" else "明亮模式",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                        )
+                    }
+                    Switch(
+                        checked = isDarkMode,
+                        onCheckedChange = { viewModel.setDarkMode(it) }
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
             Card(
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
+                onClick = { uriHandler.openUri("https://github.com/kangChoice/chatPersonal") }
             ) {
                 Column(
                     modifier = Modifier.padding(16.dp)
@@ -199,7 +232,21 @@ fun SettingsScreen(
                         text = "哥只是个传说~，叫哥哥",
                         style = MaterialTheme.typography.bodyMedium
                     )
-                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = "欢迎Star power by",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Icon(
+                            painter = painterResource(R.drawable.ic_github),
+                            contentDescription = "GitHub",
+                            modifier = Modifier.size(14.dp),
+                            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                        )
+                    }
                 }
             }
         }
@@ -324,6 +371,7 @@ private fun ModelConfigItem(
     onEdit: () -> Unit,
     onDelete: () -> Unit
 ) {
+    val showActions = !config.isBuiltin
     Surface(
         onClick = onSelect,
         shape = MaterialTheme.shapes.medium,
@@ -352,15 +400,17 @@ private fun ModelConfigItem(
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
                 )
             }
-            IconButton(onClick = onEdit) {
-                Icon(Icons.Default.Edit, contentDescription = "编辑", modifier = Modifier.size(20.dp))
-            }
-            IconButton(onClick = onDelete) {
-                Icon(
-                    Icons.Default.Delete, contentDescription = "删除",
-                    modifier = Modifier.size(20.dp),
-                    tint = MaterialTheme.colorScheme.error
-                )
+            if (showActions) {
+                IconButton(onClick = onEdit) {
+                    Icon(Icons.Default.Edit, contentDescription = "编辑", modifier = Modifier.size(20.dp))
+                }
+                IconButton(onClick = onDelete) {
+                    Icon(
+                        Icons.Default.Delete, contentDescription = "删除",
+                        modifier = Modifier.size(20.dp),
+                        tint = MaterialTheme.colorScheme.error
+                    )
+                }
             }
         }
     }

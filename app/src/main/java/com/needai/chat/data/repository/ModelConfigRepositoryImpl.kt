@@ -46,6 +46,7 @@ class ModelConfigRepositoryImpl @Inject constructor(
     override suspend fun saveModelConfig(config: ModelConfig) {
         val id = config.id.ifEmpty { UUID.randomUUID().toString() }
         val existing = modelConfigDao.getConfigById(id)
+        if (existing?.isBuiltin == true) return
         val entity = if (existing != null) {
             ModelConfigMapper.toEntity(config.copy(id = id), existing)
         } else {
@@ -59,7 +60,8 @@ class ModelConfigRepositoryImpl @Inject constructor(
     }
 
     override suspend fun deleteConfig(id: String) {
-        if (id == DEFAULT_CONFIG_ID) return
+        val existing = modelConfigDao.getConfigById(id)
+        if (existing?.isBuiltin == true) return
         modelConfigDao.deleteConfig(id)
         if (settingsDataStore.selectedModelConfigId.first() == id) {
             settingsDataStore.setSelectedModelConfigId("")

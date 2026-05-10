@@ -14,6 +14,7 @@ data class ModelConfigEntity(
     val temperature: Double,
     val maxTokens: Int,
     val topP: Double,
+    val isBuiltin: Boolean = false,
     val createdAt: Long,
     val updatedAt: Long
 )

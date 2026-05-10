@@ -9,13 +9,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.needai.chat.domain.model.Message
 import com.needai.chat.domain.model.MessageRole
-import com.needai.chat.ui.theme.AiBubbleLight
-import com.needai.chat.ui.theme.UserBubbleLight
 
 @Composable
 fun MessageBubble(
@@ -24,8 +21,8 @@ fun MessageBubble(
     fontSize: Float = 16f
 ) {
     val isUser = message.role == MessageRole.USER
-    val bubbleColor = if (isUser) UserBubbleLight else AiBubbleLight
-    val textColor = if (isUser) Color.White else MaterialTheme.colorScheme.onSurface
+    val bubbleColor = if (isUser) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant
+    val textColor = if (isUser) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
     val alignment = if (isUser) Alignment.End else Alignment.Start
     val shape = if (isUser) {
         RoundedCornerShape(
@@ -82,7 +79,7 @@ fun StreamingBubble(
             modifier = Modifier
                 .widthIn(max = 280.dp)
                 .clip(RoundedCornerShape(topStart = 4.dp, topEnd = 16.dp, bottomStart = 16.dp, bottomEnd = 16.dp))
-                .background(AiBubbleLight)
+                .background(MaterialTheme.colorScheme.surfaceVariant)
                 .padding(horizontal = 16.dp, vertical = 10.dp)
         ) {
             StreamingText(
