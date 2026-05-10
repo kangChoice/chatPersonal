@@ -1,5 +1,7 @@
 package com.needai.chat.ui.settings
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -8,10 +10,12 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -36,6 +40,16 @@ fun SettingsScreen(
     val saveSuccess by viewModel.saveSuccess.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     var showAddDialog by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+
+    val exportConfigLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/json")
+    ) { uri ->
+        if (uri != null) {
+            val json = com.needai.chat.data.export.ExportUtils.generateModelConfigJson(modelConfig)
+            com.needai.chat.data.export.ExportUtils.writeToUri(context, uri, json)
+        }
+    }
     var editConfig by remember { mutableStateOf<ModelConfig?>(null) }
     var showGenParamsDialog by remember { mutableStateOf(false) }
 
@@ -110,8 +124,18 @@ fun SettingsScreen(
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold
                         )
-                        FilledTonalIconButton(onClick = { showAddDialog = true }) {
-                            Icon(Icons.Default.Add, contentDescription = "添加配置")
+                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            if (modelConfig.id.isNotEmpty()) {
+                                FilledTonalIconButton(onClick = {
+                                    val fileName = "model_config_${modelConfig.name.ifEmpty { "default" }.replace(" ", "_")}.json"
+                                    exportConfigLauncher.launch(fileName)
+                                }) {
+                                    Icon(Icons.Default.FileDownload, contentDescription = "导出配置")
+                                }
+                            }
+                            FilledTonalIconButton(onClick = { showAddDialog = true }) {
+                                Icon(Icons.Default.Add, contentDescription = "添加配置")
+                            }
                         }
                     }
 

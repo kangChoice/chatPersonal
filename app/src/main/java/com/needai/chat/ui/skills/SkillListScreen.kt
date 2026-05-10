@@ -1,5 +1,7 @@
 package com.needai.chat.ui.skills
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -8,11 +10,13 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -23,6 +27,8 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import com.needai.chat.R
+import com.needai.chat.data.export.ExportUtils
+import com.needai.chat.domain.model.Skill
 import com.needai.chat.ui.navigation.Screen
 import com.needai.chat.ui.skills.components.SkillCard
 
@@ -34,6 +40,19 @@ fun SkillListScreen(
 ) {
     val skills by viewModel.skills.collectAsStateWithLifecycle()
     var showCreateDialog by remember { mutableStateOf(false) }
+    var skillToDelete by remember { mutableStateOf<Skill?>(null) }
+    var skillToExport by remember { mutableStateOf<Skill?>(null) }
+    val context = LocalContext.current
+
+    val exportSkillLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/json")
+    ) { uri ->
+        if (uri != null && skillToExport != null) {
+            val json = ExportUtils.generateSkillJson(skillToExport!!)
+            ExportUtils.writeToUri(context, uri, json)
+            skillToExport = null
+        }
+    }
 
     val uriHandler = LocalUriHandler.current
 
@@ -98,6 +117,14 @@ fun SkillListScreen(
                         skill = skill,
                         onClick = {
                             navController.navigate(Screen.skillEdit(skill.id))
+                        },
+                        onExport = {
+                            skillToExport = skill
+                            val fileName = "skill_${skill.name.take(20).replace(" ", "_")}.json"
+                            exportSkillLauncher.launch(fileName)
+                        },
+                        onDelete = if (skill.isBuiltin) null else {
+                            { skillToDelete = skill }
                         }
                     )
                 }
@@ -111,6 +138,35 @@ fun SkillListScreen(
             onSave = { name, desc, prompt, avatar, greeting, temp ->
                 viewModel.createSkill(name, desc, prompt, avatar, greeting, temp)
                 showCreateDialog = false
+            }
+        )
+    }
+
+    if (skillToDelete != null) {
+        AlertDialog(
+            onDismissRequest = { skillToDelete = null },
+            icon = { Icon(Icons.Default.Delete, contentDescription = null) },
+            title = { Text("删除技能") },
+            text = {
+                Text("确定要删除「${skillToDelete!!.name}」吗？删除后，该技能对应的所有历史会话记录也将一并删除，此操作不可撤销。")
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.deleteSkill(skillToDelete!!.id)
+                        skillToDelete = null
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error
+                    )
+                ) {
+                    Text("删除")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { skillToDelete = null }) {
+                    Text("取消")
+                }
             }
         )
     }

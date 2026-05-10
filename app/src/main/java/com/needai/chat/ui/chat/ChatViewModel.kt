@@ -327,4 +327,45 @@ class ChatViewModel @Inject constructor(
     fun dismissError() {
         _uiState.update { it.copy(error = null) }
     }
+
+    fun exportCurrentSessionToFile(context: android.content.Context, uri: android.net.Uri) {
+        viewModelScope.launch {
+            val state = _uiState.value
+            val md = com.needai.chat.data.export.ExportUtils.generateSessionMarkdown(
+                title = "当前会话",
+                skillName = state.currentSkill.name,
+                skillAvatar = state.currentSkill.avatar,
+                messages = state.messages,
+                createdAt = System.currentTimeMillis(),
+                updatedAt = System.currentTimeMillis()
+            )
+            val success = com.needai.chat.data.export.ExportUtils.writeToUri(context, uri, md)
+            _uiState.update {
+                it.copy(error = if (success) "会话已导出" else "导出失败")
+            }
+        }
+    }
+
+    fun exportSessionToFile(context: android.content.Context, sessionId: String, uri: android.net.Uri) {
+        viewModelScope.launch {
+            val messages = chatRepository.getMessages(sessionId).first()
+            if (messages.isEmpty()) {
+                _uiState.update { it.copy(error = "该会话没有消息可导出") }
+                return@launch
+            }
+            val session = sessionRepository.getSessionById(sessionId)
+            val md = com.needai.chat.data.export.ExportUtils.generateSessionMarkdown(
+                title = session?.title ?: "历史会话",
+                skillName = session?.skillName ?: "",
+                skillAvatar = session?.skillAvatar ?: "",
+                messages = messages,
+                createdAt = session?.createdAt ?: System.currentTimeMillis(),
+                updatedAt = session?.updatedAt ?: System.currentTimeMillis()
+            )
+            val success = com.needai.chat.data.export.ExportUtils.writeToUri(context, uri, md)
+            _uiState.update {
+                it.copy(error = if (success) "会话已导出" else "导出失败")
+            }
+        }
+    }
 }

@@ -1,6 +1,7 @@
 package com.needai.chat.ui.chat
 
-import androidx.compose.animation.animateContentSize
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -8,25 +9,28 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AutoAwesome
-import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
+import com.needai.chat.domain.model.Skill
 import com.needai.chat.ui.chat.components.ChatInputBar
 import com.needai.chat.ui.chat.components.HistorySessionSheet
 import com.needai.chat.ui.chat.components.MessageBubble
 import com.needai.chat.ui.chat.components.SkillSelectorSheet
 import com.needai.chat.ui.chat.components.StreamingBubble
-import com.needai.chat.domain.model.Skill
 import com.needai.chat.ui.chat.state.ChatUiState
 import com.needai.chat.ui.navigation.Screen
+import java.text.SimpleDateFormat
+import java.util.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -39,10 +43,34 @@ fun ChatScreen(
     var showMenu by remember { mutableStateOf(false) }
     var showHistorySession by remember { mutableStateOf(false) }
     var pendingSkill by remember { mutableStateOf<Skill?>(null) }
+    var showExportDialog by remember { mutableStateOf(false) }
     val listState = rememberLazyListState()
     val snackbarHostState = remember { SnackbarHostState() }
+    val context = LocalContext.current
+    var pendingExportSessionId by remember { mutableStateOf<String?>(null) }
 
-    // Show error as snackbar
+    // Launcher for exporting current session
+    val exportCurrentLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("text/markdown")
+    ) { uri ->
+        if (uri != null) {
+            viewModel.exportCurrentSessionToFile(context, uri)
+        }
+    }
+
+    // Launcher for exporting a history session
+    val exportHistoryLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("text/markdown")
+    ) { uri ->
+        if (uri != null) {
+            pendingExportSessionId?.let { sessionId ->
+                viewModel.exportSessionToFile(context, sessionId, uri)
+                pendingExportSessionId = null
+            }
+        }
+    }
+
+    // Show error/success as snackbar
     LaunchedEffect(uiState.error) {
         uiState.error?.let {
             snackbarHostState.showSnackbar(it)
@@ -104,6 +132,13 @@ fun ChatScreen(
                                 }
                             )
                             DropdownMenuItem(
+                                text = { Text("导出会话") },
+                                onClick = {
+                                    showMenu = false
+                                    showExportDialog = true
+                                }
+                            )
+                            DropdownMenuItem(
                                 text = { Text("新建对话") },
                                 onClick = {
                                     viewModel.newSession()
@@ -136,7 +171,6 @@ fun ChatScreen(
         }
     ) { innerPadding ->
         if (uiState.messages.isEmpty() && !uiState.isStreaming) {
-            // Empty state
             Column(
                 modifier = Modifier
                     .fillMaxSize()
@@ -171,7 +205,6 @@ fun ChatScreen(
                     MessageBubble(message = message)
                 }
 
-                // Streaming bubble
                 if (uiState.isStreaming && uiState.currentStreamingMessage.isNotEmpty()) {
                     item {
                         StreamingBubble(
@@ -228,6 +261,100 @@ fun ChatScreen(
             },
             dismissButton = {
                 TextButton(onClick = { pendingSkill = null }) {
+                    Text("取消")
+                }
+            }
+        )
+    }
+
+    // Export session dialog
+    if (showExportDialog) {
+        AlertDialog(
+            onDismissRequest = { showExportDialog = false },
+            title = { Text("导出会话") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(
+                        "选择要导出的会话：",
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
+
+                    // Current session option
+                    Surface(
+                        onClick = {
+                            showExportDialog = false
+                            if (uiState.messages.isNotEmpty()) {
+                                val fileName = "chat_${SimpleDateFormat("yyyyMMdd_HHmm", Locale.getDefault()).format(Date())}.md"
+                                exportCurrentLauncher.launch(fileName)
+                            } else {
+                                viewModel.exportSessionToFile(context, "", android.net.Uri.EMPTY)
+                            }
+                        },
+                        shape = MaterialTheme.shapes.medium,
+                        color = MaterialTheme.colorScheme.surfaceVariant,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 4.dp)
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            Text(
+                                text = "当前会话",
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Medium
+                            )
+                            Text(
+                                text = "${uiState.currentSkill.name} · ${uiState.messages.size}条消息",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                            )
+                        }
+                    }
+
+                    // History sessions
+                    uiState.historySessions.forEach { session ->
+                        Surface(
+                            onClick = {
+                                showExportDialog = false
+                                pendingExportSessionId = session.id
+                                val fileName = "chat_${session.title.take(20).replace(" ", "_")}_${SimpleDateFormat("yyyyMMdd", Locale.getDefault()).format(Date())}.md"
+                                exportHistoryLauncher.launch(fileName)
+                            },
+                            shape = MaterialTheme.shapes.medium,
+                            color = MaterialTheme.colorScheme.surface,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 4.dp)
+                        ) {
+                            Column(modifier = Modifier.padding(12.dp)) {
+                                Text(
+                                    text = session.title,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.Medium,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Text(
+                                    text = "${session.skillName} · ${session.messageCount}条消息",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                                )
+                            }
+                        }
+                    }
+
+                    if (uiState.messages.isEmpty() && uiState.historySessions.isEmpty()) {
+                        Text(
+                            text = "没有可导出的会话",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                            modifier = Modifier.padding(vertical = 16.dp)
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showExportDialog = false }) {
                     Text("取消")
                 }
             }

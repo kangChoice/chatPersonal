@@ -1,6 +1,9 @@
 package com.needai.chat.ui.skills.components
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -14,6 +17,8 @@ import com.needai.chat.domain.model.Skill
 fun SkillCard(
     skill: Skill,
     onClick: () -> Unit,
+    onDelete: (() -> Unit)? = null,
+    onExport: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     Card(
@@ -25,7 +30,7 @@ fun SkillCard(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 16.dp),
+                .padding(start = 16.dp, end = 4.dp, top = 8.dp, bottom = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
@@ -62,6 +67,24 @@ fun SkillCard(
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
+            }
+            if (onExport != null) {
+                IconButton(onClick = onExport) {
+                    Icon(
+                        Icons.Default.FileDownload,
+                        contentDescription = "导出",
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                }
+            }
+            if (onDelete != null) {
+                IconButton(onClick = onDelete) {
+                    Icon(
+                        Icons.Default.Delete,
+                        contentDescription = "删除",
+                        tint = MaterialTheme.colorScheme.error
+                    )
+                }
             }
         }
     }
