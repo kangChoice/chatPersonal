@@ -46,7 +46,7 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector?
     }
 }
 
-val bottomNavItems = listOf(Screen.Chat, Screen.SkillList, Screen.PromptPolish, Screen.Stats, Screen.Settings)
+val bottomNavItems = listOf(Screen.Chat, Screen.SkillList, Screen.PromptPolish, Screen.Settings)
 
 private val onboardingRoutes = listOf(
     Screen.Chat.route,          // step 0

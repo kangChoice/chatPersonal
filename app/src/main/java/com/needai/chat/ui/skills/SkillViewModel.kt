@@ -31,7 +31,7 @@ class SkillViewModel @Inject constructor(
         }
     }
 
-    fun createSkill(name: String, description: String, systemPrompt: String, avatar: String, greeting: String, temperature: Double): Skill {
+    fun createSkill(name: String, description: String, systemPrompt: String, avatar: String, greeting: String, temperature: Double, onResult: ((Boolean, String) -> Unit)? = null) {
         val skill = Skill(
             id = java.util.UUID.randomUUID().toString(),
             name = name,
@@ -45,8 +45,8 @@ class SkillViewModel @Inject constructor(
         )
         viewModelScope.launch {
             skillRepository.insertSkill(skill)
+            onResult?.invoke(true, "技能「${skill.name}」已创建")
         }
-        return skill
     }
 
     fun updateSkill(skill: Skill) {
@@ -76,6 +76,17 @@ class SkillViewModel @Inject constructor(
         viewModelScope.launch {
             skillRepository.insertSkill(skill)
             onResult(true, "技能已导入")
+        }
+    }
+
+    fun importSkills(skills: List<Skill>, onResult: (Boolean, String) -> Unit) {
+        viewModelScope.launch {
+            var successCount = 0
+            for (skill in skills) {
+                skillRepository.insertSkill(skill)
+                successCount++
+            }
+            onResult(true, "成功导入 $successCount 个技能")
         }
     }
 }

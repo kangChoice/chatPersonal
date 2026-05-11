@@ -43,6 +43,8 @@ fun SkillListScreen(
     var showCreateDialog by remember { mutableStateOf(false) }
     var skillToDelete by remember { mutableStateOf<Skill?>(null) }
     var skillToExport by remember { mutableStateOf<Skill?>(null) }
+    var isSelectionMode by remember { mutableStateOf(false) }
+    var selectedSkillIds by remember { mutableStateOf(setOf<String>()) }
     val context = LocalContext.current
     val snackbarHostState = remember { SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()
@@ -56,17 +58,36 @@ fun SkillListScreen(
             skillToExport = null
         }
     }
+    val exportSkillsLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/json")
+    ) { uri ->
+        if (uri != null && selectedSkillIds.isNotEmpty()) {
+            val selectedSkills = skills.filter { it.id in selectedSkillIds }
+            val json = ExportUtils.generateSkillsJson(selectedSkills)
+            ExportUtils.writeToUri(context, uri, json)
+            selectedSkillIds = emptySet()
+            isSelectionMode = false
+        }
+    }
     val importSkillLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocument()
     ) { uri ->
         if (uri != null) {
             val json = com.needai.chat.data.import.ImportUtils.readFromUri(context, uri)
             if (json != null) {
-                val result = com.needai.chat.data.import.ImportUtils.parseSkillJson(json)
-                result.onSuccess { skill ->
-                    viewModel.importSkill(skill) { success, msg ->
-                        coroutineScope.launch {
-                            snackbarHostState.showSnackbar(msg)
+                val result = com.needai.chat.data.import.ImportUtils.parseSkillsJson(json)
+                result.onSuccess { skills ->
+                    if (skills.size == 1) {
+                        viewModel.importSkill(skills.first()) { success, msg ->
+                            coroutineScope.launch {
+                                snackbarHostState.showSnackbar(msg)
+                            }
+                        }
+                    } else {
+                        viewModel.importSkills(skills) { success, msg ->
+                            coroutineScope.launch {
+                                snackbarHostState.showSnackbar(msg)
+                            }
                         }
                     }
                 }.onFailure { e ->
@@ -85,7 +106,53 @@ fun SkillListScreen(
     val uriHandler = LocalUriHandler.current
 
     Scaffold(
-        snackbarHost = { SnackbarHost(snackbarHostState) },
+        snackbarHost = {
+            SnackbarHost(snackbarHostState) { data ->
+                Snackbar(
+                    snackbarData = data,
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    shape = MaterialTheme.shapes.medium
+                )
+            }
+        },
+        bottomBar = {
+            if (isSelectionMode) {
+                Surface(
+                    tonalElevation = 3.dp,
+                    color = MaterialTheme.colorScheme.surface
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        TextButton(onClick = {
+                            selectedSkillIds = if (selectedSkillIds.size == skills.size) {
+                                emptySet()
+                            } else {
+                                skills.map { it.id }.toSet()
+                            }
+                        }) {
+                            Text(if (selectedSkillIds.size == skills.size) "取消全选" else "全选")
+                        }
+                        Button(
+                            onClick = {
+                                if (selectedSkillIds.isNotEmpty()) {
+                                    val fileName = "skills_export_${java.text.SimpleDateFormat("yyyyMMdd_HHmm", java.util.Locale.getDefault()).format(java.util.Date())}.json"
+                                    exportSkillsLauncher.launch(fileName)
+                                }
+                            },
+                            enabled = selectedSkillIds.isNotEmpty()
+                        ) {
+                            Text("导出选中 (${selectedSkillIds.size})")
+                        }
+                    }
+                }
+            }
+        },
         topBar = {
             TopAppBar(
                 title = {
@@ -114,13 +181,26 @@ fun SkillListScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = { showCreateDialog = true }) {
-                        Icon(Icons.Default.Add, contentDescription = "创建技能")
+                    if (isSelectionMode) {
+                        TextButton(onClick = {
+                            selectedSkillIds = emptySet()
+                            isSelectionMode = false
+                        }) {
+                            Text("取消")
+                        }
                     }
-                    TextButton(onClick = {
-                        importSkillLauncher.launch(arrayOf("application/json"))
-                    }) {
-                        Text("导入")
+                    if (!isSelectionMode) {
+                        IconButton(onClick = { showCreateDialog = true }) {
+                            Icon(Icons.Default.Add, contentDescription = "创建技能")
+                        }
+                        TextButton(onClick = {
+                            importSkillLauncher.launch(arrayOf("application/json"))
+                        }) {
+                            Text("导入")
+                        }
+                        TextButton(onClick = { isSelectionMode = true }) {
+                            Text("选择")
+                        }
                     }
                 }
             )
@@ -150,15 +230,34 @@ fun SkillListScreen(
                     SkillCard(
                         skill = skill,
                         onClick = {
-                            navController.navigate(Screen.skillEdit(skill.id))
+                            if (isSelectionMode) {
+                                selectedSkillIds = if (skill.id in selectedSkillIds) {
+                                    selectedSkillIds - skill.id
+                                } else {
+                                    selectedSkillIds + skill.id
+                                }
+                            } else {
+                                navController.navigate(Screen.skillEdit(skill.id))
+                            }
                         },
-                        onExport = {
-                            skillToExport = skill
-                            val fileName = "skill_${skill.name.take(20).replace(" ", "_")}.json"
-                            exportSkillLauncher.launch(fileName)
+                        onExport = if (isSelectionMode) null else {
+                            {
+                                skillToExport = skill
+                                val fileName = "skills_${skill.name}.json"
+                                exportSkillLauncher.launch(fileName)
+                            }
                         },
-                        onDelete = if (skill.isBuiltin) null else {
+                        onDelete = if (isSelectionMode || skill.isBuiltin) null else {
                             { skillToDelete = skill }
+                        },
+                        isSelected = skill.id in selectedSkillIds,
+                        isSelectionMode = isSelectionMode,
+                        onSelectionChanged = { checked ->
+                            selectedSkillIds = if (checked) {
+                                selectedSkillIds + skill.id
+                            } else {
+                                selectedSkillIds - skill.id
+                            }
                         }
                     )
                 }
@@ -170,7 +269,11 @@ fun SkillListScreen(
         SkillEditDialog(
             onDismiss = { showCreateDialog = false },
             onSave = { name, desc, prompt, avatar, greeting, temp ->
-                viewModel.createSkill(name, desc, prompt, avatar, greeting, temp)
+                viewModel.createSkill(name, desc, prompt, avatar, greeting, temp) { success, msg ->
+                    coroutineScope.launch {
+                        snackbarHostState.showSnackbar(msg)
+                    }
+                }
                 showCreateDialog = false
             }
         )

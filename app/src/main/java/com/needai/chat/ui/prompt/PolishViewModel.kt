@@ -122,7 +122,7 @@ class PolishViewModel @Inject constructor(
         }
     }
 
-    fun createSkill(name: String, description: String, systemPrompt: String, avatar: String, greeting: String, temperature: Double) {
+    fun createSkill(name: String, description: String, systemPrompt: String, avatar: String, greeting: String, temperature: Double, onResult: ((Boolean, String) -> Unit)? = null) {
         viewModelScope.launch {
             val skill = Skill(
                 id = UUID.randomUUID().toString(),
@@ -136,6 +136,7 @@ class PolishViewModel @Inject constructor(
                 isBuiltin = false
             )
             skillRepository.insertSkill(skill)
+            onResult?.invoke(true, "技能「${skill.name}」已创建")
         }
     }
 

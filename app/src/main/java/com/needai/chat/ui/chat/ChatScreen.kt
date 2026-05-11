@@ -9,6 +9,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -21,6 +22,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
+import com.needai.chat.domain.model.ChatSession
 import com.needai.chat.domain.model.Skill
 import com.needai.chat.ui.chat.components.ChatInputBar
 import com.needai.chat.ui.chat.components.HistorySessionSheet
@@ -51,6 +53,7 @@ fun ChatScreen(
     val context = LocalContext.current
     var pendingExportSessionId by remember { mutableStateOf<String?>(null) }
     var showModelTip by remember { mutableStateOf(false) }
+    var sessionToDelete by remember { mutableStateOf<ChatSession?>(null) }
 
     // Launcher for exporting current session
     val exportCurrentLauncher = rememberLauncherForActivityResult(
@@ -201,7 +204,14 @@ fun ChatScreen(
             )
         },
         snackbarHost = {
-            SnackbarHost(hostState = snackbarHostState)
+            SnackbarHost(hostState = snackbarHostState) { data ->
+                Snackbar(
+                    snackbarData = data,
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    shape = MaterialTheme.shapes.medium
+                )
+            }
         }
     ) { innerPadding ->
         if (uiState.messages.isEmpty() && !uiState.isStreaming) {
@@ -273,6 +283,9 @@ fun ChatScreen(
             onSessionSelected = { session ->
                 viewModel.switchToHistorySession(session)
             },
+            onDeleteSession = { session ->
+                sessionToDelete = session
+            },
             onDismiss = { showHistorySession = false }
         )
     }
@@ -295,6 +308,36 @@ fun ChatScreen(
             },
             dismissButton = {
                 TextButton(onClick = { pendingSkill = null }) {
+                    Text("取消")
+                }
+            }
+        )
+    }
+
+    // Delete session confirmation dialog
+    if (sessionToDelete != null) {
+        AlertDialog(
+            onDismissRequest = { sessionToDelete = null },
+            icon = { Icon(Icons.Default.Delete, contentDescription = null) },
+            title = { Text("删除会话") },
+            text = {
+                Text("确定要删除会话「${sessionToDelete!!.title}」吗？此操作不可撤销。")
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.deleteSession(sessionToDelete!!.id)
+                        sessionToDelete = null
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error
+                    )
+                ) {
+                    Text("删除")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { sessionToDelete = null }) {
                     Text("取消")
                 }
             }

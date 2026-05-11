@@ -70,3 +70,6 @@ screenshot.png
 
 #claude
 .claude
+
+# Config with sensitive keys
+app/src/main/assets/model_config.json

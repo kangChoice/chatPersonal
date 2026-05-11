@@ -19,6 +19,9 @@ fun SkillCard(
     onClick: () -> Unit,
     onDelete: (() -> Unit)? = null,
     onExport: (() -> Unit)? = null,
+    isSelected: Boolean = false,
+    isSelectionMode: Boolean = false,
+    onSelectionChanged: ((Boolean) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     Card(
@@ -33,6 +36,13 @@ fun SkillCard(
                 .padding(start = 16.dp, end = 4.dp, top = 8.dp, bottom = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            if (isSelectionMode) {
+                Checkbox(
+                    checked = isSelected,
+                    onCheckedChange = onSelectionChanged,
+                    modifier = Modifier.padding(end = 8.dp)
+                )
+            }
             Text(
                 text = skill.avatar,
                 style = MaterialTheme.typography.headlineMedium,

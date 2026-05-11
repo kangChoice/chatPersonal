@@ -77,6 +77,28 @@ object ExportUtils {
         return json.toString(2)
     }
 
+    fun generateSkillsJson(skills: List<Skill>): String {
+        val arr = org.json.JSONArray()
+        for (skill in skills) {
+            val json = JSONObject()
+            json.put("id", skill.id)
+            json.put("name", skill.name)
+            json.put("description", skill.description)
+            json.put("avatar", skill.avatar)
+            json.put("systemPrompt", skill.systemPrompt)
+            json.put("greeting", skill.greeting)
+            json.put("temperature", skill.temperature)
+            json.put("tags", JSONObject.wrap(skill.tags))
+            json.put("isBuiltin", skill.isBuiltin)
+            arr.put(json)
+        }
+        val root = JSONObject()
+        root.put("version", 1)
+        root.put("type", "skills_export")
+        root.put("skills", arr)
+        return root.toString(2)
+    }
+
     fun writeToUri(context: Context, uri: Uri, content: String): Boolean {
         return try {
             context.contentResolver.openOutputStream(uri)?.use { outputStream ->

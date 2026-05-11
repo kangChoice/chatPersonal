@@ -44,7 +44,16 @@ fun PolishScreen(
                 }
             )
         },
-        snackbarHost = { SnackbarHost(snackbarHostState) },
+        snackbarHost = {
+            SnackbarHost(snackbarHostState) { data ->
+                Snackbar(
+                    snackbarData = data,
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    shape = MaterialTheme.shapes.medium
+                )
+            }
+        },
         floatingActionButton = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 SmallFloatingActionButton(
@@ -203,7 +212,11 @@ fun PolishScreen(
             ),
             onDismiss = { showCreateDialog = false },
             onSave = { name, desc, prompt, avatar, greeting, temp ->
-                viewModel.createSkill(name, desc, prompt, avatar, greeting, temp)
+                viewModel.createSkill(name, desc, prompt, avatar, greeting, temp) { success, msg ->
+                    coroutineScope.launch {
+                        snackbarHostState.showSnackbar(msg)
+                    }
+                }
                 showCreateDialog = false
             }
         )

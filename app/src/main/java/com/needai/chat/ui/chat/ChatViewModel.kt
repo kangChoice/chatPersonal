@@ -337,6 +337,12 @@ class ChatViewModel @Inject constructor(
         )
     }
 
+    fun deleteSession(sessionId: String) {
+        viewModelScope.launch {
+            sessionRepository.deleteSession(sessionId)
+        }
+    }
+
     fun dismissError() {
         _uiState.update { it.copy(error = null) }
     }

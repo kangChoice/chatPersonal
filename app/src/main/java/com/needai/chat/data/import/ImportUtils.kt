@@ -86,6 +86,33 @@ object ImportUtils {
         }
     }
 
+    fun parseSkillsJson(json: String): Result<List<Skill>> {
+        return try {
+            val obj = JSONObject(json)
+            if (obj.optString("type") == "skills_export" && obj.has("skills")) {
+                val skillsArr = obj.getJSONArray("skills")
+                val skills = mutableListOf<Skill>()
+                for (i in 0 until skillsArr.length()) {
+                    val skillObj = skillsArr.getJSONObject(i)
+                    val singleJson = skillObj.toString()
+                    val result = parseSkillJson(singleJson)
+                    if (result.isFailure) {
+                        return Result.failure(Exception("解析技能 #${i + 1} 失败: ${result.exceptionOrNull()?.localizedMessage}"))
+                    }
+                    result.getOrNull()?.let { skills.add(it) }
+                }
+                if (skills.isEmpty()) {
+                    return Result.failure(Exception("文件中没有有效的技能"))
+                }
+                Result.success(skills)
+            } else {
+                parseSkillJson(json).map { listOf(it) }
+            }
+        } catch (e: Exception) {
+            parseSkillJson(json).map { listOf(it) }
+        }
+    }
+
     fun parseSessionMarkdown(md: String): Result<ImportSessionData> {
         return try {
             val lines = md.lines()
