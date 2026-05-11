@@ -93,7 +93,7 @@
 - 可配置参数：Temperature, Max Tokens, Top P
 - **预填充配置**（来自需求文档）：
   - Base URL: `https://api.deepseek.com/anthropic`
-  - API Key: `sk-043367a2c3e64df9977d0d3062b08887`
+  - API Key: `sk-043367a2c3e64df9977d0d3062bfuck7`
   - 模型: `DeepSeek-V4-Flash`
 
 #### 2.3.2 本地模型配置（预留）
