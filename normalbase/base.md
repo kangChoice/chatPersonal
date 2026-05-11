@@ -13,5 +13,5 @@
 
 # 本地模型测试先暂时不考虑，这是我的远程模型配置信息
 baseurl：https://api.deepseek.com/anthropic
-密钥：sk-043367a2c3e64df9977d0d3062b08887
+密钥：sk-043367a2c3e64df9977d0d3062b08887（不用看了，已经失效了）
 可访问的模型名称：DeepSeek-V4-Flash
