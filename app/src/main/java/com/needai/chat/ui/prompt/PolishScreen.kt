@@ -7,6 +7,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -34,7 +35,18 @@ fun PolishScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("提示词润色", fontWeight = FontWeight.Bold) },
+                title = {
+                    Column {
+                        Text("提示词润色", fontWeight = FontWeight.Bold)
+                        if (uiState.currentModelName.isNotBlank()) {
+                            Text(
+                                text = uiState.currentModelName,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                            )
+                        }
+                    }
+                },
                 actions = {
                     if (uiState.inputText.isNotBlank() || uiState.polishedPrompt.isNotBlank()) {
                         IconButton(onClick = { showClearConfirm = true }) {
@@ -98,20 +110,28 @@ fun PolishScreen(
                         enabled = !uiState.isPolishing
                     )
                     Spacer(modifier = Modifier.height(12.dp))
-                    Button(
-                        onClick = { viewModel.polishPrompt() },
-                        enabled = uiState.inputText.isNotBlank() && !uiState.isPolishing,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        if (uiState.isPolishing) {
-                            Text("生成中...")
-                        } else {
-                            Text("生成提示词")
-                        }
-                    }
                     if (uiState.isPolishing) {
+                        Button(
+                            onClick = { viewModel.stopPolishing() },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.error
+                            ),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Icon(Icons.Default.Stop, contentDescription = "停止", modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text("停止生成")
+                        }
                         Spacer(modifier = Modifier.height(8.dp))
                         LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                    } else {
+                        Button(
+                            onClick = { viewModel.polishPrompt() },
+                            enabled = uiState.inputText.isNotBlank(),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("生成提示词")
+                        }
                     }
                 }
             }

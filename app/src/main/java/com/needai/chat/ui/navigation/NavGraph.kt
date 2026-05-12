@@ -1,13 +1,12 @@
 package com.needai.chat.ui.navigation
 
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Forum
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -26,6 +25,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.needai.chat.ui.chat.ChatScreen
+import com.needai.chat.ui.multichat.MultiChatScreen
 import com.needai.chat.ui.onboarding.OnboardingOverlay
 import com.needai.chat.ui.settings.SettingsScreen
 import com.needai.chat.ui.skills.SkillEditScreen
@@ -35,6 +35,7 @@ import com.needai.chat.ui.stats.StatsScreen
 
 sealed class Screen(val route: String, val title: String, val icon: ImageVector? = null) {
     data object Chat : Screen("chat", "聊天", Icons.Default.Chat)
+    data object MultiChat : Screen("multi_chat", "群聊", Icons.Default.Forum)
     data object SkillList : Screen("skill_list", "技能", Icons.Default.AutoAwesome)
     data object PromptPolish : Screen("prompt_polish", "提示词", Icons.Default.Edit)
     data object Stats : Screen("stats", "统计", Icons.Default.BarChart)
@@ -46,7 +47,7 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector?
     }
 }
 
-val bottomNavItems = listOf(Screen.Chat, Screen.SkillList, Screen.PromptPolish, Screen.Settings)
+val bottomNavItems = listOf(Screen.Chat, Screen.MultiChat, Screen.SkillList, Screen.PromptPolish, Screen.Settings)
 
 private val onboardingRoutes = listOf(
     Screen.Chat.route,          // step 0
@@ -108,38 +109,46 @@ fun MainScreen() {
                 }
             }
         ) { innerPadding ->
-            NavHost(
-                navController = navController,
-                startDestination = Screen.Chat.route,
-                modifier = Modifier.padding(innerPadding)
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding)
             ) {
-                composable(Screen.Chat.route) {
-                    ChatScreen(navController = navController)
-                }
-                composable(Screen.SkillList.route) {
-                    SkillListScreen(navController = navController)
-                }
-                composable(Screen.PromptPolish.route) {
-                    PolishScreen()
-                }
-                composable(Screen.Stats.route) {
-                    StatsScreen()
-                }
-                composable(Screen.SkillEdit.route) { backStackEntry ->
-                    val skillId = backStackEntry.arguments?.getString("skillId") ?: ""
-                    SkillEditScreen(
-                        skillId = skillId,
-                        onNavigateBack = { navController.popBackStack() }
-                    )
-                }
-                composable(Screen.Settings.route) {
-                    SettingsScreen(
-                        navController = navController,
-                        onStartOnboarding = {
-                            onboardingStep = 0
-                            showOnboarding = true
-                        }
-                    )
+                NavHost(
+                    navController = navController,
+                    startDestination = Screen.Chat.route
+                ) {
+                    composable(Screen.Chat.route) {
+                        ChatScreen(navController = navController)
+                    }
+                    composable(Screen.MultiChat.route) {
+                        MultiChatScreen()
+                    }
+                    composable(Screen.SkillList.route) {
+                        SkillListScreen(navController = navController)
+                    }
+                    composable(Screen.PromptPolish.route) {
+                        PolishScreen()
+                    }
+                    composable(Screen.Stats.route) {
+                        StatsScreen()
+                    }
+                    composable(Screen.SkillEdit.route) { backStackEntry ->
+                        val skillId = backStackEntry.arguments?.getString("skillId") ?: ""
+                        SkillEditScreen(
+                            skillId = skillId,
+                            onNavigateBack = { navController.popBackStack() }
+                        )
+                    }
+                    composable(Screen.Settings.route) {
+                        SettingsScreen(
+                            navController = navController,
+                            onStartOnboarding = {
+                                onboardingStep = 0
+                                showOnboarding = true
+                            }
+                        )
+                    }
                 }
             }
         }
@@ -158,4 +167,5 @@ fun MainScreen() {
             )
         }
     }
+
 }

@@ -30,6 +30,7 @@ import com.needai.chat.ui.chat.components.MessageBubble
 import com.needai.chat.ui.chat.components.SkillSelectorSheet
 import com.needai.chat.ui.chat.components.StreamingBubble
 import com.needai.chat.ui.chat.state.ChatUiState
+import com.needai.chat.util.TtsManager
 import com.needai.chat.ui.navigation.Screen
 import java.text.SimpleDateFormat
 import java.util.*
@@ -54,6 +55,18 @@ fun ChatScreen(
     var pendingExportSessionId by remember { mutableStateOf<String?>(null) }
     var showModelTip by remember { mutableStateOf(false) }
     var sessionToDelete by remember { mutableStateOf<ChatSession?>(null) }
+    var speakingMessageId by remember { mutableStateOf<Long?>(null) }
+    val ttsManager = remember { TtsManager(context) }
+
+    LaunchedEffect(ttsManager) {
+        ttsManager.onDone = {
+            speakingMessageId = null
+        }
+    }
+
+    DisposableEffect(Unit) {
+        onDispose { ttsManager.shutdown() }
+    }
 
     // Launcher for exporting current session
     val exportCurrentLauncher = rememberLauncherForActivityResult(
@@ -246,7 +259,19 @@ fun ChatScreen(
                     items = uiState.messages.filter { it.role != com.needai.chat.domain.model.MessageRole.SYSTEM },
                     key = { it.id }
                 ) { message ->
-                    MessageBubble(message = message)
+                    MessageBubble(
+                        message = message,
+                        onSpeak = {
+                            if (speakingMessageId == message.id) {
+                                ttsManager.stop()
+                                speakingMessageId = null
+                            } else {
+                                ttsManager.speak(message.content)
+                                speakingMessageId = message.id
+                            }
+                        },
+                        isSpeaking = speakingMessageId == message.id
+                    )
                 }
 
                 if (uiState.isStreaming && uiState.currentStreamingMessage.isNotEmpty()) {

@@ -73,3 +73,6 @@ screenshot.png
 
 # Config with sensitive keys
 app/src/main/assets/model_config.json
+
+
+normalbase/

@@ -7,6 +7,8 @@ import androidx.room.PrimaryKey
 data class SessionEntity(
     @PrimaryKey val id: String,
     val skillId: String,
+    val type: String = "single",
+    val skillIds: String? = null,
     val title: String,
     val createdAt: Long,
     val updatedAt: Long

@@ -3,6 +3,11 @@ package com.needai.chat.ui.chat.components
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.VolumeUp
+import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -18,7 +23,9 @@ import com.needai.chat.domain.model.MessageRole
 fun MessageBubble(
     message: Message,
     modifier: Modifier = Modifier,
-    fontSize: Float = 16f
+    fontSize: Float = 16f,
+    onSpeak: (() -> Unit)? = null,
+    isSpeaking: Boolean = false
 ) {
     val isUser = message.role == MessageRole.USER
     val bubbleColor = if (isUser) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant
@@ -58,6 +65,19 @@ fun MessageBubble(
                 color = textColor,
                 style = MaterialTheme.typography.bodyLarge.copy(fontSize = fontSize.sp)
             )
+        }
+        if (!isUser && onSpeak != null) {
+            IconButton(
+                onClick = onSpeak,
+                modifier = Modifier.size(32.dp)
+            ) {
+                Icon(
+                    imageVector = if (isSpeaking) Icons.Default.Stop else Icons.AutoMirrored.Filled.VolumeUp,
+                    contentDescription = if (isSpeaking) "停止朗读" else "朗读",
+                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                    modifier = Modifier.size(18.dp)
+                )
+            }
         }
     }
 }

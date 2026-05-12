@@ -9,6 +9,7 @@ import com.needai.chat.domain.repository.ModelConfigRepository
 import com.needai.chat.domain.repository.SkillRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -23,7 +24,8 @@ data class PolishUiState(
     val polishedPrompt: String = "",
     val isPolishing: Boolean = false,
     val charCount: Int = 0,
-    val error: String? = null
+    val error: String? = null,
+    val currentModelName: String = ""
 )
 
 @HiltViewModel
@@ -35,6 +37,16 @@ class PolishViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(PolishUiState())
     val uiState: StateFlow<PolishUiState> = _uiState.asStateFlow()
 
+    private var polishingJob: Job? = null
+
+    init {
+        viewModelScope.launch {
+            modelConfigRepository.getModelConfig().collect { config ->
+                _uiState.update { it.copy(currentModelName = config.remoteModelName) }
+            }
+        }
+    }
+
     fun setInputText(text: String) {
         _uiState.update { it.copy(inputText = text, error = null) }
     }
@@ -45,7 +57,7 @@ class PolishViewModel @Inject constructor(
 
         _uiState.update { it.copy(isPolishing = true, polishedPrompt = "", charCount = 0, error = null) }
 
-        viewModelScope.launch {
+        polishingJob = viewModelScope.launch {
             val config = modelConfigRepository.getModelConfig().first()
             if (config.remoteBaseUrl.isBlank() || config.remoteApiKey.isBlank()) {
                 _uiState.update {
@@ -120,6 +132,12 @@ class PolishViewModel @Inject constructor(
                 }
             }
         }
+    }
+
+    fun stopPolishing() {
+        polishingJob?.cancel()
+        polishingJob = null
+        _uiState.update { it.copy(isPolishing = false) }
     }
 
     fun createSkill(name: String, description: String, systemPrompt: String, avatar: String, greeting: String, temperature: Double, onResult: ((Boolean, String) -> Unit)? = null) {
