@@ -6,6 +6,10 @@ plugins {
     alias(libs.plugins.kotlin.parcelize)
 }
 
+base {
+    archivesName.set("NeedAIChat")
+}
+
 android {
     namespace = "com.needai.chat"
     compileSdk = 36
@@ -29,6 +33,7 @@ android {
             )
         }
     }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17

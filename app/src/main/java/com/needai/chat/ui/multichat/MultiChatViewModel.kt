@@ -208,19 +208,22 @@ class MultiChatViewModel @Inject constructor(
 
                 _uiState.update { it.copy(currentRespondingSkill = skill, currentStreamingContent = "") }
 
-                // Build context — priority order:
-                // 1. user message (highest priority — core task)
-                // 2. multiPrompt (system) — group scene, determines whether to rebut/agree
-                // 3. skill's own systemPrompt — character definition for answering user
-                // 4. other skills' replies (lowest priority, for optional reaction)
+                // 按群聊策略文档: Skills-1 直接回答, Skills-X (X>=2) 需评鉴所有前置+回答用户
+                val isFirstResponder = allReplies.isEmpty()
                 val contextInstruction = buildString {
                     appendLine("你当前扮演的角色是「${skill.name}」，正在参与一场群聊。")
-                    appendLine("其他角色的发言会标注【角色名】。")
-                    appendLine()
-                    appendLine("【互动规则】")
-                    appendLine("1. 你可以根据群聊主题决定是否反驳或赞同其他角色的发言。")
-                    appendLine("2. 表达完对其他角色发言的看法后，你必须以「${skill.name}」的身份回答用户的问题。")
-                    appendLine("3. 回答用户的问题是你的核心任务——不要只顾着和其他角色互动而忽略了用户。")
+                    if (!isFirstResponder) {
+                        appendLine("其他角色的发言已用【角色名】标注。")
+                        appendLine()
+                        appendLine("【回复要求】")
+                        appendLine("1. 根据群聊背景提示词设定的互动氛围，对所有前置角色的发言做出评价")
+                        appendLine("2. 评价完毕后，回归「${skill.name}」自身的角色设定，回答用户的问题")
+                        appendLine()
+                        appendLine("【输出格式】")
+                        appendLine("【${skill.name}】回复：对前置角色们的评价 + 作为「${skill.name}」对用户问题的回答")
+                    } else {
+                        appendLine("作为第一个回复的角色，请直接以「${skill.name}」的身份回答用户的问题。")
+                    }
                 }
                 val chatMessages = mutableListOf(
                     ChatMessage("system", multiPrompt),
