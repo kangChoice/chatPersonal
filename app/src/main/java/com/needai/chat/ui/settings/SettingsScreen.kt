@@ -388,6 +388,9 @@ fun SettingsScreen(
             onSave = { newConfig ->
                 viewModel.updateConfig(newConfig)
                 showGenParamsDialog = false
+            },
+            onPreviewChanged = { preview ->
+                viewModel.updateModelConfig(preview)
             }
         )
     }

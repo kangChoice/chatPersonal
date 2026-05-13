@@ -154,7 +154,13 @@ fun SkillEditScreen(
                 label = { Text("温度 (0.0 - 2.0)") },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
-                enabled = !isBuiltin
+                enabled = !isBuiltin,
+                isError = temperature.isNotEmpty() && temperature.toDoubleOrNull() == null,
+                supportingText = {
+                    if (temperature.isNotEmpty() && temperature.toDoubleOrNull() == null) {
+                        Text("请输入有效数字")
+                    }
+                }
             )
 
             Spacer(modifier = Modifier.weight(1f))
@@ -162,7 +168,7 @@ fun SkillEditScreen(
             Button(
                 onClick = {
                     if (name.isNotBlank() && systemPrompt.isNotBlank()) {
-                        val temp = temperature.toDoubleOrNull() ?: 0.7
+                        val temp = (temperature.toDoubleOrNull() ?: 0.7).coerceIn(0.0, 2.0)
                         if (isNew) {
                             viewModel.createSkill(name, description, systemPrompt, avatar, greeting, temp)
                         } else if (existingSkill != null && !isBuiltin) {

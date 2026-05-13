@@ -11,12 +11,29 @@ import androidx.compose.ui.unit.dp
 import com.needai.chat.domain.model.ModelConfig
 import com.needai.chat.domain.model.ModelType
 
+private const val TEMP_MIN = 0.0
+private const val TEMP_MAX = 2.0
+private const val TOKENS_MIN = 1
+private const val TOKENS_MAX = 128000
+private const val TOP_P_MIN = 0.0
+private const val TOP_P_MAX = 1.0
+
 @Composable
 fun ModelConfigForm(
     config: ModelConfig,
     onConfigChanged: (ModelConfig) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    // Local text state to avoid snap-back during typing
+    var tempText by remember { mutableStateOf(config.temperature.toString()) }
+    var tokensText by remember { mutableStateOf(config.maxTokens.toString()) }
+    var topPText by remember { mutableStateOf(config.topP.toString()) }
+
+    // Sync from external config changes
+    LaunchedEffect(config.temperature) { tempText = config.temperature.toString() }
+    LaunchedEffect(config.maxTokens) { tokensText = config.maxTokens.toString() }
+    LaunchedEffect(config.topP) { topPText = config.topP.toString() }
+
     Column(
         modifier = modifier
             .fillMaxWidth()
@@ -93,33 +110,72 @@ fun ModelConfigForm(
         Text("生成参数", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
 
         OutlinedTextField(
-            value = config.temperature.toString(),
+            value = tempText,
             onValueChange = { value ->
-                value.toDoubleOrNull()?.let { onConfigChanged(config.copy(temperature = it)) }
+                tempText = value
+                value.toDoubleOrNull()?.let { v ->
+                    val clamped = v.coerceIn(TEMP_MIN, TEMP_MAX)
+                    onConfigChanged(config.copy(temperature = clamped))
+                }
             },
             label = { Text("Temperature (0.0 - 2.0)") },
             singleLine = true,
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
+            isError = tempText.isNotEmpty() && tempText.toDoubleOrNull() == null,
+            supportingText = {
+                val value = tempText.toDoubleOrNull()
+                if (value != null && (value < TEMP_MIN || value > TEMP_MAX)) {
+                    Text("超出范围，已自动限制到 ${TEMP_MIN}-${TEMP_MAX}")
+                } else if (value == null && tempText.isNotEmpty()) {
+                    Text("请输入有效数字")
+                }
+            }
         )
 
         OutlinedTextField(
-            value = config.maxTokens.toString(),
+            value = tokensText,
             onValueChange = { value ->
-                value.toIntOrNull()?.let { onConfigChanged(config.copy(maxTokens = it)) }
+                tokensText = value
+                value.toIntOrNull()?.let { v ->
+                    val clamped = v.coerceIn(TOKENS_MIN, TOKENS_MAX)
+                    onConfigChanged(config.copy(maxTokens = clamped))
+                }
             },
-            label = { Text("Max Tokens") },
+            label = { Text("Max Tokens ($TOKENS_MIN - $TOKENS_MAX)") },
             singleLine = true,
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
+            isError = tokensText.isNotEmpty() && tokensText.toIntOrNull() == null,
+            supportingText = {
+                val value = tokensText.toIntOrNull()
+                if (value != null && (value < TOKENS_MIN || value > TOKENS_MAX)) {
+                    Text("超出范围，已自动限制到 $TOKENS_MIN-$TOKENS_MAX")
+                } else if (value == null && tokensText.isNotEmpty()) {
+                    Text("请输入有效整数")
+                }
+            }
         )
 
         OutlinedTextField(
-            value = config.topP.toString(),
+            value = topPText,
             onValueChange = { value ->
-                value.toDoubleOrNull()?.let { onConfigChanged(config.copy(topP = it)) }
+                topPText = value
+                value.toDoubleOrNull()?.let { v ->
+                    val clamped = v.coerceIn(TOP_P_MIN, TOP_P_MAX)
+                    onConfigChanged(config.copy(topP = clamped))
+                }
             },
-            label = { Text("Top P") },
+            label = { Text("Top P ($TOP_P_MIN - $TOP_P_MAX)") },
             singleLine = true,
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
+            isError = topPText.isNotEmpty() && topPText.toDoubleOrNull() == null,
+            supportingText = {
+                val value = topPText.toDoubleOrNull()
+                if (value != null && (value < TOP_P_MIN || value > TOP_P_MAX)) {
+                    Text("超出范围，已自动限制到 $TOP_P_MIN-$TOP_P_MAX")
+                } else if (value == null && topPText.isNotEmpty()) {
+                    Text("请输入有效数字")
+                }
+            }
         )
     }
 }
