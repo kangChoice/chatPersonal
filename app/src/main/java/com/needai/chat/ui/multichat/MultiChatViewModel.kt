@@ -213,14 +213,15 @@ class MultiChatViewModel @Inject constructor(
                 val contextInstruction = buildString {
                     appendLine("你当前扮演的角色是「${skill.name}」，正在参与一场群聊。")
                     if (!isFirstResponder) {
+                        val prevSkillNames = allReplies.joinToString("") { "【${it.first.name}】" }
                         appendLine("其他角色的发言已用【角色名】标注。")
                         appendLine()
                         appendLine("【回复要求】")
-                        appendLine("1. 根据群聊背景提示词设定的互动氛围，对所有前置角色的发言做出评价")
+                        appendLine("1. 根据群聊背景提示词设定的互动氛围，必须依次对每一位前置角色${prevSkillNames}的发言做出评价，不可遗漏")
                         appendLine("2. 评价完毕后，回归「${skill.name}」自身的角色设定，回答用户的问题")
                         appendLine()
                         appendLine("【输出格式】")
-                        appendLine("【${skill.name}】回复：对前置角色们的评价 + 作为「${skill.name}」对用户问题的回答")
+                        appendLine("【${skill.name}】回复：对${prevSkillNames}的评价 + 作为「${skill.name}」对用户问题的回答")
                     } else {
                         appendLine("作为第一个回复的角色，请直接以「${skill.name}」的身份回答用户的问题。")
                     }
