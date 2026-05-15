@@ -1,5 +1,6 @@
 package com.needai.chat.data.repository
 
+import com.needai.chat.data.local.db.dao.TokenTotals
 import com.needai.chat.domain.model.Message
 import com.needai.chat.domain.repository.ChatRepository
 import kotlinx.coroutines.flow.Flow
@@ -30,6 +31,12 @@ class FakeChatRepository : ChatRepository {
         }
     }
 
+    override suspend fun updateMessageTokenUsage(messageId: Long, promptTokens: Int?, completionTokens: Int?, totalTokens: Int?) {
+        _messages.value = _messages.value.map {
+            if (it.id == messageId) it.copy(promptTokens = promptTokens, completionTokens = completionTokens, totalTokens = totalTokens) else it
+        }
+    }
+
     override suspend fun clearSession(sessionId: String) {
         _messages.value = _messages.value.filter { it.sessionId != sessionId }
     }
@@ -39,5 +46,17 @@ class FakeChatRepository : ChatRepository {
     override suspend fun createNewSession(): String {
         _currentSessionId = UUID.randomUUID().toString()
         return _currentSessionId
+    }
+
+    override suspend fun getTokenTotalsBySession(sessionId: String): TokenTotals {
+        return TokenTotals(0, 0, 0)
+    }
+
+    override suspend fun getTokenTotalsByModelConfig(modelConfigId: String): TokenTotals {
+        return TokenTotals(0, 0, 0)
+    }
+
+    override suspend fun getTokenTotalsByTimeRange(startTime: Long, endTime: Long): TokenTotals {
+        return TokenTotals(0, 0, 0)
     }
 }

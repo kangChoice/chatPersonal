@@ -3,6 +3,9 @@ package com.needai.chat.ui.multichat.components
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.VolumeUp
+import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -17,7 +20,9 @@ import com.needai.chat.ui.multichat.MultiChatMessage
 @Composable
 fun MultiChatMessageBubble(
     message: MultiChatMessage,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onSpeak: (() -> Unit)? = null,
+    isSpeaking: Boolean = false
 ) {
     when (message.role) {
         MessageRole.USER -> {
@@ -89,6 +94,21 @@ fun MultiChatMessageBubble(
                             modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+
+                // Speak button
+                if (onSpeak != null) {
+                    IconButton(
+                        onClick = onSpeak,
+                        modifier = Modifier.size(32.dp)
+                    ) {
+                        Icon(
+                            imageVector = if (isSpeaking) Icons.Default.Stop else Icons.AutoMirrored.Filled.VolumeUp,
+                            contentDescription = if (isSpeaking) "停止朗读" else "朗读",
+                            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                            modifier = Modifier.size(18.dp)
                         )
                     }
                 }

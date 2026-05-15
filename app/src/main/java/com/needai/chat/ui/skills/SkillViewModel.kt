@@ -3,7 +3,9 @@ package com.needai.chat.ui.skills
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.needai.chat.domain.model.Skill
+import com.needai.chat.domain.model.VoiceInfo
 import com.needai.chat.domain.repository.SkillRepository
+import com.needai.chat.domain.repository.VoiceRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -11,11 +13,15 @@ import javax.inject.Inject
 
 @HiltViewModel
 class SkillViewModel @Inject constructor(
-    private val skillRepository: SkillRepository
+    private val skillRepository: SkillRepository,
+    private val voiceRepository: VoiceRepository
 ) : ViewModel() {
 
     private val _skills = MutableStateFlow<List<Skill>>(emptyList())
     val skills: StateFlow<List<Skill>> = _skills.asStateFlow()
+
+    private val _customVoices = MutableStateFlow<List<VoiceInfo>>(emptyList())
+    val customVoices: StateFlow<List<VoiceInfo>> = _customVoices.asStateFlow()
 
     private val _selectedSkillId = MutableStateFlow("default")
     val selectedSkillId: StateFlow<String> = _selectedSkillId.asStateFlow()
@@ -29,9 +35,14 @@ class SkillViewModel @Inject constructor(
         viewModelScope.launch {
             _selectedSkillId.value = skillRepository.getSelectedSkillId()
         }
+        viewModelScope.launch {
+            voiceRepository.getVoices().let { voices ->
+                _customVoices.value = voices
+            }
+        }
     }
 
-    fun createSkill(name: String, description: String, systemPrompt: String, avatar: String, greeting: String, temperature: Double, onResult: ((Boolean, String) -> Unit)? = null) {
+    fun createSkill(name: String, description: String, systemPrompt: String, avatar: String, greeting: String, temperature: Double, voiceId: String = "", onResult: ((Boolean, String) -> Unit)? = null) {
         val skill = Skill(
             id = java.util.UUID.randomUUID().toString(),
             name = name,
@@ -41,7 +52,8 @@ class SkillViewModel @Inject constructor(
             greeting = greeting,
             temperature = temperature,
             tags = listOf("custom"),
-            isBuiltin = false
+            isBuiltin = false,
+            voiceId = voiceId
         )
         viewModelScope.launch {
             skillRepository.insertSkill(skill)

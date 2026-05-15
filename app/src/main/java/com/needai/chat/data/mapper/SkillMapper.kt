@@ -24,7 +24,8 @@ object SkillMapper {
             greeting = entity.greeting,
             temperature = entity.temperature,
             tags = tags,
-            isBuiltin = entity.isBuiltin
+            isBuiltin = entity.isBuiltin,
+            voiceId = entity.voiceId
         )
     }
 
@@ -39,6 +40,7 @@ object SkillMapper {
             temperature = skill.temperature,
             tags = gson.toJson(skill.tags),
             isBuiltin = skill.isBuiltin,
+            voiceId = skill.voiceId,
             createdAt = System.currentTimeMillis(),
             updatedAt = System.currentTimeMillis()
         )

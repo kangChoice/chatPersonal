@@ -101,4 +101,48 @@ class SettingsViewModel @Inject constructor(
             settingsDataStore.setDarkMode(enabled)
         }
     }
+
+    // ===== TTS 配置 =====
+
+    val ttsProvider: StateFlow<String> = settingsDataStore.ttsProvider
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "system")
+    val ttsApiKey: StateFlow<String> = settingsDataStore.ttsApiKey
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "")
+    val ttsModel: StateFlow<String> = settingsDataStore.ttsModel
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "cosyvoice-v3.5-flash")
+    val ttsVoice: StateFlow<String> = settingsDataStore.ttsVoice
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "")
+    val ttsVolume: StateFlow<Int> = settingsDataStore.ttsVolume
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 50)
+    val ttsRate: StateFlow<Float> = settingsDataStore.ttsRate
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 1.0f)
+    val ttsPitch: StateFlow<Float> = settingsDataStore.ttsPitch
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 1.0f)
+    val ttsAutoRead: StateFlow<Boolean> = settingsDataStore.ttsAutoRead
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
+    fun setTtsProvider(provider: String) {
+        viewModelScope.launch { settingsDataStore.setTtsProvider(provider) }
+    }
+    fun setTtsApiKey(key: String) {
+        viewModelScope.launch { settingsDataStore.setTtsApiKey(key) }
+    }
+    fun setTtsModel(model: String) {
+        viewModelScope.launch { settingsDataStore.setTtsModel(model) }
+    }
+    fun setTtsVoice(voice: String) {
+        viewModelScope.launch { settingsDataStore.setTtsVoice(voice) }
+    }
+    fun setTtsVolume(volume: Int) {
+        viewModelScope.launch { settingsDataStore.setTtsVolume(volume) }
+    }
+    fun setTtsRate(rate: Float) {
+        viewModelScope.launch { settingsDataStore.setTtsRate(rate) }
+    }
+    fun setTtsPitch(pitch: Float) {
+        viewModelScope.launch { settingsDataStore.setTtsPitch(pitch) }
+    }
+    fun setTtsAutoRead(enabled: Boolean) {
+        viewModelScope.launch { settingsDataStore.setTtsAutoRead(enabled) }
+    }
 }

@@ -32,6 +32,7 @@ import com.needai.chat.ui.skills.SkillEditScreen
 import com.needai.chat.ui.skills.SkillListScreen
 import com.needai.chat.ui.prompt.PolishScreen
 import com.needai.chat.ui.stats.StatsScreen
+import com.needai.chat.ui.voice.VoiceListScreen
 
 sealed class Screen(val route: String, val title: String, val icon: ImageVector? = null) {
     data object Chat : Screen("chat", "聊天", Icons.Default.Chat)
@@ -40,6 +41,7 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector?
     data object PromptPolish : Screen("prompt_polish", "提示词", Icons.Default.Edit)
     data object Stats : Screen("stats", "统计", Icons.Default.BarChart)
     data object SkillEdit : Screen("skill_edit/{skillId}", "编辑技能")
+    data object VoiceManagement : Screen("voice_management", "音色管理")
     data object Settings : Screen("settings", "设置", Icons.Default.Settings)
 
     companion object {
@@ -137,6 +139,11 @@ fun MainScreen() {
                         val skillId = backStackEntry.arguments?.getString("skillId") ?: ""
                         SkillEditScreen(
                             skillId = skillId,
+                            onNavigateBack = { navController.popBackStack() }
+                        )
+                    }
+                    composable(Screen.VoiceManagement.route) {
+                        VoiceListScreen(
                             onNavigateBack = { navController.popBackStack() }
                         )
                     }

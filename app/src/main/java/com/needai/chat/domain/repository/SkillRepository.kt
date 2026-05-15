@@ -5,6 +5,7 @@ import kotlinx.coroutines.flow.Flow
 
 interface SkillRepository {
     fun getAllSkills(): Flow<List<Skill>>
+    fun selectedSkillIdFlow(): Flow<String>
     suspend fun getSkillById(id: String): Skill?
     suspend fun insertSkill(skill: Skill)
     suspend fun updateSkill(skill: Skill)

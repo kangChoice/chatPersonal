@@ -2,6 +2,7 @@ package com.needai.chat.ui.chat
 
 import com.needai.chat.data.repository.FakeChatRepository
 import com.needai.chat.data.repository.FakeModelConfigRepository
+import com.needai.chat.data.repository.FakeSessionRepository
 import com.needai.chat.data.repository.FakeSkillRepository
 import com.needai.chat.domain.model.Skill
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -20,6 +21,7 @@ class ChatViewModelTest {
     private val fakeChatRepository = FakeChatRepository()
     private val fakeSkillRepository = FakeSkillRepository()
     private val fakeModelConfigRepository = FakeModelConfigRepository()
+    private val fakeSessionRepository = FakeSessionRepository()
 
     private lateinit var viewModel: ChatViewModel
 
@@ -42,7 +44,8 @@ class ChatViewModelTest {
         viewModel = ChatViewModel(
             chatRepository = fakeChatRepository,
             skillRepository = fakeSkillRepository,
-            modelConfigRepository = fakeModelConfigRepository
+            modelConfigRepository = fakeModelConfigRepository,
+            sessionRepository = fakeSessionRepository
         )
     }
 

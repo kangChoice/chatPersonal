@@ -15,5 +15,6 @@ data class SkillEntity(
     val tags: String,
     val isBuiltin: Boolean,
     val createdAt: Long,
-    val updatedAt: Long
+    val updatedAt: Long,
+    val voiceId: String = ""
 )

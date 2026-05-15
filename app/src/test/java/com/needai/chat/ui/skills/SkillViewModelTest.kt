@@ -81,19 +81,21 @@ class SkillViewModelTest {
 
     @Test
     fun `deleteSkill should remove custom skill`() = runTest {
-        val customId = viewModel.createSkill(
+        viewModel.createSkill(
             name = "待删除",
             description = "即将被删除",
             systemPrompt = "test",
             avatar = "🗑️",
             greeting = "bye",
             temperature = 0.5
-        ).id
+        )
         advanceUntilIdle()
 
         assertEquals(2, viewModel.skills.value.size)
+        val customSkill = viewModel.skills.value.find { !it.isBuiltin }
+        assertNotNull(customSkill)
 
-        viewModel.deleteSkill(customId)
+        viewModel.deleteSkill(customSkill!!.id)
         advanceUntilIdle()
 
         assertEquals(1, viewModel.skills.value.size)

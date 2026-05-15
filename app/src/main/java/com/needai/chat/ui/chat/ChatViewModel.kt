@@ -21,6 +21,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -77,11 +78,12 @@ class ChatViewModel @Inject constructor(
         }
 
         viewModelScope.launch {
-            // Load selected skill
-            val skillId = skillRepository.getSelectedSkillId()
-            val skill = skillRepository.getSkillById(skillId)
-            if (skill != null) {
-                _uiState.update { it.copy(currentSkill = skill) }
+            // Reactively observe selected skill (handles voiceId changes etc.)
+            skillRepository.selectedSkillIdFlow().collect { selectedId ->
+                val skill = skillRepository.getSkillById(selectedId)
+                if (skill != null) {
+                    _uiState.update { it.copy(currentSkill = skill) }
+                }
             }
         }
 
@@ -203,20 +205,28 @@ class ChatViewModel @Inject constructor(
                         }
 
                         // Streaming done, save full content
-                        chatRepository.updateMessageContent(assistantId, fullContent.toString())
+                        val finalContent = fullContent.toString()
+                        chatRepository.updateMessageContent(assistantId, finalContent)
 
                         // Fallback: estimate token count if API didn't provide it
-                        if (!hasTokenUsage && fullContent.isNotEmpty()) {
+                        if (!hasTokenUsage && finalContent.isNotEmpty()) {
                             val inputLength = chatMessages.sumOf { it.content.length }
                             val estimatedPrompt = (inputLength * 0.4).toInt().coerceAtLeast(1)
-                            val estimatedCompletion = (fullContent.length * 0.4).toInt().coerceAtLeast(1)
+                            val estimatedCompletion = (finalContent.length * 0.4).toInt().coerceAtLeast(1)
                             val estimatedTotal = estimatedPrompt + estimatedCompletion
                             chatRepository.updateMessageTokenUsage(
                                 assistantId, estimatedPrompt, estimatedCompletion, estimatedTotal
                             )
                         }
-                        _uiState.update {
-                            it.copy(
+                        // 同步更新 uiState.messages 中的内容，避免 Room Flow 异步延迟导致
+                        // LaunchedEffect 自动朗读时读到的 content 还是空字符串
+                        _uiState.update { state ->
+                            val updatedMessages = state.messages.map { msg ->
+                                if (msg.id == assistantId) msg.copy(content = finalContent)
+                                else msg
+                            }
+                            state.copy(
+                                messages = updatedMessages,
                                 isStreaming = false,
                                 currentStreamingMessage = ""
                             )

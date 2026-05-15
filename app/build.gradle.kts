@@ -41,6 +41,11 @@ android {
     buildFeatures {
         compose = true
     }
+    packaging {
+        resources {
+            excludes += "/META-INF/{AL2.0,LGPL2.1}"
+        }
+    }
 }
 
 dependencies {
@@ -94,6 +99,10 @@ dependencies {
 
     // Coroutines
     implementation(libs.kotlinx.coroutines.android)
+
+    // NUI SDK (阿里云 CosyVoice TTS)
+    implementation(files("libs/nuisdk-release.aar"))
+    implementation("com.alibaba:fastjson:1.2.83")
 
     // Testing
     testImplementation(libs.junit)

@@ -30,7 +30,10 @@ import com.needai.chat.ui.chat.components.MessageBubble
 import com.needai.chat.ui.chat.components.SkillSelectorSheet
 import com.needai.chat.ui.chat.components.StreamingBubble
 import com.needai.chat.ui.chat.state.ChatUiState
-import com.needai.chat.util.TtsManager
+import com.needai.chat.data.local.datastore.SettingsDataStore
+import com.needai.chat.data.remote.tts.CosyVoiceParameters
+import com.needai.chat.util.ITtsManager
+import com.needai.chat.util.TtsManagerImpl
 import com.needai.chat.ui.navigation.Screen
 import java.text.SimpleDateFormat
 import java.util.*
@@ -56,16 +59,32 @@ fun ChatScreen(
     var showModelTip by remember { mutableStateOf(false) }
     var sessionToDelete by remember { mutableStateOf<ChatSession?>(null) }
     var speakingMessageId by remember { mutableStateOf<Long?>(null) }
-    val ttsManager = remember { TtsManager(context) }
+    val settingsDataStore = remember { SettingsDataStore(context) }
+    val ttsApiKey by settingsDataStore.ttsApiKey.collectAsState(initial = "")
+    val ttsModel by settingsDataStore.ttsModel.collectAsState(initial = "cosyvoice-v3.5-flash")
+    val ttsVoice by settingsDataStore.ttsVoice.collectAsState(initial = "")
+    val ttsVolume by settingsDataStore.ttsVolume.collectAsState(initial = 50)
+    val ttsRate by settingsDataStore.ttsRate.collectAsState(initial = 1.0f)
+    val ttsPitch by settingsDataStore.ttsPitch.collectAsState(initial = 1.0f)
+    val ttsAutoRead by settingsDataStore.ttsAutoRead.collectAsState(initial = false)
 
-    LaunchedEffect(ttsManager) {
-        ttsManager.onDone = {
-            speakingMessageId = null
-        }
+    var ttsManager by remember { mutableStateOf<ITtsManager?>(null) }
+    LaunchedEffect(ttsApiKey, ttsModel, ttsVoice, ttsVolume, ttsRate, ttsPitch) {
+        ttsManager?.shutdown()
+        ttsManager = TtsManagerImpl(
+            context = context,
+            apiKey = ttsApiKey,
+            parameters = CosyVoiceParameters(
+                model = ttsModel,
+                voice = ttsVoice,
+                volume = ttsVolume,
+                rate = ttsRate,
+                pitch = ttsPitch
+            )
+        )
     }
-
     DisposableEffect(Unit) {
-        onDispose { ttsManager.shutdown() }
+        onDispose { ttsManager?.shutdown() }
     }
 
     // Launcher for exporting current session
@@ -113,6 +132,33 @@ fun ChatScreen(
     LaunchedEffect(uiState.messages.size, uiState.currentStreamingMessage) {
         if (uiState.messages.isNotEmpty()) {
             listState.animateScrollToItem(uiState.messages.size)
+        }
+    }
+
+    // Auto-read TTS when streaming completes
+    val wasStreaming = remember { mutableStateOf(false) }
+    LaunchedEffect(uiState.isStreaming) {
+        if (uiState.isStreaming) {
+            wasStreaming.value = true
+        } else if (wasStreaming.value) {
+            wasStreaming.value = false
+            // Streaming just finished
+            if (ttsAutoRead && ttsManager != null) {
+                val lastAssistantMsg = uiState.messages.lastOrNull { it.role == com.needai.chat.domain.model.MessageRole.ASSISTANT }
+                if (lastAssistantMsg != null && speakingMessageId == null) {
+                    val voiceId = if (uiState.currentSkill.voiceId.isNotBlank()) uiState.currentSkill.voiceId else ttsVoice
+                    coroutineScope.launch {
+                        snackbarHostState.showSnackbar("TTS: 自动朗读 (voice=$voiceId)")
+                    }
+                    ttsManager!!.speak(lastAssistantMsg.content, voiceId) {
+                        speakingMessageId = null
+                        coroutineScope.launch {
+                            snackbarHostState.showSnackbar("TTS: 朗读结束")
+                        }
+                    }
+                    speakingMessageId = lastAssistantMsg.id
+                }
+            }
         }
     }
 
@@ -262,12 +308,22 @@ fun ChatScreen(
                     MessageBubble(
                         message = message,
                         onSpeak = {
-                            if (speakingMessageId == message.id) {
-                                ttsManager.stop()
-                                speakingMessageId = null
-                            } else {
-                                ttsManager.speak(message.content)
-                                speakingMessageId = message.id
+                            val mgr = ttsManager
+                            if (mgr != null) {
+                                if (speakingMessageId == message.id) {
+                                    mgr.stop()
+                                    speakingMessageId = null
+                                    coroutineScope.launch {
+                                        snackbarHostState.showSnackbar("TTS: 停止朗读")
+                                    }
+                                } else {
+                                    val voiceId = if (uiState.currentSkill.voiceId.isNotBlank()) uiState.currentSkill.voiceId else ttsVoice
+                                    coroutineScope.launch {
+                                        snackbarHostState.showSnackbar("TTS: 朗读 (voice=$voiceId)")
+                                    }
+                                    mgr.speak(message.content, voiceId)
+                                    speakingMessageId = message.id
+                                }
                             }
                         },
                         isSpeaking = speakingMessageId == message.id

@@ -27,6 +27,10 @@ class SkillRepositoryImpl @Inject constructor(
         }
     }
 
+    override fun selectedSkillIdFlow(): Flow<String> {
+        return settingsDataStore.selectedSkillId
+    }
+
     override suspend fun getSkillById(id: String): Skill? {
         return skillDao.getSkillById(id)?.let { SkillMapper.toDomain(it) }
     }

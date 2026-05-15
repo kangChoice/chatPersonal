@@ -9,5 +9,6 @@ data class Skill(
     val greeting: String,
     val temperature: Double = 0.7,
     val tags: List<String> = emptyList(),
-    val isBuiltin: Boolean = false
+    val isBuiltin: Boolean = false,
+    val voiceId: String = ""
 )

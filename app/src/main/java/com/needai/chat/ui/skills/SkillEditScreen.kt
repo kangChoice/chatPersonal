@@ -8,6 +8,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -16,6 +17,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.needai.chat.data.remote.tts.SystemVoiceProvider
+import com.needai.chat.ui.settings.components.VoiceSelectorSheet
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -36,8 +40,10 @@ fun SkillEditScreen(
     var avatar by remember(existingSkill) { mutableStateOf(existingSkill?.avatar ?: "🤖") }
     var greeting by remember(existingSkill) { mutableStateOf(existingSkill?.greeting ?: "你好！") }
     var temperature by remember(existingSkill) { mutableStateOf(existingSkill?.temperature?.toString() ?: "0.7") }
+    var voiceId by remember(existingSkill) { mutableStateOf(existingSkill?.voiceId ?: "") }
     var showDeleteConfirm by remember { mutableStateOf(false) }
     var showSystemPromptDialog by remember { mutableStateOf(false) }
+    var showVoiceSelector by remember { mutableStateOf(false) }
 
     val isBuiltin = existingSkill?.isBuiltin == true
 
@@ -163,6 +169,60 @@ fun SkillEditScreen(
                 }
             )
 
+            // 音色选择
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(enabled = !isBuiltin) { showVoiceSelector = true },
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                )
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Icon(
+                            Icons.Default.VolumeUp,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Column {
+                            Text(
+                                text = "音色",
+                                style = MaterialTheme.typography.labelLarge,
+                                fontWeight = FontWeight.Medium
+                            )
+                            Text(
+                                text = if (voiceId.isNotBlank()) voiceId else "未关联音色",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = if (voiceId.isNotBlank())
+                                    MaterialTheme.colorScheme.onSurface
+                                else
+                                    MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
+                            )
+                        }
+                    }
+                    if (!isBuiltin) {
+                        Icon(
+                            Icons.Default.Edit,
+                            contentDescription = "选择",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+            }
+
             Spacer(modifier = Modifier.weight(1f))
 
             Button(
@@ -170,7 +230,7 @@ fun SkillEditScreen(
                     if (name.isNotBlank() && systemPrompt.isNotBlank()) {
                         val temp = (temperature.toDoubleOrNull() ?: 0.7).coerceIn(0.0, 2.0)
                         if (isNew) {
-                            viewModel.createSkill(name, description, systemPrompt, avatar, greeting, temp)
+                            viewModel.createSkill(name, description, systemPrompt, avatar, greeting, temp, voiceId = voiceId)
                         } else if (existingSkill != null && !isBuiltin) {
                             viewModel.updateSkill(
                                 existingSkill.copy(
@@ -179,7 +239,8 @@ fun SkillEditScreen(
                                     systemPrompt = systemPrompt,
                                     avatar = avatar,
                                     greeting = greeting,
-                                    temperature = temp
+                                    temperature = temp,
+                                    voiceId = voiceId
                                 )
                             )
                         }
@@ -207,6 +268,26 @@ fun SkillEditScreen(
                 systemPrompt = newPrompt
                 showSystemPromptDialog = false
             }
+        )
+    }
+
+    if (showVoiceSelector) {
+        val customVoices by viewModel.customVoices.collectAsStateWithLifecycle()
+        val systemVoices = remember { SystemVoiceProvider.getVoices("cosyvoice-v3.5-flash") }
+        VoiceSelectorSheet(
+            systemVoices = systemVoices,
+            customVoices = customVoices,
+            currentVoiceId = voiceId,
+            selectedModel = "cosyvoice-v3.5-flash",
+            onVoiceSelected = { selected ->
+                voiceId = selected
+                showVoiceSelector = false
+            },
+            onManageVoices = {
+                showVoiceSelector = false
+                // Navigate to voice management (handled by caller)
+            },
+            onDismiss = { showVoiceSelector = false }
         )
     }
 
