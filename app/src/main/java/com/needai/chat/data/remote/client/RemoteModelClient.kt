@@ -13,6 +13,7 @@ import com.needai.chat.domain.model.ModelConfig
 import com.needai.chat.domain.model.Skill
 import com.needai.chat.domain.model.StreamEvent
 import com.needai.chat.domain.usecase.ChatMessage
+import com.needai.chat.util.HttpLogger
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
@@ -41,6 +42,7 @@ class RemoteModelClient @Inject constructor(
             .connectTimeout(30, TimeUnit.SECONDS)
             .readTimeout(60, TimeUnit.SECONDS)
             .writeTimeout(30, TimeUnit.SECONDS)
+            .addInterceptor(HttpLogger)
             .build()
 
         try {
@@ -209,6 +211,7 @@ class RemoteModelClient @Inject constructor(
             val client = OkHttpClient.Builder()
                 .connectTimeout(10, TimeUnit.SECONDS)
                 .readTimeout(10, TimeUnit.SECONDS)
+                .addInterceptor(HttpLogger)
                 .build()
 
             val request = when (config.protocol) {

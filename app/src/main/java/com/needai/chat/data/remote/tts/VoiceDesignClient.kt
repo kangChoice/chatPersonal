@@ -3,6 +3,7 @@ package com.needai.chat.data.remote.tts
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
 import com.needai.chat.domain.model.VoiceInfo
+import com.needai.chat.util.HttpLogger
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -24,6 +25,7 @@ class VoiceDesignClient(
         .connectTimeout(15, TimeUnit.SECONDS)
         .readTimeout(30, TimeUnit.SECONDS)
         .writeTimeout(15, TimeUnit.SECONDS)
+        .addInterceptor(HttpLogger)
         .build()
 
     /**

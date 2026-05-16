@@ -43,6 +43,7 @@ import com.needai.chat.ui.settings.components.GenerationParamsDialog
 import com.needai.chat.ui.settings.components.ModelConfigEditDialog
 import com.needai.chat.ui.settings.components.QuickCreateProviderDialog
 import com.needai.chat.ui.settings.components.TtsSettingsSection
+import com.needai.chat.util.FileLogger
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
@@ -602,7 +603,7 @@ fun SettingsScreen(
                                 showBackgroundNameDialog = false
                                 pendingBackgroundUri = null
                             } catch (e: Exception) {
-                                android.util.Log.e("SettingsScreen", "保存背景失败", e)
+                                FileLogger.e("SettingsScreen", "保存背景失败", e)
                                 snackbarHostState.showSnackbar("保存背景失败: ${e.localizedMessage ?: "未知错误"}")
                             }
                         }

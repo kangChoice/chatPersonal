@@ -3,6 +3,7 @@ package com.needai.chat.util
 import com.needai.chat.data.remote.tts.CosyVoiceClient
 import com.needai.chat.data.remote.tts.CosyVoiceParameters
 import com.needai.chat.data.remote.tts.PcmAudioPlayer
+import com.needai.chat.util.FileLogger
 import kotlinx.coroutines.*
 
 interface ITtsManager {
@@ -123,6 +124,7 @@ class TtsManagerImpl(
 
         if (apiKey.isBlank()) {
             android.util.Log.w(TAG, "API Key 未配置")
+            FileLogger.w(TAG, "合成被中断: API Key 未配置，跳过语音播放")
             onDone?.invoke()
             return
         }
@@ -187,6 +189,7 @@ class TtsManagerImpl(
             } catch (e: Exception) {
                 if (e is CancellationException) return@launch
                 android.util.Log.e(TAG, "合成失败", e)
+                FileLogger.e(TAG, "批量合成失败，文本: ${chunks.joinToString("") { it.take(20) }}", e)
                 drainAndStop(player)
                 withContext(Dispatchers.Main) { onDone?.invoke() }
             } finally {
@@ -243,6 +246,7 @@ class TtsManagerImpl(
             client.synthesize(chunk).collect { audio ->
                 if (audio.error != null) {
                     android.util.Log.e(TAG, "队列合成失败: ${audio.error}")
+                    FileLogger.e(TAG, "队列合成失败，分块文本: ${chunk.take(30)}，错误: ${audio.error}")
                     return@collect
                 }
                 if (audio.data.isNotEmpty()) {
@@ -285,6 +289,7 @@ class TtsManagerImpl(
         val params = resolveParams("")
         if (audioPlayer == null) {
             android.util.Log.w(TAG, "cycleStreamingSession: audioPlayer 未初始化")
+            FileLogger.w(TAG, "轮换流式 session 失败: audioPlayer 尚未初始化，请先调用 startStreaming")
             return null
         }
         val streamId = createStreamSession(params)
@@ -312,6 +317,7 @@ class TtsManagerImpl(
             } catch (e: Exception) {
                 if (e is CancellationException) return@launch
                 android.util.Log.e(TAG, "流式 session#$streamId 失败", e)
+                FileLogger.e(TAG, "流式 session #$streamId 异常终止", e)
             } finally {
                 synchronized(activeStreamClients) {
                     activeStreamClients.remove(streamId)
