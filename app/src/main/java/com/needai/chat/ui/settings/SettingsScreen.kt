@@ -578,7 +578,7 @@ fun SettingsScreen(
                         scope.launch {
                             try {
                                 val id = java.util.UUID.randomUUID().toString()
-                                val bgDir = java.io.File(context.filesDir, "backgrounds")
+                                val bgDir = java.io.File(context.getExternalFilesDir(null), "backgrounds")
                                 bgDir.mkdirs()
                                 val destFile = java.io.File(bgDir, "$id.jpg")
                                 val inputStream = context.contentResolver.openInputStream(pendingBackgroundUri!!)

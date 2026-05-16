@@ -9,6 +9,7 @@ import com.needai.chat.data.local.datastore.SettingsDataStore
 import com.needai.chat.data.local.db.AppDatabase
 import com.needai.chat.data.local.db.entity.ModelConfigEntity
 import com.needai.chat.data.local.db.entity.SkillEntity
+import com.needai.chat.util.FileLogger
 import dagger.hilt.android.HiltAndroidApp
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -22,6 +23,7 @@ class NeedAiApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        FileLogger.init(this)
         initializeConfigFile()
         initializeDefaults()
     }
