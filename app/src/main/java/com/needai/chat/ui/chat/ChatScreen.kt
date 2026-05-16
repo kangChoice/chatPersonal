@@ -139,13 +139,14 @@ fun ChatScreen(
         }
     }
 
-    // Auto-read TTS: 每 300ms 批量推增量文本，避免逐 token 推送导致服务端碎片化合成
+    // Auto-read TTS: 基于 speakQueued 增量追加朗读，内部自动 30 字分块规避跳段
     LaunchedEffect(uiState.isStreaming) {
         if (!uiState.isStreaming) return@LaunchedEffect
         if (!ttsAutoRead || ttsManager == null) return@LaunchedEffect
 
-        var session: com.needai.chat.util.IStreamingTtsSession? = null
-        var lastSentText = ""
+        val tts = ttsManager as? com.needai.chat.util.TtsManagerImpl ?: return@LaunchedEffect
+        val voiceId = if (uiState.currentSkill.voiceId.isNotBlank()) uiState.currentSkill.voiceId else ttsVoice
+        speakingMessageId = -1L
 
         // 等第一个 token
         while (uiState.isStreaming && uiState.currentStreamingMessage.isEmpty()) {
@@ -153,37 +154,33 @@ fun ChatScreen(
         }
         if (!uiState.isStreaming) return@LaunchedEffect
 
-        // 开流并立即发送第一批
-        val voiceId = if (uiState.currentSkill.voiceId.isNotBlank()) uiState.currentSkill.voiceId else ttsVoice
-        speakingMessageId = -1L
-        session = ttsManager!!.startStreaming(voiceId) {
-            speakingMessageId = null
-            coroutineScope.launch { snackbarHostState.showSnackbar("TTS: 朗读结束") }
-        }
-        if (session == null) return@LaunchedEffect
         coroutineScope.launch { snackbarHostState.showSnackbar("TTS: 自动朗读") }
 
-        val firstText = uiState.currentStreamingMessage
-        session.sendText(firstText)
-        lastSentText = firstText
+        var lastQueuedText = ""
 
-        // 每 300ms 批量推送增量
         try {
+            // 第一批文本
+            val firstText = uiState.currentStreamingMessage
+            if (firstText.isNotEmpty()) {
+                tts.speakQueued(firstText, voiceId)
+                lastQueuedText = firstText
+            }
+
+            // 每 500ms 检查增量文本并追加到队列
             while (uiState.isStreaming) {
-                delay(300)
+                delay(500)
                 val currentText = uiState.currentStreamingMessage
-                if (currentText.length > lastSentText.length) {
-                    val delta = currentText.substring(lastSentText.length)
-                    session.sendText(delta)
-                    lastSentText = currentText
+                if (currentText.length > lastQueuedText.length + 5) {
+                    val newPart = currentText.substring(lastQueuedText.length)
+                    lastQueuedText = currentText
+                    tts.speakQueued(newPart, voiceId)
                 }
             }
         } finally {
             val finalText = uiState.currentStreamingMessage
-            if (finalText.length > lastSentText.length) {
-                session.sendText(finalText.substring(lastSentText.length))
+            if (finalText.length > lastQueuedText.length) {
+                tts.speakQueued(finalText.substring(lastQueuedText.length), voiceId)
             }
-            session.finish()
             speakingMessageId = null
         }
     }

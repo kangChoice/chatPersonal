@@ -11,15 +11,23 @@ class PcmAudioPlayer(
     private var audioTrack: AudioTrack? = null
     private var isPlaying = false
 
-    @Synchronized
-    fun play() {
-        if (audioTrack != null) return
-        val bufferSize = AudioTrack.getMinBufferSize(
-            sampleRate,
-            AudioFormat.CHANNEL_OUT_MONO,
-            AudioFormat.ENCODING_PCM_16BIT
-        ).coerceAtLeast(4096)
+    /** 缓冲区设为最少 2 秒（96000 bytes @ 24kHz 16bit mono），
+     *  远大于 getMinBufferSize (≈0.2s)，给网络抖动留足余量。 */
+    private val bufferSize: Int
+        get() {
+            val minBuf = AudioTrack.getMinBufferSize(
+                sampleRate,
+                AudioFormat.CHANNEL_OUT_MONO,
+                AudioFormat.ENCODING_PCM_16BIT
+            )
+            val desired = sampleRate * 2 * 2 // 2 seconds
+            return maxOf(minBuf, desired).coerceAtLeast(4096)
+        }
 
+    /** 确保 AudioTrack 已创建（惰性创建，可在 play() 或 write() 时触发） */
+    @Synchronized
+    private fun ensureTrack() {
+        if (audioTrack != null) return
         audioTrack = AudioTrack.Builder()
             .setAudioAttributes(
                 AudioAttributes.Builder()
@@ -37,7 +45,12 @@ class PcmAudioPlayer(
             .setBufferSizeInBytes(bufferSize)
             .setTransferMode(AudioTrack.MODE_STREAM)
             .build()
+    }
 
+    @Synchronized
+    fun play() {
+        if (isPlaying) return
+        ensureTrack()
         try {
             audioTrack?.play()
             isPlaying = true
@@ -49,10 +62,10 @@ class PcmAudioPlayer(
 
     @Synchronized
     fun write(data: ByteArray) {
-        val track = audioTrack ?: return
-        if (!isPlaying) return
+        ensureTrack()
+        if (audioTrack == null) return
         try {
-            track.write(data, 0, data.size)
+            audioTrack!!.write(data, 0, data.size)
         } catch (e: Exception) {
             Log.e(TAG, "write failed", e)
         }
@@ -98,11 +111,13 @@ class PcmAudioPlayer(
     @Synchronized
     fun release() {
         isPlaying = false
-        try {
-            audioTrack?.stop()
-            audioTrack?.release()
-        } catch (e: Exception) {
-            Log.e(TAG, "release failed", e)
+        audioTrack?.let {
+            try {
+                it.stop()
+                it.release()
+            } catch (e: Exception) {
+                Log.e(TAG, "release failed", e)
+            }
         }
         audioTrack = null
     }

@@ -31,9 +31,16 @@ class CosyVoiceClient(
      * 模式 A：一次性合成（点播朗读）
      * 参考官方 DashCosyVoiceStreamTtsActivity.AsyncPlayTts
      */
+    /**
+     * 一次性合成（点播朗读）。
+     * 注意：正常完成（SYNTHESIS_COMPLETE）时不会自动 cancel，以支持同一
+     * CosyVoiceClient 实例上依次调用多次 synthesize（分块朗读）。
+     * 显式调用 [cancel] 或超时才会清理 NUI 状态。
+     */
     suspend fun synthesize(text: String): Flow<AudioChunk> = callbackFlow {
         val timeoutMs = 120_000L
         var timedOut = false
+        var finishedOk = false
         val taskId = UUID.randomUUID().toString()
         val ticket = genTicket()
         val params = parameters.toJson()
@@ -52,6 +59,7 @@ class CosyVoiceClient(
                 Log.d(TAG, "TTS event: $event, taskId=$taskId, retCode=$retCode, errorMsg=$errorMsg, allResponse=$allResponse")
                 when (event) {
                     INativeStreamInputTtsCallback.StreamInputTtsEvent.STREAM_INPUT_TTS_EVENT_SYNTHESIS_COMPLETE -> {
+                        finishedOk = true
                         trySend(AudioChunk(ByteArray(0), isFirst = false, isLast = true, event = event))
                         channel.close()
                     }
@@ -108,7 +116,9 @@ class CosyVoiceClient(
         }
 
         awaitClose {
-            if (!timedOut) nativeNui.cancelStreamInputTts()
+            // 正常完成的 task 不需要 cancel，避免破坏 NUI 状态
+            // 只有超时或外部取消时才 cancel
+            if (timedOut) nativeNui.cancelStreamInputTts()
         }
     }
 
