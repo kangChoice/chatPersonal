@@ -139,7 +139,9 @@ fun ChatScreen(
         }
     }
 
-    // Auto-read TTS: 基于 speakQueued 增量追加朗读，内部自动 30 字分块规避跳段
+    // Auto-read TTS: 基于 speakQueued 多句积累 + 按句推送
+    // 积累 1-2 个完整句子再入队，减少 item 切换频率，利用 AudioTrack 2s 缓冲区
+    // 消化合成延迟，同时断句点落在句子边界而非词语中间
     LaunchedEffect(uiState.isStreaming) {
         if (!uiState.isStreaming) return@LaunchedEffect
         if (!ttsAutoRead || ttsManager == null) return@LaunchedEffect
@@ -156,30 +158,61 @@ fun ChatScreen(
 
         coroutineScope.launch { snackbarHostState.showSnackbar("TTS: 自动朗读") }
 
-        var lastQueuedText = ""
+        var lastProcessedText = ""
+        var sentenceBuffer = StringBuilder()
 
         try {
-            // 第一批文本
+            // 首次：立即发送首段文本
             val firstText = uiState.currentStreamingMessage
             if (firstText.isNotEmpty()) {
                 tts.speakQueued(firstText, voiceId)
-                lastQueuedText = firstText
+                lastProcessedText = firstText
             }
 
-            // 每 500ms 检查增量文本并追加到队列
+            // 每 200ms 检查增量，积累 1-2 句后再入队
             while (uiState.isStreaming) {
-                delay(500)
+                delay(200)
                 val currentText = uiState.currentStreamingMessage
-                if (currentText.length > lastQueuedText.length + 5) {
-                    val newPart = currentText.substring(lastQueuedText.length)
-                    lastQueuedText = currentText
-                    tts.speakQueued(newPart, voiceId)
+                if (currentText.length <= lastProcessedText.length) continue
+
+                val newPart = currentText.substring(lastProcessedText.length)
+                sentenceBuffer.append(newPart)
+                lastProcessedText = currentText
+
+                val buf = sentenceBuffer.toString()
+
+                // 找句尾标点
+                val lastSentenceEnd = buf.indexOfLast { it in "。！？" }
+                val lastComma = buf.indexOfLast { it in "；，" }
+
+                // 只在以下条件满足时推送：
+                // 1) 有句号且积累超过 15 字（避免刚积累一个字就推送）
+                // 2) 无句号但超过 30 字，尝试在逗号处断
+                // 3) 超过 40 字无任何标点，强行断
+                val flushAt = when {
+                    lastSentenceEnd >= 15 -> lastSentenceEnd + 1
+                    buf.length >= 30 && lastComma >= buf.length / 2 -> lastComma + 1
+                    buf.length >= 40 -> buf.length
+                    else -> 0
+                }
+
+                if (flushAt > 0) {
+                    val toSend = buf.substring(0, flushAt)
+                    val rest = buf.substring(flushAt)
+                    if (toSend.isNotBlank()) {
+                        tts.speakQueued(toSend, voiceId)
+                    }
+                    sentenceBuffer = StringBuilder(rest)
                 }
             }
         } finally {
+            // 剩余文本
+            if (sentenceBuffer.isNotEmpty()) {
+                tts.speakQueued(sentenceBuffer.toString(), voiceId)
+            }
             val finalText = uiState.currentStreamingMessage
-            if (finalText.length > lastQueuedText.length) {
-                tts.speakQueued(finalText.substring(lastQueuedText.length), voiceId)
+            if (finalText.length > lastProcessedText.length) {
+                tts.speakQueued(finalText.substring(lastProcessedText.length), voiceId)
             }
             speakingMessageId = null
         }
