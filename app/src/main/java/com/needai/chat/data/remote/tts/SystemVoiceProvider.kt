@@ -191,6 +191,14 @@ object SystemVoiceProvider {
         }
     }
 
+    fun getAllSystemVoices(): List<SystemVoice> {
+        return voiceMap.values.flatten().distinctBy { it.voiceId }
+    }
+
+    fun findSystemVoice(voiceId: String): SystemVoice? {
+        return getAllSystemVoices().find { it.voiceId == voiceId }
+    }
+
     fun hasSystemVoices(model: String): Boolean {
         if (model.startsWith("cosyvoice-v3.5")) {
             return true

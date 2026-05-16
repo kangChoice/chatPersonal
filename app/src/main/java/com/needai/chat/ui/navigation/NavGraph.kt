@@ -33,6 +33,7 @@ import com.needai.chat.ui.skills.SkillAndVoiceScreen
 import com.needai.chat.ui.prompt.PolishScreen
 import com.needai.chat.ui.stats.StatsScreen
 import com.needai.chat.ui.voice.VoiceListScreen
+import com.needai.chat.ui.voicechat.VoiceChatScreen
 
 sealed class Screen(val route: String, val title: String, val icon: ImageVector? = null) {
     data object Chat : Screen("chat", "聊天", Icons.Default.Chat)
@@ -43,6 +44,7 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector?
     data object SkillEdit : Screen("skill_edit/{skillId}", "编辑角色")
     data object VoiceManagement : Screen("voice_management", "音色管理")
     data object Settings : Screen("settings", "设置", Icons.Default.Settings)
+    data object VoiceChat : Screen("voice_chat", "语音通话")
 
     companion object {
         fun skillEdit(skillId: String) = "skill_edit/$skillId"
@@ -154,6 +156,11 @@ fun MainScreen() {
                                 onboardingStep = 0
                                 showOnboarding = true
                             }
+                        )
+                    }
+                    composable(Screen.VoiceChat.route) {
+                        VoiceChatScreen(
+                            onNavigateBack = { navController.popBackStack() }
                         )
                     }
                 }

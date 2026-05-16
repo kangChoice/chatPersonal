@@ -17,6 +17,7 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.FileUpload
 import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import kotlinx.coroutines.launch
@@ -44,6 +45,8 @@ import com.needai.chat.ui.settings.components.ModelConfigEditDialog
 import com.needai.chat.ui.settings.components.QuickCreateProviderDialog
 import com.needai.chat.ui.settings.components.TtsSettingsSection
 import com.needai.chat.util.FileLogger
+import com.needai.chat.ui.navigation.Screen
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
@@ -242,6 +245,35 @@ fun SettingsScreen(
                 ttsAutoRead = ttsAutoRead,
                 onTtsAutoReadChange = viewModel::setTtsAutoRead
             )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // 语音通话
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                onClick = { navController.navigate(Screen.VoiceChat.route) }
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("语音通话", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        Text(
+                            text = "语音对话，像对讲机一样自然交流",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                        )
+                    }
+                    Icon(
+                        Icons.Default.Phone,
+                        contentDescription = "语音通话",
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                }
+            }
 
             Spacer(modifier = Modifier.height(16.dp))
 

@@ -24,8 +24,17 @@ class NeedAiApplication : Application() {
     override fun onCreate() {
         super.onCreate()
         FileLogger.init(this)
+        setupCrashHandler()
         initializeConfigFile()
         initializeDefaults()
+    }
+
+    private fun setupCrashHandler() {
+        val defaultHandler = Thread.getDefaultUncaughtExceptionHandler()
+        Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
+            FileLogger.e("CrashHandler", "未捕获异常: thread=${thread.name}", throwable)
+            defaultHandler?.uncaughtException(thread, throwable)
+        }
     }
 
     private fun initializeConfigFile() {
