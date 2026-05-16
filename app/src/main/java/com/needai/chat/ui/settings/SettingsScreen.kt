@@ -629,13 +629,14 @@ fun SettingsScreen(
             confirmButton = {
                 Button(
                     onClick = {
+                        val bg = bgToDelete ?: return@Button
                         scope.launch {
                             try {
-                                java.io.File(bgToDelete!!.imagePath).delete()
+                                java.io.File(bg.imagePath).delete()
                             } catch (_: Exception) { }
-                            bgSettingsDataStore.removeBackground(bgToDelete!!.id)
+                            bgSettingsDataStore.removeBackground(bg.id)
+                            bgToDelete = null
                         }
-                        bgToDelete = null
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
                 ) { Text("删除") }
