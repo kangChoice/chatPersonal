@@ -198,6 +198,7 @@ class TtsManagerImpl(
 
     // ======================================================================
     // 方法 B：队列追加朗读（自动朗读增量）— 非打断，按序播放
+    // 整个队列处理周期共享一个 CosyVoiceClient，避免 NUI 原生层跨实例失效
     // ======================================================================
     fun speakQueued(text: String, voiceId: String = "", onDone: (() -> Unit)? = null) {
         if (text.isEmpty()) return
@@ -206,46 +207,48 @@ class TtsManagerImpl(
         }
         if (queueJob?.isActive != true) {
             queueJob = scope.launch(Dispatchers.IO) {
+                var sharedClient: CosyVoiceClient? = null
+                var sharedVoiceId = ""
                 try {
                     while (isActive) {
                         val req = synchronized(queueLock) {
                             if (speakQueue.isEmpty()) null else speakQueue.removeFirst()
                         } ?: break
-                        synthesizeChunksSequential(req.text, req.voiceId)
+
+                        // 首个 item 创建 client，后续复用
+                        if (sharedClient == null) {
+                            sharedVoiceId = req.voiceId
+                            val params = resolveParams(sharedVoiceId)
+                            sharedClient = CosyVoiceClient(apiKey, params)
+                        }
+
+                        synthesizeUsingClient(req.text, sharedClient!!)
                         withContext(Dispatchers.Main) { req.onDone?.invoke() }
                     }
-                } catch (_: CancellationException) { }
+                } finally {
+                    sharedClient?.release()
+                }
             }
         }
     }
 
-    /** 依次合成各个分块并写入共享播放器 */
-    private suspend fun synthesizeChunksSequential(text: String, voiceId: String) {
-        val params = resolveParams(voiceId)
-        val player = audioPlayer ?: PcmAudioPlayer(params.sampleRate).also {
-            audioPlayer = it
-        }
-        // Ensure AudioTrack exists and is playing
+    /** 使用已有 client 依次合成各个分块并写入共享播放器 */
+    private suspend fun synthesizeUsingClient(text: String, client: CosyVoiceClient) {
+        val player = audioPlayer ?: PcmAudioPlayer(24000).also { audioPlayer = it }
         player.play()
 
         val chunks = chunkText(text)
-        var chunksClient: CosyVoiceClient? = null
-        try {
-            chunksClient = CosyVoiceClient(apiKey, params)
-            for (chunk in chunks) {
-                if (!currentCoroutineContext().isActive) break
-                chunksClient!!.synthesize(chunk).collect { audio ->
-                    if (audio.error != null) {
-                        android.util.Log.e(TAG, "队列合成失败: ${audio.error}")
-                        return@collect
-                    }
-                    if (audio.data.isNotEmpty()) {
-                        player.write(audio.data)
-                    }
+        for (chunk in chunks) {
+            if (!currentCoroutineContext().isActive) break
+            client.synthesize(chunk).collect { audio ->
+                if (audio.error != null) {
+                    android.util.Log.e(TAG, "队列合成失败: ${audio.error}")
+                    return@collect
+                }
+                if (audio.data.isNotEmpty()) {
+                    player.write(audio.data)
                 }
             }
-        } finally {
-            chunksClient?.release()
         }
     }
 
