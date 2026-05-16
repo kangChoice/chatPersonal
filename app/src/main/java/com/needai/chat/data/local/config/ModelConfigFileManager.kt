@@ -26,6 +26,25 @@ data class ConfigFile(
     @SerializedName("top_p") val topP: Double = 1.0
 )
 
+data class BuiltinChatModel(
+    val name: String = "",
+    val protocol: String = "",
+    @SerializedName("remote_base_url") val remoteBaseUrl: String = "",
+    @SerializedName("remote_api_key") val remoteApiKey: String = "",
+    @SerializedName("remote_model_name") val remoteModelName: String = "",
+    val temperature: Double = 0.7,
+    @SerializedName("max_tokens") val maxTokens: Int = 4096,
+    @SerializedName("top_p") val topP: Double = 1.0
+) {
+    fun isValid(): Boolean = name.isNotBlank() && protocol.isNotBlank()
+            && remoteBaseUrl.isNotBlank() && remoteApiKey.isNotBlank() && remoteModelName.isNotBlank()
+}
+
+data class BuiltinTtsConfig(
+    @SerializedName("api_key") val apiKey: String = "",
+    @SerializedName("base_url") val baseUrl: String = ""
+)
+
 @Singleton
 class ModelConfigFileManager @Inject constructor(
     @ApplicationContext private val context: Context,
@@ -90,6 +109,20 @@ class ModelConfigFileManager @Inject constructor(
             maxTokens = configFile.maxTokens,
             topP = configFile.topP
         )
+    }
+
+    fun readBuiltinModels(): Pair<BuiltinChatModel?, BuiltinTtsConfig?> {
+        return try {
+            val json = configFile.readText()
+            val root = gson.fromJson(json, Map::class.java) as? Map<*, *> ?: return null to null
+            val chatJson = gson.toJson(root["builtin_chat_model"])
+            val ttsJson = gson.toJson(root["builtin_tts_config"])
+            val chat = if (chatJson != "null") gson.fromJson(chatJson, BuiltinChatModel::class.java) else null
+            val tts = if (ttsJson != "null") gson.fromJson(ttsJson, BuiltinTtsConfig::class.java) else null
+            chat to tts
+        } catch (e: Exception) {
+            null to null
+        }
     }
 
     fun fromModelConfig(config: ModelConfig): ConfigFile {

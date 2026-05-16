@@ -20,6 +20,7 @@ import androidx.compose.material.icons.filled.Image
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -580,9 +581,15 @@ fun SettingsScreen(
                                 val bgDir = java.io.File(context.filesDir, "backgrounds")
                                 bgDir.mkdirs()
                                 val destFile = java.io.File(bgDir, "$id.jpg")
-                                context.contentResolver.openInputStream(pendingBackgroundUri!!)?.use { input ->
-                                    destFile.outputStream().use { output ->
-                                        input.copyTo(output)
+                                val inputStream = context.contentResolver.openInputStream(pendingBackgroundUri!!)
+                                if (inputStream == null) {
+                                    throw Exception("无法读取图片文件，URI 可能已失效")
+                                }
+                                withContext(kotlinx.coroutines.Dispatchers.IO) {
+                                    inputStream.use { input ->
+                                        destFile.outputStream().use { output ->
+                                            input.copyTo(output)
+                                        }
                                     }
                                 }
                                 bgSettingsDataStore.addBackground(
@@ -592,12 +599,13 @@ fun SettingsScreen(
                                         imagePath = destFile.absolutePath
                                     )
                                 )
+                                showBackgroundNameDialog = false
+                                pendingBackgroundUri = null
                             } catch (e: Exception) {
+                                android.util.Log.e("SettingsScreen", "保存背景失败", e)
                                 snackbarHostState.showSnackbar("保存背景失败: ${e.localizedMessage ?: "未知错误"}")
                             }
                         }
-                        showBackgroundNameDialog = false
-                        pendingBackgroundUri = null
                     },
                     enabled = true
                 ) { Text("保存") }

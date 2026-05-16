@@ -5,6 +5,7 @@ import com.needai.chat.data.remote.tts.VoiceDesignClient
 import com.needai.chat.domain.model.VoiceInfo
 import com.needai.chat.domain.repository.VoiceRepository
 import com.needai.chat.data.local.datastore.SettingsDataStore
+import com.needai.chat.util.DevicePrefixManager
 import com.google.gson.Gson
 import kotlinx.coroutines.flow.first
 import javax.inject.Inject
@@ -13,6 +14,7 @@ import javax.inject.Singleton
 @Singleton
 class VoiceRepositoryImpl @Inject constructor(
     private val settingsDataStore: SettingsDataStore,
+    private val devicePrefixManager: DevicePrefixManager,
     private val gson: Gson
 ) : VoiceRepository {
 
@@ -23,9 +25,9 @@ class VoiceRepositoryImpl @Inject constructor(
         if (voiceCache != null && System.currentTimeMillis() - cacheTime < 300_000) {
             return voiceCache!!
         }
-        val prefix = settingsDataStore.ttsPrefix.first()
-        Log.d("VoiceRepository", "Fetching voices with prefix='$prefix'")
-        val result = listRemoteVoices(prefix.ifBlank { null })
+        val prefix = devicePrefixManager.getPrefix()
+        Log.d("VoiceRepository", "Fetching voices with device prefix='$prefix'")
+        val result = listRemoteVoices(prefix)
         result.onSuccess { voices ->
             Log.d("VoiceRepository", "Fetched ${voices.size} voices")
             voiceCache = voices
@@ -51,7 +53,8 @@ class VoiceRepositoryImpl @Inject constructor(
         val apiKey = settingsDataStore.ttsApiKey.first()
         if (apiKey.isBlank()) return Result.failure(Exception("未配置 API Key"))
         val client = VoiceDesignClient(apiKey, gson)
-        return client.createVoice(targetModel, prefix, voicePrompt, previewText)
+        val devicePrefix = devicePrefixManager.getPrefix()
+        return client.createVoice(targetModel, devicePrefix, voicePrompt, previewText)
     }
 
     override suspend fun listRemoteVoices(prefix: String?): Result<List<VoiceInfo>> {

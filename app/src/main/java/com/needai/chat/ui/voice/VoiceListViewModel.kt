@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.needai.chat.data.remote.tts.VoiceDesignClient
 import com.needai.chat.domain.model.VoiceInfo
 import com.needai.chat.domain.repository.VoiceRepository
+import com.needai.chat.util.DevicePrefixManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -19,18 +20,27 @@ data class VoiceListUiState(
     val error: String? = null,
     val isCreating: Boolean = false,
     val creatingStatus: String? = null,
-    val previewAudioData: VoiceDesignClient.PreviewAudioData? = null
+    val previewAudioData: VoiceDesignClient.PreviewAudioData? = null,
+    val devicePrefix: String = "",
+    val rawDeviceId: String = ""
 )
 
 @HiltViewModel
 class VoiceListViewModel @Inject constructor(
-    private val voiceRepository: VoiceRepository
+    private val voiceRepository: VoiceRepository,
+    private val devicePrefixManager: DevicePrefixManager
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(VoiceListUiState())
     val uiState: StateFlow<VoiceListUiState> = _uiState.asStateFlow()
 
     init {
+        _uiState.update {
+            it.copy(
+                devicePrefix = devicePrefixManager.getPrefix(),
+                rawDeviceId = devicePrefixManager.getRawDeviceId()
+            )
+        }
         loadVoices()
     }
 
@@ -41,7 +51,6 @@ class VoiceListViewModel @Inject constructor(
                 val voices = voiceRepository.getVoices()
                 _uiState.update { it.copy(voices = voices, isLoading = false) }
                 if (voices.isEmpty()) {
-                    // 空结果时主动探测 API 是否可达，给用户明确的错误反馈
                     val check = voiceRepository.listRemoteVoices(null)
                     if (check.isFailure) {
                         _uiState.update { it.copy(error = "获取音色失败: ${check.exceptionOrNull()?.localizedMessage}") }
@@ -90,10 +99,10 @@ class VoiceListViewModel @Inject constructor(
 
     fun createCustomVoice(
         targetModel: String,
-        prefix: String,
         voicePrompt: String,
-        previewText: String
+        previewText: String = "你好，欢迎试听我的声音，希望你能喜欢。"
     ) {
+        val prefix = devicePrefixManager.getPrefix()
         viewModelScope.launch {
             _uiState.update { it.copy(isCreating = true, creatingStatus = "正在创建音色...") }
             val result = voiceRepository.createVoice(targetModel, prefix, voicePrompt, previewText)
@@ -115,7 +124,7 @@ class VoiceListViewModel @Inject constructor(
         var retries = 0
         val maxRetries = 30
         var okRetries = 0
-        val requiredOkRetries = 6 // 连续 6 次 (~12s) 查询返回 OK 才确认生效
+        val requiredOkRetries = 6
 
         while (retries < maxRetries) {
             kotlinx.coroutines.delay(2000)

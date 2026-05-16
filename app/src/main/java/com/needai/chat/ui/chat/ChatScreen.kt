@@ -11,6 +11,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -64,6 +65,7 @@ fun ChatScreen(
     var showModelTip by remember { mutableStateOf(false) }
     var sessionToDelete by remember { mutableStateOf<ChatSession?>(null) }
     var speakingMessageId by remember { mutableStateOf<Long?>(null) }
+    var autoSpeaking by remember { mutableStateOf(false) }
     val settingsDataStore = remember { SettingsDataStore(context) }
     val ttsApiKey by settingsDataStore.ttsApiKey.collectAsState(initial = "")
     val ttsVoice by settingsDataStore.ttsVoice.collectAsState(initial = "")
@@ -71,6 +73,7 @@ fun ChatScreen(
     val ttsRate by settingsDataStore.ttsRate.collectAsState(initial = 1.0f)
     val ttsPitch by settingsDataStore.ttsPitch.collectAsState(initial = 1.0f)
     val ttsAutoRead by settingsDataStore.ttsAutoRead.collectAsState(initial = false)
+    val voiceAliases by settingsDataStore.voiceAliases.collectAsState(initial = emptyMap())
     val voiceModelMap by viewModel.voiceModelMap.collectAsState()
     val voiceModelResolver: (String) -> String? = { voiceId ->
         SystemVoiceProvider.getModelForVoice(voiceId) ?: voiceModelMap[voiceId]
@@ -169,6 +172,7 @@ fun ChatScreen(
         }
         if (!uiState.isStreaming) return@LaunchedEffect
 
+        autoSpeaking = true
         coroutineScope.launch { snackbarHostState.showSnackbar("TTS: 自动朗读") }
 
         var lastProcessedText = ""
@@ -183,7 +187,7 @@ fun ChatScreen(
             }
 
             // 每 200ms 检查增量，积累 1-2 句后再入队
-            while (uiState.isStreaming) {
+            while (uiState.isStreaming && autoSpeaking) {
                 delay(200)
                 val currentText = uiState.currentStreamingMessage
                 if (currentText.length <= lastProcessedText.length) continue
@@ -228,6 +232,7 @@ fun ChatScreen(
                 tts.speakQueued(finalText.substring(lastProcessedText.length), voiceId)
             }
             speakingMessageId = null
+            autoSpeaking = false
         }
     }
 
@@ -332,13 +337,18 @@ fun ChatScreen(
             )
         },
         snackbarHost = {
-            SnackbarHost(hostState = snackbarHostState) { data ->
-                Snackbar(
-                    snackbarData = data,
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                    shape = MaterialTheme.shapes.medium
-                )
+            Box(Modifier.fillMaxSize()) {
+                SnackbarHost(
+                    hostState = snackbarHostState,
+                    modifier = Modifier.align(Alignment.TopCenter)
+                ) { data ->
+                    Snackbar(
+                        snackbarData = data,
+                        containerColor = MaterialTheme.colorScheme.primaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                        shape = MaterialTheme.shapes.medium
+                    )
+                }
             }
         }
     ) { innerPadding ->
@@ -418,10 +428,36 @@ fun ChatScreen(
 
                 if (uiState.isStreaming && uiState.currentStreamingMessage.isNotEmpty()) {
                     item {
-                        StreamingBubble(
-                            content = uiState.currentStreamingMessage,
-                            isStreaming = true
-                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(end = 8.dp),
+                            horizontalArrangement = Arrangement.End,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            StreamingBubble(
+                                content = uiState.currentStreamingMessage,
+                                isStreaming = true,
+                                modifier = Modifier.weight(1f)
+                            )
+                            if (autoSpeaking && ttsAutoRead) {
+                                IconButton(
+                                    onClick = {
+                                        ttsManager?.stop()
+                                        autoSpeaking = false
+                                        coroutineScope.launch {
+                                            snackbarHostState.showSnackbar("TTS: 已暂停")
+                                        }
+                                    },
+                                    modifier = Modifier.size(36.dp)
+                                ) {
+                                    Icon(
+                                        Icons.Default.Stop,
+                                        contentDescription = "暂停朗读",
+                                        tint = MaterialTheme.colorScheme.error,
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -434,6 +470,7 @@ fun ChatScreen(
         SkillSelectorSheet(
             skills = uiState.availableSkills,
             currentSkillId = uiState.currentSkill.id,
+            voiceAliases = voiceAliases,
             onSkillSelected = { skill ->
                 if (skill.id != uiState.currentSkill.id) {
                     pendingSkill = skill

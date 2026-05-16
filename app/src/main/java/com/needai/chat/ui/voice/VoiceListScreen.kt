@@ -248,9 +248,11 @@ fun VoiceListScreen(
     // Create custom voice via Voice Design API
     if (showCreateDialog) {
         CreateVoiceDialog(
+            devicePrefix = uiState.devicePrefix,
+            rawDeviceId = uiState.rawDeviceId,
             onDismiss = { showCreateDialog = false },
-            onCreate = { targetModel, prefix, voicePrompt, previewText ->
-                viewModel.createCustomVoice(targetModel, prefix, voicePrompt, previewText)
+            onCreate = { targetModel, voicePrompt ->
+                viewModel.createCustomVoice(targetModel, voicePrompt)
                 showCreateDialog = false
             }
         )

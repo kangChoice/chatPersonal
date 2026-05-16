@@ -7,7 +7,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 
 @Composable
@@ -24,8 +23,6 @@ fun TtsSettingsSection(
     onTtsAutoReadChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var showApiKey by remember { mutableStateOf(false) }
-
     Card(modifier = modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(
@@ -42,12 +39,7 @@ fun TtsSettingsSection(
                 label = { Text("API Key") },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
-                visualTransformation = if (showApiKey) VisualTransformation.None else PasswordVisualTransformation(),
-                trailingIcon = {
-                    TextButton(onClick = { showApiKey = !showApiKey }) {
-                        Text(if (showApiKey) "隐藏" else "显示")
-                    }
-                }
+                visualTransformation = PasswordVisualTransformation()
             )
 
             Spacer(modifier = Modifier.height(12.dp))

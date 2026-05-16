@@ -39,6 +39,7 @@ class SettingsDataStore(private val context: Context) {
         private val VOICE_ALIASES = stringPreferencesKey("voice_aliases")
         private val BACKGROUNDS = stringPreferencesKey("backgrounds")
         private val SELECTED_BACKGROUND_ID = stringPreferencesKey("selected_background_id")
+        private val DEVICE_PREFIX = stringPreferencesKey("device_prefix")
     }
 
     val selectedSkillId: Flow<String> = context.settingsStore.data.map { preferences ->
@@ -229,6 +230,16 @@ class SettingsDataStore(private val context: Context) {
     suspend fun setSelectedBackgroundId(id: String) {
         context.settingsStore.edit { preferences ->
             preferences[SELECTED_BACKGROUND_ID] = id
+        }
+    }
+
+    val devicePrefix: Flow<String> = context.settingsStore.data.map { preferences ->
+        preferences[DEVICE_PREFIX] ?: ""
+    }
+
+    suspend fun setDevicePrefix(prefix: String) {
+        context.settingsStore.edit { preferences ->
+            preferences[DEVICE_PREFIX] = prefix
         }
     }
 

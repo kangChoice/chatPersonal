@@ -546,9 +546,11 @@ fun SkillAndVoiceScreen(
     // ======================================================================
     if (showVoiceCreateDialog) {
         CreateVoiceDialog(
+            devicePrefix = uiState.devicePrefix,
+            rawDeviceId = uiState.rawDeviceId,
             onDismiss = { showVoiceCreateDialog = false },
-            onCreate = { targetModel, prefix, voicePrompt, previewText ->
-                voiceViewModel.createCustomVoice(targetModel, prefix, voicePrompt, previewText)
+            onCreate = { targetModel, voicePrompt ->
+                voiceViewModel.createCustomVoice(targetModel, voicePrompt)
                 showVoiceCreateDialog = false
             }
         )

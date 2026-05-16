@@ -2,12 +2,14 @@ package com.needai.chat.ui.prompt
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.needai.chat.data.local.datastore.SettingsDataStore
 import com.needai.chat.domain.model.ModelConfig
 import com.needai.chat.domain.model.Skill
 import com.needai.chat.domain.model.StreamEvent
 import com.needai.chat.domain.repository.ModelConfigRepository
 import com.needai.chat.domain.repository.SkillRepository
 import com.needai.chat.domain.repository.VoiceRepository
+import com.needai.chat.util.DevicePrefixManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -44,7 +46,9 @@ data class PolishUiState(
 class PolishViewModel @Inject constructor(
     private val modelConfigRepository: ModelConfigRepository,
     private val skillRepository: SkillRepository,
-    private val voiceRepository: VoiceRepository
+    private val voiceRepository: VoiceRepository,
+    private val devicePrefixManager: DevicePrefixManager,
+    private val settingsDataStore: SettingsDataStore
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(PolishUiState())
@@ -141,6 +145,7 @@ class PolishViewModel @Inject constructor(
                     }
                 }
             } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
                 _uiState.update {
                     it.copy(isPolishing = false, error = "生成失败: ${e.localizedMessage ?: "未知错误"}")
                 }
@@ -225,6 +230,7 @@ class PolishViewModel @Inject constructor(
                     }
                 }
             } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
                 _uiState.update {
                     it.copy(voiceIsPolishing = false, voiceError = "生成失败: ${e.localizedMessage ?: "未知错误"}")
                 }
@@ -272,6 +278,10 @@ class PolishViewModel @Inject constructor(
                 previewText = "你好，欢迎试听我的声音，希望你能喜欢。"
             )
             result.onSuccess { createResult ->
+                // 保存别名映射
+                if (alias.isNotBlank() && createResult.voiceId.isNotBlank()) {
+                    settingsDataStore.setVoiceAlias(createResult.voiceId, alias)
+                }
                 _uiState.update { it.copy(isCreatingVoice = false) }
                 onResult(true, "音色「${alias}」创建成功！")
             }.onFailure { e ->
@@ -311,5 +321,13 @@ class PolishViewModel @Inject constructor(
         polishingJob?.cancel()
         polishingJob = null
         _uiState.update { PolishUiState() }
+    }
+
+    fun clearPolishedPrompt() {
+        _uiState.update { it.copy(polishedPrompt = "", charCount = 0, error = null) }
+    }
+
+    fun clearVoicePolishedPrompt() {
+        _uiState.update { it.copy(voicePolishedPrompt = "", voiceCharCount = 0, voiceError = null) }
     }
 }

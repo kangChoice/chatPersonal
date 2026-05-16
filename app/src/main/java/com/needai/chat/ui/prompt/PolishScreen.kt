@@ -13,12 +13,10 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.needai.chat.data.local.datastore.SettingsDataStore
 import com.needai.chat.domain.model.Skill
 import com.needai.chat.ui.skills.SkillEditDialog
 import com.needai.chat.ui.voice.components.SUPPORTED_CREATION_MODELS
@@ -31,19 +29,17 @@ fun PolishScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
+    var selectedTab by remember { mutableStateOf(0) }
     var showCreateDialog by remember { mutableStateOf(false) }
-    var showClearConfirm by remember { mutableStateOf(false) }
     val scrollState = rememberScrollState()
     val coroutineScope = rememberCoroutineScope()
-    val context = LocalContext.current
-    val settingsDataStore = remember { SettingsDataStore(context) }
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = {
                     Column {
-                        Text("提示词润色", fontWeight = FontWeight.Bold)
+                        Text("角色优化", fontWeight = FontWeight.Bold)
                         if (uiState.currentModelName.isNotBlank()) {
                             Text(
                                 text = uiState.currentModelName,
@@ -54,8 +50,13 @@ fun PolishScreen(
                     }
                 },
                 actions = {
-                    if (uiState.inputText.isNotBlank() || uiState.polishedPrompt.isNotBlank()) {
-                        IconButton(onClick = { showClearConfirm = true }) {
+                    val hasPolishedContent = if (selectedTab == 0) uiState.polishedPrompt.isNotBlank()
+                    else uiState.voicePolishedPrompt.isNotBlank()
+                    if (hasPolishedContent) {
+                        IconButton(onClick = {
+                            if (selectedTab == 0) viewModel.clearPolishedPrompt()
+                            else viewModel.clearVoicePolishedPrompt()
+                        }) {
                             Icon(Icons.Default.Delete, contentDescription = "清空")
                         }
                     }
@@ -87,8 +88,7 @@ fun PolishScreen(
             }
         }
     ) { innerPadding ->
-        var selectedTab by remember { mutableStateOf(0) }
-        val tabTitles = listOf("提示词优化", "音色优化")
+        val tabTitles = listOf("角色优化", "音色优化")
 
         Column(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
             PrimaryTabRow(selectedTabIndex = selectedTab) {
@@ -109,7 +109,7 @@ fun PolishScreen(
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 if (selectedTab == 0) {
-                    // === Prompt Polish ===
+                    // === Role Prompt Polish ===
                     Card(modifier = Modifier.fillMaxWidth()) {
                         Column(modifier = Modifier.padding(16.dp)) {
                             Text(
@@ -150,7 +150,7 @@ fun PolishScreen(
                                     enabled = uiState.inputText.isNotBlank(),
                                     modifier = Modifier.fillMaxWidth()
                                 ) {
-                                    Text("生成提示词")
+                                    Text("生成角色提示词")
                                 }
                             }
                         }
@@ -174,11 +174,28 @@ fun PolishScreen(
                     if (uiState.polishedPrompt.isNotBlank()) {
                         Card(modifier = Modifier.fillMaxWidth()) {
                             Column(modifier = Modifier.padding(16.dp)) {
-                                Text(
-                                    text = "生成的提示词",
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.Bold
-                                )
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = "生成的提示词",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    IconButton(
+                                        onClick = { viewModel.clearPolishedPrompt() },
+                                        modifier = Modifier.size(32.dp)
+                                    ) {
+                                        Icon(
+                                            Icons.Default.Delete,
+                                            contentDescription = "清空",
+                                            modifier = Modifier.size(18.dp),
+                                            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                                        )
+                                    }
+                                }
                                 Spacer(modifier = Modifier.height(4.dp))
                                 Text(
                                     text = "已生成 ${uiState.charCount} 字",
@@ -273,11 +290,28 @@ fun PolishScreen(
                     if (uiState.voicePolishedPrompt.isNotBlank()) {
                         Card(modifier = Modifier.fillMaxWidth()) {
                             Column(modifier = Modifier.padding(16.dp)) {
-                                Text(
-                                    text = "优化后的音色描述",
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.Bold
-                                )
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = "优化后的音色描述",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    IconButton(
+                                        onClick = { viewModel.clearVoicePolishedPrompt() },
+                                        modifier = Modifier.size(32.dp)
+                                    ) {
+                                        Icon(
+                                            Icons.Default.Delete,
+                                            contentDescription = "清空",
+                                            modifier = Modifier.size(18.dp),
+                                            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                                        )
+                                    }
+                                }
                                 Spacer(modifier = Modifier.height(4.dp))
                                 Text(
                                     text = "已生成 ${uiState.voiceCharCount} 字",
@@ -350,15 +384,9 @@ fun PolishScreen(
                                 }
                                 Button(
                                     onClick = {
-                                        val alias = uiState.voiceAlias.trim()
                                         viewModel.createVoice { success, msg ->
                                             coroutineScope.launch {
                                                 snackbarHostState.showSnackbar(msg)
-                                            }
-                                            if (success && alias.isNotBlank()) {
-                                                coroutineScope.launch {
-                                                    settingsDataStore.setVoiceAlias(alias, alias)
-                                                }
                                             }
                                         }
                                     },
@@ -377,33 +405,6 @@ fun PolishScreen(
                 }
             }
         }
-    }
-
-    if (showClearConfirm) {
-        AlertDialog(
-            onDismissRequest = { showClearConfirm = false },
-            icon = { Icon(Icons.Default.Delete, contentDescription = null) },
-            title = { Text("清空内容") },
-            text = { Text("确定要清空输入内容和生成的提示词吗？") },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        viewModel.reset()
-                        showClearConfirm = false
-                    },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.error
-                    )
-                ) {
-                    Text("清空")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showClearConfirm = false }) {
-                    Text("取消")
-                }
-            }
-        )
     }
 
     if (showCreateDialog && uiState.polishedPrompt.isNotBlank()) {

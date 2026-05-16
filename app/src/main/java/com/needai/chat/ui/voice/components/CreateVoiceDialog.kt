@@ -9,6 +9,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 
 private const val DEFAULT_PREVIEW_TEXT = "你好，欢迎试听我的声音，希望你能喜欢。"
@@ -24,13 +25,14 @@ val SUPPORTED_CREATION_MODELS = listOf(
 
 @Composable
 fun CreateVoiceDialog(
-    defaultPrefix: String = "needai",
+    devicePrefix: String = "",
+    rawDeviceId: String = "",
     onDismiss: () -> Unit,
-    onCreate: (targetModel: String, prefix: String, voicePrompt: String, previewText: String) -> Unit
+    onCreate: (targetModel: String, voicePrompt: String) -> Unit
 ) {
     var selectedModel by remember { mutableStateOf(SUPPORTED_CREATION_MODELS.first()) }
-    var prefix by remember { mutableStateOf(defaultPrefix) }
     var voicePrompt by remember { mutableStateOf("") }
+    var showDebugInfo by remember { mutableStateOf(false) }
 
     val isValid = voicePrompt.isNotBlank()
 
@@ -70,14 +72,6 @@ fun CreateVoiceDialog(
                 HorizontalDivider()
 
                 OutlinedTextField(
-                    value = prefix,
-                    onValueChange = { prefix = it },
-                    label = { Text("名称前缀") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                    supportingText = { Text("用于 list_voice 按前缀筛选") }
-                )
-                OutlinedTextField(
                     value = voicePrompt,
                     onValueChange = { voicePrompt = it },
                     label = { Text("声音描述 (Voice Prompt)") },
@@ -86,11 +80,44 @@ fun CreateVoiceDialog(
                     modifier = Modifier.fillMaxWidth(),
                     supportingText = { Text("例如：温柔的女声，略带微笑，适合朗读故事") }
                 )
+
+                // Debug info
+                if (devicePrefix.isNotBlank()) {
+                    Surface(
+                        onClick = { showDebugInfo = !showDebugInfo },
+                        shape = MaterialTheme.shapes.small,
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            Text(
+                                text = if (showDebugInfo) "▼ 调试信息" else "▶ 调试信息",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                            )
+                            if (showDebugInfo) {
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    text = "原始机器码: $rawDeviceId",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Text(
+                                    text = "加密前缀: $devicePrefix",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                                )
+                            }
+                        }
+                    }
+                }
             }
         },
         confirmButton = {
             Button(
-                onClick = { onCreate(selectedModel, prefix, voicePrompt, DEFAULT_PREVIEW_TEXT) },
+                onClick = { onCreate(selectedModel, voicePrompt) },
                 enabled = isValid
             ) {
                 Text("创建")
