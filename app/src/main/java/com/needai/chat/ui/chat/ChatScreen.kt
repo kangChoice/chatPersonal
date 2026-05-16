@@ -32,11 +32,13 @@ import com.needai.chat.ui.chat.components.StreamingBubble
 import com.needai.chat.ui.chat.state.ChatUiState
 import com.needai.chat.data.local.datastore.SettingsDataStore
 import com.needai.chat.data.remote.tts.CosyVoiceParameters
+import com.needai.chat.data.remote.tts.SystemVoiceProvider
 import com.needai.chat.util.ITtsManager
 import com.needai.chat.util.TtsManagerImpl
 import com.needai.chat.ui.navigation.Screen
 import java.text.SimpleDateFormat
 import java.util.*
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -61,26 +63,28 @@ fun ChatScreen(
     var speakingMessageId by remember { mutableStateOf<Long?>(null) }
     val settingsDataStore = remember { SettingsDataStore(context) }
     val ttsApiKey by settingsDataStore.ttsApiKey.collectAsState(initial = "")
-    val ttsModel by settingsDataStore.ttsModel.collectAsState(initial = "cosyvoice-v3.5-flash")
     val ttsVoice by settingsDataStore.ttsVoice.collectAsState(initial = "")
     val ttsVolume by settingsDataStore.ttsVolume.collectAsState(initial = 50)
     val ttsRate by settingsDataStore.ttsRate.collectAsState(initial = 1.0f)
     val ttsPitch by settingsDataStore.ttsPitch.collectAsState(initial = 1.0f)
     val ttsAutoRead by settingsDataStore.ttsAutoRead.collectAsState(initial = false)
+    val voiceModelMap by viewModel.voiceModelMap.collectAsState()
+    val voiceModelResolver: (String) -> String? = { voiceId ->
+        SystemVoiceProvider.getModelForVoice(voiceId) ?: voiceModelMap[voiceId]
+    }
 
     var ttsManager by remember { mutableStateOf<ITtsManager?>(null) }
-    LaunchedEffect(ttsApiKey, ttsModel, ttsVoice, ttsVolume, ttsRate, ttsPitch) {
+    LaunchedEffect(ttsApiKey, ttsVoice, ttsVolume, ttsRate, ttsPitch) {
         ttsManager?.shutdown()
         ttsManager = TtsManagerImpl(
-            context = context,
             apiKey = ttsApiKey,
             parameters = CosyVoiceParameters(
-                model = ttsModel,
                 voice = ttsVoice,
                 volume = ttsVolume,
                 rate = ttsRate,
                 pitch = ttsPitch
-            )
+            ),
+            voiceModelResolver = voiceModelResolver
         )
     }
     DisposableEffect(Unit) {
@@ -135,30 +139,52 @@ fun ChatScreen(
         }
     }
 
-    // Auto-read TTS when streaming completes
-    val wasStreaming = remember { mutableStateOf(false) }
+    // Auto-read TTS: 每 300ms 批量推增量文本，避免逐 token 推送导致服务端碎片化合成
     LaunchedEffect(uiState.isStreaming) {
-        if (uiState.isStreaming) {
-            wasStreaming.value = true
-        } else if (wasStreaming.value) {
-            wasStreaming.value = false
-            // Streaming just finished
-            if (ttsAutoRead && ttsManager != null) {
-                val lastAssistantMsg = uiState.messages.lastOrNull { it.role == com.needai.chat.domain.model.MessageRole.ASSISTANT }
-                if (lastAssistantMsg != null && speakingMessageId == null) {
-                    val voiceId = if (uiState.currentSkill.voiceId.isNotBlank()) uiState.currentSkill.voiceId else ttsVoice
-                    coroutineScope.launch {
-                        snackbarHostState.showSnackbar("TTS: 自动朗读 (voice=$voiceId)")
-                    }
-                    ttsManager!!.speak(lastAssistantMsg.content, voiceId) {
-                        speakingMessageId = null
-                        coroutineScope.launch {
-                            snackbarHostState.showSnackbar("TTS: 朗读结束")
-                        }
-                    }
-                    speakingMessageId = lastAssistantMsg.id
+        if (!uiState.isStreaming) return@LaunchedEffect
+        if (!ttsAutoRead || ttsManager == null) return@LaunchedEffect
+
+        var session: com.needai.chat.util.IStreamingTtsSession? = null
+        var lastSentText = ""
+
+        // 等第一个 token
+        while (uiState.isStreaming && uiState.currentStreamingMessage.isEmpty()) {
+            delay(100)
+        }
+        if (!uiState.isStreaming) return@LaunchedEffect
+
+        // 开流并立即发送第一批
+        val voiceId = if (uiState.currentSkill.voiceId.isNotBlank()) uiState.currentSkill.voiceId else ttsVoice
+        speakingMessageId = -1L
+        session = ttsManager!!.startStreaming(voiceId) {
+            speakingMessageId = null
+            coroutineScope.launch { snackbarHostState.showSnackbar("TTS: 朗读结束") }
+        }
+        if (session == null) return@LaunchedEffect
+        coroutineScope.launch { snackbarHostState.showSnackbar("TTS: 自动朗读") }
+
+        val firstText = uiState.currentStreamingMessage
+        session.sendText(firstText)
+        lastSentText = firstText
+
+        // 每 300ms 批量推送增量
+        try {
+            while (uiState.isStreaming) {
+                delay(300)
+                val currentText = uiState.currentStreamingMessage
+                if (currentText.length > lastSentText.length) {
+                    val delta = currentText.substring(lastSentText.length)
+                    session.sendText(delta)
+                    lastSentText = currentText
                 }
             }
+        } finally {
+            val finalText = uiState.currentStreamingMessage
+            if (finalText.length > lastSentText.length) {
+                session.sendText(finalText.substring(lastSentText.length))
+            }
+            session.finish()
+            speakingMessageId = null
         }
     }
 
@@ -321,7 +347,12 @@ fun ChatScreen(
                                     coroutineScope.launch {
                                         snackbarHostState.showSnackbar("TTS: 朗读 (voice=$voiceId)")
                                     }
-                                    mgr.speak(message.content, voiceId)
+                                    mgr.speak(message.content, voiceId) {
+                                        speakingMessageId = null
+                                        coroutineScope.launch {
+                                            snackbarHostState.showSnackbar("TTS: 朗读结束")
+                                        }
+                                    }
                                     speakingMessageId = message.id
                                 }
                             }

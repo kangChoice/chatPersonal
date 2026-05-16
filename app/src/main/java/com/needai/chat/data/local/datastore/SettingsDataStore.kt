@@ -33,7 +33,6 @@ class SettingsDataStore(private val context: Context) {
         private val TTS_PITCH = floatPreferencesKey("tts_pitch")
         private val TTS_PREFIX = stringPreferencesKey("tts_prefix")
         private val TTS_AUTO_READ = booleanPreferencesKey("tts_auto_read")
-        private val TTS_VOICE_LIST = stringPreferencesKey("tts_voice_list")
     }
 
     val selectedSkillId: Flow<String> = context.settingsStore.data.map { preferences ->
@@ -114,10 +113,6 @@ class SettingsDataStore(private val context: Context) {
         preferences[TTS_AUTO_READ] ?: false
     }
 
-    val ttsVoiceList: Flow<String> = context.settingsStore.data.map { preferences ->
-        preferences[TTS_VOICE_LIST] ?: ""
-    }
-
     suspend fun setTtsProvider(provider: String) {
         context.settingsStore.edit { preferences ->
             preferences[TTS_PROVIDER] = provider
@@ -172,9 +167,4 @@ class SettingsDataStore(private val context: Context) {
         }
     }
 
-    suspend fun setTtsVoiceList(json: String) {
-        context.settingsStore.edit { preferences ->
-            preferences[TTS_VOICE_LIST] = json
-        }
-    }
 }

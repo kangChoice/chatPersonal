@@ -3,10 +3,8 @@ package com.needai.chat.data.repository
 import com.needai.chat.data.remote.tts.VoiceDesignClient
 import com.needai.chat.domain.model.VoiceInfo
 import com.needai.chat.domain.repository.VoiceRepository
-import com.needai.chat.util.EncryptUtil
 import com.needai.chat.data.local.datastore.SettingsDataStore
 import com.google.gson.Gson
-import com.google.gson.reflect.TypeToken
 import kotlinx.coroutines.flow.first
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -24,36 +22,18 @@ class VoiceRepositoryImpl @Inject constructor(
         if (voiceCache != null && System.currentTimeMillis() - cacheTime < 300_000) {
             return voiceCache!!
         }
-        val json = settingsDataStore.ttsVoiceList.first()
-        val voices: List<VoiceInfo> = if (json.isNotBlank()) {
-            try {
-                gson.fromJson(json, object : TypeToken<List<VoiceInfo>>() {}.type)
-            } catch (e: Exception) {
-                emptyList()
-            }
-        } else emptyList()
-        voiceCache = voices
-        cacheTime = System.currentTimeMillis()
-        return voices
+        val result = listRemoteVoices()
+        result.onSuccess { voices ->
+            voiceCache = voices
+            cacheTime = System.currentTimeMillis()
+            return voices
+        }
+        return voiceCache ?: emptyList()
     }
 
-    override suspend fun getVoiceById(voiceId: String): VoiceInfo? {
-        return getVoices().find { it.voiceId == voiceId }
-    }
-
-    override suspend fun saveVoice(voice: VoiceInfo) {
-        val voices = getVoices().toMutableList()
-        val idx = voices.indexOfFirst { it.voiceId == voice.voiceId }
-        if (idx >= 0) voices[idx] = voice
-        else voices.add(voice)
-        saveVoiceList(voices)
-    }
-
-    override suspend fun deleteVoice(voiceId: String) {
-        val voices = getVoices().toMutableList()
-        voices.removeAll { it.voiceId == voiceId }
-        voiceCache = voices
-        settingsDataStore.setTtsVoiceList(gson.toJson(voices))
+    override fun clearCache() {
+        voiceCache = null
+        cacheTime = 0
     }
 
     override suspend fun createVoice(
@@ -65,8 +45,7 @@ class VoiceRepositoryImpl @Inject constructor(
         val apiKey = settingsDataStore.ttsApiKey.first()
         if (apiKey.isBlank()) return Result.failure(Exception("未配置 API Key"))
         val client = VoiceDesignClient(apiKey, gson)
-        val model = targetModel.ifBlank { settingsDataStore.ttsModel.first() }
-        return client.createVoice(model, prefix, voicePrompt, previewText)
+        return client.createVoice(targetModel, prefix, voicePrompt, previewText)
     }
 
     override suspend fun listRemoteVoices(prefix: String?): Result<List<VoiceInfo>> {
@@ -88,11 +67,5 @@ class VoiceRepositoryImpl @Inject constructor(
         if (apiKey.isBlank()) return Result.failure(Exception("未配置 API Key"))
         val client = VoiceDesignClient(apiKey, gson)
         return client.deleteVoice(voiceId)
-    }
-
-    private suspend fun saveVoiceList(voices: List<VoiceInfo>) {
-        voiceCache = voices
-        cacheTime = System.currentTimeMillis()
-        settingsDataStore.setTtsVoiceList(gson.toJson(voices))
     }
 }

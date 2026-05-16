@@ -2,6 +2,7 @@ package com.needai.chat.ui.voice
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.needai.chat.data.remote.tts.VoiceDesignClient
 import com.needai.chat.domain.model.VoiceInfo
 import com.needai.chat.domain.repository.VoiceRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -16,9 +17,9 @@ data class VoiceListUiState(
     val voices: List<VoiceInfo> = emptyList(),
     val isLoading: Boolean = false,
     val error: String? = null,
-    val isSyncing: Boolean = false,
     val isCreating: Boolean = false,
-    val creatingStatus: String? = null
+    val creatingStatus: String? = null,
+    val previewAudioData: VoiceDesignClient.PreviewAudioData? = null
 )
 
 @HiltViewModel
@@ -45,58 +46,37 @@ class VoiceListViewModel @Inject constructor(
         }
     }
 
-    /**
-     * 从 Voice Design API 同步远程音色列表到本地
-     */
-    fun syncFromRemote() {
-        viewModelScope.launch {
-            _uiState.update { it.copy(isSyncing = true, error = null) }
-            val result = voiceRepository.listRemoteVoices()
-            result.onSuccess { remoteVoices ->
-                // 合并到本地：远程音色覆盖同 voiceId 的本地音色，新增不存在的
-                val local = voiceRepository.getVoices()
-                val merged = remoteVoices.map { remote ->
-                    val existing = local.find { it.voiceId == remote.voiceId }
-                    existing?.copy(
-                        status = remote.status,
-                        voicePrompt = remote.voicePrompt,
-                        previewText = remote.previewText
-                    ) ?: remote
-                }
-                // 保留不在远程中的本地自定义音色
-                val remoteIds = remoteVoices.map { it.voiceId }.toSet()
-                val localCustom = local.filter { it.voiceId !in remoteIds }
-                (merged + localCustom).forEach { voiceRepository.saveVoice(it) }
-                _uiState.update {
-                    it.copy(
-                        voices = merged + localCustom,
-                        isSyncing = false
-                    )
-                }
-            }.onFailure { e ->
-                _uiState.update { it.copy(isSyncing = false, error = "同步失败: ${e.localizedMessage}") }
-            }
-        }
-    }
-
-    fun addVoice(voice: VoiceInfo) {
-        viewModelScope.launch {
-            voiceRepository.saveVoice(voice)
-            loadVoices()
-        }
-    }
-
-    fun updateVoice(oldId: String, voice: VoiceInfo) {
-        viewModelScope.launch {
-            voiceRepository.deleteVoice(oldId)
-            voiceRepository.saveVoice(voice)
-            loadVoices()
-        }
+    fun refreshVoices() {
+        voiceRepository.clearCache()
+        loadVoices()
     }
 
     fun deleteVoice(voiceId: String) {
         viewModelScope.launch {
-            voiceRepository.deleteVoice(voiceId)
+            val result = voiceRepository.deleteRemoteVoice(voiceId)
+            result.onSuccess {
+                voiceRepository.clearCache()
+                loadVoices()
+            }.onFailure { e ->
+                _uiState.update { it.copy(error = "删除失败: ${e.localizedMessage}") }
+            }
+        }
+    }
+
+    fun deleteAllVoices() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(error = null) }
+            val currentVoices = _uiState.value.voices.toList()
+            for (voice in currentVoices) {
+                val result = voiceRepository.deleteRemoteVoice(voice.voiceId)
+                if (result.isFailure) {
+                    _uiState.update {
+                        it.copy(error = "删除「${voice.displayName}」失败: ${result.exceptionOrNull()?.localizedMessage}")
+                    }
+                    return@launch
+                }
+            }
+            voiceRepository.clearCache()
             loadVoices()
         }
     }
@@ -111,16 +91,12 @@ class VoiceListViewModel @Inject constructor(
             _uiState.update { it.copy(isCreating = true, creatingStatus = "正在创建音色...") }
             val result = voiceRepository.createVoice(targetModel, prefix, voicePrompt, previewText)
             result.onSuccess { createResult ->
-                _uiState.update { it.copy(creatingStatus = "音色创建中 (${createResult.status})，正在等待部署...") }
-                val voiceInfo = VoiceInfo(
-                    voiceId = createResult.voiceId,
-                    displayName = voicePrompt,
-                    voicePrompt = voicePrompt,
-                    targetModel = targetModel,
-                    status = createResult.status,
-                    previewText = previewText
-                )
-                voiceRepository.saveVoice(voiceInfo)
+                _uiState.update {
+                    it.copy(
+                        creatingStatus = "音色创建中 (${createResult.status})，正在等待部署...",
+                        previewAudioData = createResult.previewAudio
+                    )
+                }
                 pollVoiceStatus(createResult.voiceId)
             }.onFailure { e ->
                 _uiState.update { it.copy(isCreating = false, error = "创建失败: ${e.localizedMessage}") }
@@ -131,20 +107,27 @@ class VoiceListViewModel @Inject constructor(
     private suspend fun pollVoiceStatus(voiceId: String) {
         var retries = 0
         val maxRetries = 30
+        var okRetries = 0
+        val requiredOkRetries = 6 // 连续 6 次 (~12s) 查询返回 OK 才确认生效
+
         while (retries < maxRetries) {
             kotlinx.coroutines.delay(2000)
             val result = voiceRepository.queryVoice(voiceId)
             result.onSuccess { detail ->
                 if (detail.status == "OK") {
-                    val current = _uiState.value.voices.find { it.voiceId == voiceId }
-                    if (current != null) {
-                        voiceRepository.saveVoice(current.copy(status = "OK"))
+                    okRetries++
+                    if (okRetries == 1) {
+                        _uiState.update { it.copy(creatingStatus = "部署完成，配置生效中...") }
+                    } else if (okRetries >= requiredOkRetries) {
+                        _uiState.update { it.copy(isCreating = false, creatingStatus = "音色已就绪！") }
+                        voiceRepository.clearCache()
+                        loadVoices()
+                        return
                     }
-                    _uiState.update { it.copy(isCreating = false, creatingStatus = "音色已就绪！") }
-                    loadVoices()
-                    return
+                } else {
+                    okRetries = 0
+                    _uiState.update { it.copy(creatingStatus = "部署中 (${detail.status})...") }
                 }
-                _uiState.update { it.copy(creatingStatus = "部署中 (${detail.status})...") }
             }
             retries++
         }
@@ -153,6 +136,10 @@ class VoiceListViewModel @Inject constructor(
 
     fun dismissError() {
         _uiState.update { it.copy(error = null) }
+    }
+
+    fun dismissPreviewAudio() {
+        _uiState.update { it.copy(previewAudioData = null) }
     }
 
     fun dismissCreating() {

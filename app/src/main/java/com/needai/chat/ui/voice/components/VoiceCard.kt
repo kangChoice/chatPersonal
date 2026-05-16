@@ -3,8 +3,8 @@ package com.needai.chat.ui.voice.components
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -16,8 +16,9 @@ import com.needai.chat.domain.model.VoiceInfo
 @Composable
 fun VoiceCard(
     voice: VoiceInfo,
+    isPlaying: Boolean = false,
+    canPlay: Boolean = true,
     onPlay: () -> Unit,
-    onEdit: () -> Unit,
     onDelete: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -36,7 +37,8 @@ fun VoiceCard(
     Card(
         modifier = modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+            containerColor = if (isPlaying) MaterialTheme.colorScheme.primaryContainer
+                            else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
         )
     ) {
         Row(
@@ -72,18 +74,13 @@ fun VoiceCard(
                     )
                 }
             }
-            IconButton(onClick = onPlay) {
+            IconButton(onClick = onPlay, enabled = canPlay) {
                 Icon(
-                    Icons.Default.PlayArrow,
-                    contentDescription = "试听",
-                    tint = MaterialTheme.colorScheme.primary
-                )
-            }
-            IconButton(onClick = onEdit) {
-                Icon(
-                    Icons.Default.Edit,
-                    contentDescription = "编辑",
-                    modifier = Modifier.size(20.dp)
+                    if (isPlaying) Icons.Default.Stop else Icons.Default.PlayArrow,
+                    contentDescription = if (isPlaying) "停止" else "试听",
+                    tint = if (isPlaying) MaterialTheme.colorScheme.error
+                           else if (canPlay) MaterialTheme.colorScheme.primary
+                           else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
                 )
             }
             IconButton(onClick = onDelete) {

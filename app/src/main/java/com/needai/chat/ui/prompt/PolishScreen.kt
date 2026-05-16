@@ -81,110 +81,216 @@ fun PolishScreen(
             }
         }
     ) { innerPadding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .padding(16.dp)
-                .verticalScroll(scrollState),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            // Input section
-            Card(modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text(
-                        text = "描述角色设定",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
+        var selectedTab by remember { mutableStateOf(0) }
+        val tabTitles = listOf("提示词优化", "音色优化")
+
+        Column(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
+            PrimaryTabRow(selectedTabIndex = selectedTab) {
+                tabTitles.forEachIndexed { index, title ->
+                    Tab(
+                        selected = selectedTab == index,
+                        onClick = { selectedTab = index },
+                        text = { Text(title) }
                     )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    OutlinedTextField(
-                        value = uiState.inputText,
-                        onValueChange = viewModel::setInputText,
-                        placeholder = {
-                            Text("想要一个像该软件开发作者一般优秀、风趣的男朋友")
-                        },
-                        minLines = 5,
-                        maxLines = 8,
-                        modifier = Modifier.fillMaxWidth(),
-                        enabled = !uiState.isPolishing
-                    )
-                    Spacer(modifier = Modifier.height(12.dp))
-                    if (uiState.isPolishing) {
-                        Button(
-                            onClick = { viewModel.stopPolishing() },
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.error
-                            ),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Icon(Icons.Default.Stop, contentDescription = "停止", modifier = Modifier.size(18.dp))
-                            Spacer(Modifier.width(4.dp))
-                            Text("停止生成")
-                        }
-                        Spacer(modifier = Modifier.height(8.dp))
-                        LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-                    } else {
-                        Button(
-                            onClick = { viewModel.polishPrompt() },
-                            enabled = uiState.inputText.isNotBlank(),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text("生成提示词")
+                }
+            }
+
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(16.dp)
+                    .verticalScroll(scrollState),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                if (selectedTab == 0) {
+                    // === Prompt Polish ===
+                    Card(modifier = Modifier.fillMaxWidth()) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Text(
+                                text = "描述角色设定",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            OutlinedTextField(
+                                value = uiState.inputText,
+                                onValueChange = viewModel::setInputText,
+                                placeholder = {
+                                    Text("想要一个像该软件开发作者一般优秀、风趣的男朋友")
+                                },
+                                minLines = 5,
+                                maxLines = 8,
+                                modifier = Modifier.fillMaxWidth(),
+                                enabled = !uiState.isPolishing
+                            )
+                            Spacer(modifier = Modifier.height(12.dp))
+                            if (uiState.isPolishing) {
+                                Button(
+                                    onClick = { viewModel.stopPolishing() },
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = MaterialTheme.colorScheme.error
+                                    ),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Icon(Icons.Default.Stop, contentDescription = "停止", modifier = Modifier.size(18.dp))
+                                    Spacer(Modifier.width(4.dp))
+                                    Text("停止生成")
+                                }
+                                Spacer(modifier = Modifier.height(8.dp))
+                                LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                            } else {
+                                Button(
+                                    onClick = { viewModel.polishPrompt() },
+                                    enabled = uiState.inputText.isNotBlank(),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Text("生成提示词")
+                                }
+                            }
                         }
                     }
-                }
-            }
 
-            // Error message
-            if (uiState.error != null) {
-                Card(
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.errorContainer
-                    )
-                ) {
-                    Text(
-                        text = uiState.error!!,
-                        modifier = Modifier.padding(16.dp),
-                        color = MaterialTheme.colorScheme.onErrorContainer,
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                }
-            }
-
-            // Output section
-            if (uiState.polishedPrompt.isNotBlank()) {
-                Card(modifier = Modifier.fillMaxWidth()) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Text(
-                            text = "生成的提示词",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = "已生成 ${uiState.charCount} 字",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Surface(
-                            shape = MaterialTheme.shapes.small,
-                            color = MaterialTheme.colorScheme.surfaceVariant,
-                            modifier = Modifier.fillMaxWidth()
+                    if (uiState.error != null) {
+                        Card(
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.errorContainer
+                            )
                         ) {
                             Text(
-                                text = uiState.polishedPrompt,
-                                modifier = Modifier.padding(12.dp),
+                                text = uiState.error!!,
+                                modifier = Modifier.padding(16.dp),
+                                color = MaterialTheme.colorScheme.onErrorContainer,
                                 style = MaterialTheme.typography.bodyMedium
                             )
                         }
-                        Spacer(modifier = Modifier.height(12.dp))
-                        Button(
-                            onClick = { showCreateDialog = true },
-                            modifier = Modifier.fillMaxWidth()
+                    }
+
+                    if (uiState.polishedPrompt.isNotBlank()) {
+                        Card(modifier = Modifier.fillMaxWidth()) {
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                Text(
+                                    text = "生成的提示词",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = "已生成 ${uiState.charCount} 字",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Surface(
+                                    shape = MaterialTheme.shapes.small,
+                                    color = MaterialTheme.colorScheme.surfaceVariant,
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Text(
+                                        text = uiState.polishedPrompt,
+                                        modifier = Modifier.padding(12.dp),
+                                        style = MaterialTheme.typography.bodyMedium
+                                    )
+                                }
+                                Spacer(modifier = Modifier.height(12.dp))
+                                Button(
+                                    onClick = { showCreateDialog = true },
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Text("创建技能")
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    // === Voice Polish ===
+                    Card(modifier = Modifier.fillMaxWidth()) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Text(
+                                text = "描述音色",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            OutlinedTextField(
+                                value = uiState.voiceInputText,
+                                onValueChange = viewModel::setVoiceInputText,
+                                placeholder = {
+                                    Text("温柔的女声，30岁左右，适合朗读情感故事")
+                                },
+                                minLines = 3,
+                                maxLines = 5,
+                                modifier = Modifier.fillMaxWidth(),
+                                enabled = !uiState.voiceIsPolishing
+                            )
+                            Spacer(modifier = Modifier.height(12.dp))
+                            if (uiState.voiceIsPolishing) {
+                                Button(
+                                    onClick = { viewModel.stopVoicePolishing() },
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = MaterialTheme.colorScheme.error
+                                    ),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Icon(Icons.Default.Stop, contentDescription = "停止", modifier = Modifier.size(18.dp))
+                                    Spacer(Modifier.width(4.dp))
+                                    Text("停止生成")
+                                }
+                                Spacer(modifier = Modifier.height(8.dp))
+                                LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                            } else {
+                                Button(
+                                    onClick = { viewModel.polishVoicePrompt() },
+                                    enabled = uiState.voiceInputText.isNotBlank(),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Text("生成音色描述")
+                                }
+                            }
+                        }
+                    }
+
+                    if (uiState.voiceError != null) {
+                        Card(
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.errorContainer
+                            )
                         ) {
-                            Text("创建技能")
+                            Text(
+                                text = uiState.voiceError!!,
+                                modifier = Modifier.padding(16.dp),
+                                color = MaterialTheme.colorScheme.onErrorContainer,
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                        }
+                    }
+
+                    if (uiState.voicePolishedPrompt.isNotBlank()) {
+                        Card(modifier = Modifier.fillMaxWidth()) {
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                Text(
+                                    text = "优化后的音色描述",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = "已生成 ${uiState.voiceCharCount} 字",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Surface(
+                                    shape = MaterialTheme.shapes.small,
+                                    color = MaterialTheme.colorScheme.surfaceVariant,
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Text(
+                                        text = uiState.voicePolishedPrompt,
+                                        modifier = Modifier.padding(12.dp),
+                                        style = MaterialTheme.typography.bodyMedium
+                                    )
+                                }
+                            }
                         }
                     }
                 }

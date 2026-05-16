@@ -1,7 +1,7 @@
 package com.needai.chat.data.remote.tts
 
 data class CosyVoiceParameters(
-    val model: String = "cosyvoice-v3.5-flash",
+    val model: String = "cosyvoice-v3-flash",
     val voice: String = "",
     val format: String = "pcm",
     val sampleRate: Int = 24000,

@@ -68,6 +68,33 @@ class PcmAudioPlayer(
         }
     }
 
+    /**
+     * 等待 AudioTrack 缓冲区的数据播放完毕后再 stop/release。
+     * 避免 [stop] 直接截断尾部音频。
+     */
+    @Synchronized
+    fun drainAndStop() {
+        val track = audioTrack ?: return
+        if (!isPlaying) return
+        try {
+            var lastPos = track.playbackHeadPosition
+            var stagnant = 0
+            // 每 150ms 检查一次播放头，连续 4 次不动 ≈ 600ms 无声 = 缓冲区已空
+            while (stagnant < 4) {
+                Thread.sleep(150)
+                val pos = track.playbackHeadPosition
+                if (pos == lastPos) {
+                    stagnant++
+                } else {
+                    stagnant = 0
+                    lastPos = pos
+                }
+            }
+        } catch (_: Exception) { }
+        stop()
+        release()
+    }
+
     @Synchronized
     fun release() {
         isPlaying = false

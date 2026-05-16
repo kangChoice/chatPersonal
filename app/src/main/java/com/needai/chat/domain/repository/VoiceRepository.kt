@@ -5,9 +5,7 @@ import com.needai.chat.data.remote.tts.VoiceDesignClient
 
 interface VoiceRepository {
     suspend fun getVoices(): List<VoiceInfo>
-    suspend fun getVoiceById(voiceId: String): VoiceInfo?
-    suspend fun saveVoice(voice: VoiceInfo)
-    suspend fun deleteVoice(voiceId: String)
+    fun clearCache()
     suspend fun createVoice(
         targetModel: String,
         prefix: String,

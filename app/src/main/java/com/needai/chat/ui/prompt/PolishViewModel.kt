@@ -25,7 +25,13 @@ data class PolishUiState(
     val isPolishing: Boolean = false,
     val charCount: Int = 0,
     val error: String? = null,
-    val currentModelName: String = ""
+    val currentModelName: String = "",
+    // Voice prompt polish
+    val voiceInputText: String = "",
+    val voicePolishedPrompt: String = "",
+    val voiceIsPolishing: Boolean = false,
+    val voiceCharCount: Int = 0,
+    val voiceError: String? = null
 )
 
 @HiltViewModel
@@ -38,6 +44,7 @@ class PolishViewModel @Inject constructor(
     val uiState: StateFlow<PolishUiState> = _uiState.asStateFlow()
 
     private var polishingJob: Job? = null
+    private var voicePolishingJob: Job? = null
 
     init {
         viewModelScope.launch {
@@ -140,6 +147,90 @@ class PolishViewModel @Inject constructor(
         _uiState.update { it.copy(isPolishing = false) }
     }
 
+    // ===== Voice Prompt Polish =====
+
+    fun setVoiceInputText(text: String) {
+        _uiState.update { it.copy(voiceInputText = text, voiceError = null) }
+    }
+
+    fun polishVoicePrompt() {
+        val input = _uiState.value.voiceInputText.trim()
+        if (input.isEmpty()) return
+
+        _uiState.update { it.copy(voiceIsPolishing = true, voicePolishedPrompt = "", voiceCharCount = 0, voiceError = null) }
+
+        voicePolishingJob = viewModelScope.launch {
+            val config = modelConfigRepository.getModelConfig().first()
+            if (config.remoteBaseUrl.isBlank() || config.remoteApiKey.isBlank()) {
+                _uiState.update {
+                    it.copy(voiceIsPolishing = false, voiceError = "请先在设置中配置模型")
+                }
+                return@launch
+            }
+
+            val systemPrompt = buildString {
+                append("你是一个专业的语音设计提示词工程师。你的任务是将用户简短的声音描述优化为高质量的语音提示词（Voice Prompt），用于AI语音合成（TTS）中的音色创建。\n\n")
+                append("要求：\n")
+                append("1. 输出内容控制在 50-100 字之间\n")
+                append("2. 详细描述声音的性别、年龄段、音色特点（如磁性、温柔、清亮、低沉等）\n")
+                append("3. 描述说话风格（如沉稳、活泼、知性、亲切等）\n")
+                append("4. 描述适用的场景（如新闻播报、故事朗读、日常对话、客服等）\n")
+                append("5. 使用中文描述\n")
+                append("6. 只输出优化后的声音描述本身，不要添加任何解释性文字、不要加引号\n\n")
+                append("请优化用户提供的以下声音描述：")
+            }
+
+            try {
+                val modelClient = com.needai.chat.data.remote.client.RemoteModelClient(
+                    com.google.gson.Gson()
+                )
+                val messages = listOf(
+                    com.needai.chat.domain.usecase.ChatMessage(role = "system", content = systemPrompt),
+                    com.needai.chat.domain.usecase.ChatMessage(role = "user", content = input)
+                )
+                val defaultSkill = Skill(
+                    id = "voice_polish",
+                    name = "音色优化",
+                    description = "",
+                    avatar = "🎙️",
+                    systemPrompt = systemPrompt,
+                    greeting = "",
+                    isBuiltin = true
+                )
+
+                val fullContent = StringBuilder()
+                modelClient.streamChat(messages, config, defaultSkill).collect { event ->
+                    when (event) {
+                        is StreamEvent.Token -> {
+                            fullContent.append(event.text)
+                            _uiState.update {
+                                it.copy(
+                                    voicePolishedPrompt = fullContent.toString(),
+                                    voiceCharCount = fullContent.length
+                                )
+                            }
+                        }
+                        is StreamEvent.Done -> {
+                            _uiState.update {
+                                it.copy(voiceIsPolishing = false)
+                            }
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                _uiState.update {
+                    it.copy(voiceIsPolishing = false, voiceError = "生成失败: ${e.localizedMessage ?: "未知错误"}")
+                }
+            }
+        }
+    }
+
+    fun stopVoicePolishing() {
+        voicePolishingJob?.cancel()
+        voicePolishingJob = null
+        _uiState.update { it.copy(voiceIsPolishing = false) }
+    }
+
     fun createSkill(name: String, description: String, systemPrompt: String, avatar: String, greeting: String, temperature: Double, onResult: ((Boolean, String) -> Unit)? = null) {
         viewModelScope.launch {
             val skill = Skill(
@@ -159,6 +250,10 @@ class PolishViewModel @Inject constructor(
     }
 
     fun reset() {
+        voicePolishingJob?.cancel()
+        voicePolishingJob = null
+        polishingJob?.cancel()
+        polishingJob = null
         _uiState.update { PolishUiState() }
     }
 }

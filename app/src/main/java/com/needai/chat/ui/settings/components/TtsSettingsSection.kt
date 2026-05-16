@@ -17,8 +17,6 @@ fun TtsSettingsSection(
     onTtsProviderChange: (String) -> Unit,
     ttsApiKey: String,
     onTtsApiKeyChange: (String) -> Unit,
-    ttsModel: String,
-    onTtsModelChange: (String) -> Unit,
     ttsVoice: String,
     onTtsVoiceChange: (String) -> Unit,
     ttsVolume: Int,
@@ -33,7 +31,6 @@ fun TtsSettingsSection(
     modifier: Modifier = Modifier
 ) {
     var showApiKey by remember { mutableStateOf(false) }
-    var showModelPicker by remember { mutableStateOf(false) }
     val isCosyVoice = ttsProvider == "cosyvoice"
 
     Card(modifier = modifier.fillMaxWidth()) {
@@ -86,19 +83,6 @@ fun TtsSettingsSection(
                 )
 
                 Spacer(modifier = Modifier.height(8.dp))
-
-                // 合成模型
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text("合成模型", style = MaterialTheme.typography.bodyMedium)
-                    TextButton(onClick = { showModelPicker = true }) {
-                        Text(ttsModel.ifEmpty { "选择模型" })
-                    }
-                }
 
                 // 音色管理
                 Row(
@@ -204,52 +188,4 @@ fun TtsSettingsSection(
         }
     }
 
-    // Model picker dialog
-    if (showModelPicker) {
-        val models = listOf(
-            "cosyvoice-v3.5-flash",
-            "cosyvoice-v3.5-plus",
-            "cosyvoice-v3-flash",
-            "cosyvoice-v3-plus",
-            "cosyvoice-v2",
-            "cosyvoice-v1"
-        )
-        AlertDialog(
-            onDismissRequest = { showModelPicker = false },
-            title = { Text("选择合成模型") },
-            text = {
-                Column {
-                    models.forEach { model ->
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            RadioButton(
-                                selected = ttsModel == model,
-                                onClick = {
-                                    onTtsModelChange(model)
-                                    showModelPicker = false
-                                }
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Column {
-                                Text(model, style = MaterialTheme.typography.bodyMedium)
-                                val hasSystemVoices = SystemVoiceProvider.hasSystemVoices(model)
-                                Text(
-                                    text = if (hasSystemVoices) "支持系统音色" else "仅支持设计音色",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
-                                )
-                            }
-                        }
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = { showModelPicker = false }) { Text("取消") }
-            }
-        )
-    }
 }

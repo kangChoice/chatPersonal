@@ -199,7 +199,6 @@ fun SettingsScreen(
             // TTS 配置
             val ttsProvider by viewModel.ttsProvider.collectAsStateWithLifecycle()
             val ttsApiKey by viewModel.ttsApiKey.collectAsStateWithLifecycle()
-            val ttsModel by viewModel.ttsModel.collectAsStateWithLifecycle()
             val ttsVoice by viewModel.ttsVoice.collectAsStateWithLifecycle()
             val ttsVolume by viewModel.ttsVolume.collectAsStateWithLifecycle()
             val ttsRate by viewModel.ttsRate.collectAsStateWithLifecycle()
@@ -211,8 +210,6 @@ fun SettingsScreen(
                 onTtsProviderChange = viewModel::setTtsProvider,
                 ttsApiKey = ttsApiKey,
                 onTtsApiKeyChange = viewModel::setTtsApiKey,
-                ttsModel = ttsModel,
-                onTtsModelChange = viewModel::setTtsModel,
                 ttsVoice = ttsVoice,
                 onTtsVoiceChange = viewModel::setTtsVoice,
                 ttsVolume = ttsVolume,

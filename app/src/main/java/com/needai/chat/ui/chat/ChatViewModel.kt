@@ -8,10 +8,12 @@ import com.needai.chat.domain.model.MessageRole
 import com.needai.chat.domain.model.ModelType
 import com.needai.chat.domain.model.Skill
 import com.needai.chat.domain.model.StreamEvent
+import com.needai.chat.domain.model.VoiceInfo
 import com.needai.chat.domain.repository.ChatRepository
 import com.needai.chat.domain.repository.ModelConfigRepository
 import com.needai.chat.domain.repository.SessionRepository
 import com.needai.chat.domain.repository.SkillRepository
+import com.needai.chat.domain.repository.VoiceRepository
 import com.needai.chat.ui.chat.state.ChatUiState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
@@ -19,6 +21,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
@@ -31,11 +34,15 @@ class ChatViewModel @Inject constructor(
     private val chatRepository: ChatRepository,
     private val skillRepository: SkillRepository,
     private val modelConfigRepository: ModelConfigRepository,
-    private val sessionRepository: SessionRepository
+    private val sessionRepository: SessionRepository,
+    private val voiceRepository: VoiceRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ChatUiState())
     val uiState: StateFlow<ChatUiState> = _uiState.asStateFlow()
+
+    private val _voiceModelMap = MutableStateFlow<Map<String, String>>(emptyMap())
+    val voiceModelMap: StateFlow<Map<String, String>> = _voiceModelMap.asStateFlow()
 
     private var streamingJob: Job? = null
 
@@ -78,13 +85,25 @@ class ChatViewModel @Inject constructor(
         }
 
         viewModelScope.launch {
-            // Reactively observe selected skill (handles voiceId changes etc.)
-            skillRepository.selectedSkillIdFlow().collect { selectedId ->
-                val skill = skillRepository.getSkillById(selectedId)
+            // Reactively observe selected skill and skill list changes,
+            // so editing the current skill (e.g. voiceId) takes effect immediately
+            combine(
+                skillRepository.selectedSkillIdFlow(),
+                skillRepository.getAllSkills()
+            ) { selectedId, skills ->
+                skills.find { it.id == selectedId }
+            }.collect { skill ->
                 if (skill != null) {
                     _uiState.update { it.copy(currentSkill = skill) }
                 }
             }
+        }
+
+        viewModelScope.launch {
+            // Load voice model map for TTS model resolution
+            val voices = voiceRepository.getVoices()
+            _voiceModelMap.value = voices.filter { it.targetModel.isNotBlank() }
+                .associate { it.voiceId to it.targetModel }
         }
 
         viewModelScope.launch {

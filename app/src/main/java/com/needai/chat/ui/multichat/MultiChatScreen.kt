@@ -23,6 +23,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.needai.chat.data.local.datastore.SettingsDataStore
 import com.needai.chat.data.remote.tts.CosyVoiceParameters
+import com.needai.chat.data.remote.tts.SystemVoiceProvider
 import com.needai.chat.util.ITtsManager
 import com.needai.chat.util.TtsManagerImpl
 import com.needai.chat.domain.model.ChatSession
@@ -46,18 +47,32 @@ fun MultiChatScreen(
     val settingsDataStore = remember { SettingsDataStore(context) }
     val ttsApiKey by settingsDataStore.ttsApiKey.collectAsState(initial = "")
     val ttsVoice by settingsDataStore.ttsVoice.collectAsState(initial = "")
-    val ttsModel by settingsDataStore.ttsModel.collectAsState(initial = "cosyvoice-v3.5-flash")
     val ttsVolume by settingsDataStore.ttsVolume.collectAsState(initial = 50)
     val ttsRate by settingsDataStore.ttsRate.collectAsState(initial = 1.0f)
     val ttsPitch by settingsDataStore.ttsPitch.collectAsState(initial = 1.0f)
-    val ttsManager = remember(ttsApiKey) {
-        TtsManagerImpl(context, ttsApiKey, CosyVoiceParameters(ttsModel, ttsVoice, volume = ttsVolume, rate = ttsRate, pitch = ttsPitch))
-    } as ITtsManager
-    var speakingMsgId by remember { mutableStateOf<String?>(null) }
-
-    DisposableEffect(Unit) {
-        onDispose { ttsManager.shutdown() }
+    val voiceModelMap by viewModel.voiceModelMap.collectAsState()
+    val voiceModelResolver: (String) -> String? = { voiceId ->
+        SystemVoiceProvider.getModelForVoice(voiceId) ?: voiceModelMap[voiceId]
     }
+
+    var ttsManager by remember { mutableStateOf<ITtsManager?>(null) }
+    LaunchedEffect(ttsApiKey, ttsVoice, ttsVolume, ttsRate, ttsPitch) {
+        ttsManager?.shutdown()
+        ttsManager = TtsManagerImpl(
+            apiKey = ttsApiKey,
+            parameters = CosyVoiceParameters(
+                voice = ttsVoice,
+                volume = ttsVolume,
+                rate = ttsRate,
+                pitch = ttsPitch
+            ),
+            voiceModelResolver = voiceModelResolver
+        )
+    }
+    DisposableEffect(Unit) {
+        onDispose { ttsManager?.shutdown() }
+    }
+    var speakingMsgId by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(uiState.messages.size, uiState.messages.lastOrNull()?.content?.length) {
         if (uiState.messages.isNotEmpty()) {
@@ -204,10 +219,10 @@ fun MultiChatScreen(
                             message = message,
                             onSpeak = {
                                 if (speakingMsgId == message.id) {
-                                    ttsManager.stop()
+                                    ttsManager?.stop()
                                     speakingMsgId = null
                                 } else {
-                                    ttsManager.speak(message.content, ttsVoice)
+                                    ttsManager?.speak(message.content, ttsVoice)
                                     speakingMsgId = message.id
                                 }
                             },

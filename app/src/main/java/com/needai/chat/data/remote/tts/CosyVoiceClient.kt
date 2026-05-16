@@ -32,7 +32,7 @@ class CosyVoiceClient(
      * 参考官方 DashCosyVoiceStreamTtsActivity.AsyncPlayTts
      */
     suspend fun synthesize(text: String): Flow<AudioChunk> = callbackFlow {
-        val timeoutMs = 30_000L
+        val timeoutMs = 120_000L
         var timedOut = false
         val taskId = UUID.randomUUID().toString()
         val ticket = genTicket()
@@ -116,7 +116,7 @@ class CosyVoiceClient(
      * 模式 B：流式合成（长文本/自动朗读）
      */
     suspend fun startStream(): Flow<AudioChunk> = callbackFlow {
-        val timeoutMs = 30_000L
+        val timeoutMs = 120_000L
         var timedOut = false
         val taskId = UUID.randomUUID().toString()
         val ticket = genTicket()
