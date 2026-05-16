@@ -23,4 +23,7 @@ interface SkillDao {
 
     @Query("SELECT COUNT(*) FROM skills")
     suspend fun getCount(): Int
+
+    @Query("SELECT * FROM skills WHERE voiceId = :voiceId")
+    suspend fun getSkillsByVoiceId(voiceId: String): List<SkillEntity>
 }

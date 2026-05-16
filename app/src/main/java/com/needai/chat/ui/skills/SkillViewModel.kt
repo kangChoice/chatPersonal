@@ -84,6 +84,25 @@ class SkillViewModel @Inject constructor(
         return skillRepository.getSkillById(id)
     }
 
+    fun getSkillsByVoiceId(voiceId: String, callback: (List<Skill>) -> Unit) {
+        viewModelScope.launch {
+            val result = skillRepository.getSkillsByVoiceId(voiceId)
+            callback(result)
+        }
+    }
+
+    fun updateSkillsVoiceId(voiceId: String, selectedSkillIds: Set<String>) {
+        viewModelScope.launch {
+            skillRepository.updateSkillsVoiceId(voiceId, selectedSkillIds)
+        }
+    }
+
+    fun clearVoiceIdForSkillIds(skillIds: Set<String>) {
+        viewModelScope.launch {
+            skillRepository.clearVoiceIdForSkillIds(skillIds)
+        }
+    }
+
     fun importSkill(skill: Skill, onResult: (Boolean, String) -> Unit) {
         viewModelScope.launch {
             skillRepository.insertSkill(skill)

@@ -9,7 +9,9 @@ import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.needai.chat.domain.model.BackgroundConfig
 import com.needai.chat.util.Constants
+import org.json.JSONArray
 import org.json.JSONObject
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -35,6 +37,8 @@ class SettingsDataStore(private val context: Context) {
         private val TTS_PREFIX = stringPreferencesKey("tts_prefix")
         private val TTS_AUTO_READ = booleanPreferencesKey("tts_auto_read")
         private val VOICE_ALIASES = stringPreferencesKey("voice_aliases")
+        private val BACKGROUNDS = stringPreferencesKey("backgrounds")
+        private val SELECTED_BACKGROUND_ID = stringPreferencesKey("selected_background_id")
     }
 
     val selectedSkillId: Flow<String> = context.settingsStore.data.map { preferences ->
@@ -209,6 +213,74 @@ class SettingsDataStore(private val context: Context) {
             obj.put(key, value)
         }
         return obj.toString()
+    }
+
+    // ===== 聊天背景 =====
+
+    val backgrounds: Flow<List<BackgroundConfig>> = context.settingsStore.data.map { preferences ->
+        val json = preferences[BACKGROUNDS] ?: "[]"
+        parseBackgrounds(json)
+    }
+
+    val selectedBackgroundId: Flow<String> = context.settingsStore.data.map { preferences ->
+        preferences[SELECTED_BACKGROUND_ID] ?: ""
+    }
+
+    suspend fun setSelectedBackgroundId(id: String) {
+        context.settingsStore.edit { preferences ->
+            preferences[SELECTED_BACKGROUND_ID] = id
+        }
+    }
+
+    suspend fun addBackground(background: BackgroundConfig) {
+        context.settingsStore.edit { preferences ->
+            val current = parseBackgrounds(preferences[BACKGROUNDS] ?: "[]").toMutableList()
+            current.removeAll { it.id == background.id }
+            current.add(background)
+            preferences[BACKGROUNDS] = encodeBackgrounds(current)
+        }
+    }
+
+    suspend fun removeBackground(id: String) {
+        context.settingsStore.edit { preferences ->
+            val current = parseBackgrounds(preferences[BACKGROUNDS] ?: "[]").toMutableList()
+            current.removeAll { it.id == id }
+            preferences[BACKGROUNDS] = encodeBackgrounds(current)
+            // Also clear selection if it was the deleted one
+            if (preferences[SELECTED_BACKGROUND_ID] == id) {
+                preferences[SELECTED_BACKGROUND_ID] = ""
+            }
+        }
+    }
+
+    private fun parseBackgrounds(json: String): List<BackgroundConfig> {
+        val list = mutableListOf<BackgroundConfig>()
+        try {
+            val arr = JSONArray(json)
+            for (i in 0 until arr.length()) {
+                val obj = arr.getJSONObject(i)
+                list.add(BackgroundConfig(
+                    id = obj.optString("id", ""),
+                    name = obj.optString("name", ""),
+                    imagePath = obj.optString("imagePath", ""),
+                    createdAt = obj.optLong("createdAt", System.currentTimeMillis())
+                ))
+            }
+        } catch (_: Exception) { }
+        return list
+    }
+
+    private fun encodeBackgrounds(list: List<BackgroundConfig>): String {
+        val arr = JSONArray()
+        for (bg in list) {
+            val obj = JSONObject()
+            obj.put("id", bg.id)
+            obj.put("name", bg.name)
+            obj.put("imagePath", bg.imagePath)
+            obj.put("createdAt", bg.createdAt)
+            arr.put(obj)
+        }
+        return arr.toString()
     }
 
 }

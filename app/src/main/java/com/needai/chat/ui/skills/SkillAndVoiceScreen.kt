@@ -5,6 +5,7 @@ import android.util.Base64
 import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -131,6 +132,16 @@ fun SkillAndVoiceScreen(
     var ttsManager by remember { mutableStateOf<ITtsManager?>(null) }
     var editingAliasVoice by remember { mutableStateOf<VoiceInfo?>(null) }
     var editingAliasText by remember { mutableStateOf("") }
+    var editingBindingsVoice by remember { mutableStateOf<VoiceInfo?>(null) }
+    var selectedBindingSkillIds by remember { mutableStateOf<Set<String>>(emptySet()) }
+
+    // Voice → bound skills mapping
+    val voiceSkillBindings = remember(skills, uiState.voices) {
+        val nonBuiltinSkills = skills.filter { !it.isBuiltin }
+        uiState.voices.associate { voice ->
+            voice.voiceId to nonBuiltinSkills.filter { it.voiceId == voice.voiceId }
+        }
+    }
 
     // Voice → model mapping
     val customVoiceModelMap = remember(uiState.voices) {
@@ -462,6 +473,7 @@ fun SkillAndVoiceScreen(
                             VoiceCard(
                                 voice = voice,
                                 alias = voiceAliases[voice.voiceId] ?: "",
+                                boundSkills = voiceSkillBindings[voice.voiceId] ?: emptyList(),
                                 isPlaying = isPlaying,
                                 canPlay = voice.status == "OK",
                                 onPlay = {
@@ -478,6 +490,10 @@ fun SkillAndVoiceScreen(
                                 onAliasEdit = {
                                     editingAliasVoice = voice
                                     editingAliasText = voiceAliases[voice.voiceId] ?: ""
+                                },
+                                onEditBindings = {
+                                    editingBindingsVoice = voice
+                                    selectedBindingSkillIds = (voiceSkillBindings[voice.voiceId] ?: emptyList()).map { it.id }.toSet()
                                 }
                             )
                         }
@@ -574,16 +590,106 @@ fun SkillAndVoiceScreen(
         )
     }
 
+    // 音色-角色绑定编辑对话框
+    if (editingBindingsVoice != null) {
+        val voice = editingBindingsVoice!!
+        val nonBuiltinSkills = skills.filter { !it.isBuiltin }
+        AlertDialog(
+            onDismissRequest = { editingBindingsVoice = null },
+            title = { Text("绑定角色") },
+            text = {
+                Column {
+                    Text(
+                        text = "为「${(voiceAliases[voice.voiceId] ?: "").ifEmpty { voice.displayName.ifEmpty { voice.voiceId } }}」选择绑定的角色",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    if (nonBuiltinSkills.isEmpty()) {
+                        Text(
+                            text = "暂无自定义角色",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                        )
+                    } else {
+                        nonBuiltinSkills.forEach { skill ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        selectedBindingSkillIds = if (skill.id in selectedBindingSkillIds) {
+                                            selectedBindingSkillIds - skill.id
+                                        } else {
+                                            selectedBindingSkillIds + skill.id
+                                        }
+                                    }
+                                    .padding(vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Checkbox(
+                                    checked = skill.id in selectedBindingSkillIds,
+                                    onCheckedChange = { checked ->
+                                        selectedBindingSkillIds = if (checked) {
+                                            selectedBindingSkillIds + skill.id
+                                        } else {
+                                            selectedBindingSkillIds - skill.id
+                                        }
+                                    }
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "${skill.avatar} ${skill.name}",
+                                    style = MaterialTheme.typography.bodyMedium
+                                )
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        skillViewModel.updateSkillsVoiceId(voice.voiceId, selectedBindingSkillIds)
+                        editingBindingsVoice = null
+                    },
+                    enabled = nonBuiltinSkills.isNotEmpty()
+                ) { Text("保存") }
+            },
+            dismissButton = {
+                TextButton(onClick = { editingBindingsVoice = null }) { Text("取消") }
+            }
+        )
+    }
+
     if (deleteVoice != null) {
         AlertDialog(
             onDismissRequest = { deleteVoice = null },
             icon = { Icon(Icons.Default.Delete, contentDescription = null) },
             title = { Text("删除音色") },
-            text = { Text("确定要删除「${deleteVoice!!.displayName.ifEmpty { deleteVoice!!.voiceId }}」吗？") },
+            text = {
+                val boundSkills = voiceSkillBindings[deleteVoice!!.voiceId] ?: emptyList()
+                Column {
+                    Text("确定要删除「${deleteVoice!!.displayName.ifEmpty { deleteVoice!!.voiceId }}」吗？")
+                    if (boundSkills.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "该音色绑定了 ${boundSkills.size} 个角色，删除后这些角色的音色配置将置为无音色。",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    }
+                }
+            },
             confirmButton = {
                 Button(
                     onClick = {
-                        voiceViewModel.deleteVoice(deleteVoice!!.voiceId)
+                        val voiceId = deleteVoice!!.voiceId
+                        // Unbind all skills first
+                        val boundIds = (voiceSkillBindings[voiceId] ?: emptyList()).map { it.id }.toSet()
+                        if (boundIds.isNotEmpty()) {
+                            skillViewModel.clearVoiceIdForSkillIds(boundIds)
+                        }
+                        voiceViewModel.deleteVoice(voiceId)
                         deleteVoice = null
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
@@ -600,10 +706,32 @@ fun SkillAndVoiceScreen(
             onDismissRequest = { showDeleteAllDialog = false },
             icon = { Icon(Icons.Default.Delete, contentDescription = null) },
             title = { Text("删除全部音色") },
-            text = { Text("确定要删除所有远程音色吗？此操作不可撤销，已删除的音色无法恢复。系统内置音色不受影响。") },
+            text = {
+                Column {
+                    Text("确定要删除所有远程音色吗？此操作不可撤销，已删除的音色无法恢复。系统内置音色不受影响。")
+                    val allBoundIds = uiState.voices.flatMap { v ->
+                        (voiceSkillBindings[v.voiceId] ?: emptyList()).map { it.id }
+                    }.toSet()
+                    if (allBoundIds.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "同时将解除 ${allBoundIds.size} 个角色的音色绑定。",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    }
+                }
+            },
             confirmButton = {
                 Button(
                     onClick = {
+                        // Unbind all skills
+                        val allBoundIds = uiState.voices.flatMap { v ->
+                            (voiceSkillBindings[v.voiceId] ?: emptyList()).map { it.id }
+                        }.toSet()
+                        if (allBoundIds.isNotEmpty()) {
+                            skillViewModel.clearVoiceIdForSkillIds(allBoundIds)
+                        }
                         voiceViewModel.deleteAllVoices()
                         showDeleteAllDialog = false
                     },

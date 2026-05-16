@@ -62,4 +62,36 @@ class SkillRepositoryImpl @Inject constructor(
     override suspend fun setSelectedSkillId(id: String) {
         settingsDataStore.setSelectedSkillId(id)
     }
+
+    override suspend fun getSkillsByVoiceId(voiceId: String): List<Skill> {
+        return skillDao.getSkillsByVoiceId(voiceId).map { SkillMapper.toDomain(it) }
+    }
+
+    override suspend fun updateSkillsVoiceId(voiceId: String, selectedSkillIds: Set<String>) {
+        // Unbind skills that were previously bound but not selected
+        val currentBindings = skillDao.getSkillsByVoiceId(voiceId)
+        for (entity in currentBindings) {
+            if (entity.id !in selectedSkillIds) {
+                skillDao.upsertSkill(entity.copy(voiceId = ""))
+            }
+        }
+        // Bind newly selected skills
+        for (skillId in selectedSkillIds) {
+            skillDao.getSkillById(skillId)?.let { entity ->
+                if (entity.voiceId != voiceId) {
+                    skillDao.upsertSkill(entity.copy(voiceId = voiceId))
+                }
+            }
+        }
+    }
+
+    override suspend fun clearVoiceIdForSkillIds(skillIds: Set<String>) {
+        for (skillId in skillIds) {
+            skillDao.getSkillById(skillId)?.let { entity ->
+                if (entity.voiceId.isNotEmpty()) {
+                    skillDao.upsertSkill(entity.copy(voiceId = ""))
+                }
+            }
+        }
+    }
 }

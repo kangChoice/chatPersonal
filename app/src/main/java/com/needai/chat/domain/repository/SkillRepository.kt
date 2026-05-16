@@ -12,4 +12,7 @@ interface SkillRepository {
     suspend fun deleteSkill(id: String)
     suspend fun getSelectedSkillId(): String
     suspend fun setSelectedSkillId(id: String)
+    suspend fun getSkillsByVoiceId(voiceId: String): List<Skill>
+    suspend fun updateSkillsVoiceId(voiceId: String, selectedSkillIds: Set<String>)
+    suspend fun clearVoiceIdForSkillIds(skillIds: Set<String>)
 }

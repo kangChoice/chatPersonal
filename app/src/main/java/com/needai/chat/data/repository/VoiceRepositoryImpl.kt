@@ -1,5 +1,6 @@
 package com.needai.chat.data.repository
 
+import android.util.Log
 import com.needai.chat.data.remote.tts.VoiceDesignClient
 import com.needai.chat.domain.model.VoiceInfo
 import com.needai.chat.domain.repository.VoiceRepository
@@ -22,11 +23,16 @@ class VoiceRepositoryImpl @Inject constructor(
         if (voiceCache != null && System.currentTimeMillis() - cacheTime < 300_000) {
             return voiceCache!!
         }
-        val result = listRemoteVoices()
+        val prefix = settingsDataStore.ttsPrefix.first()
+        Log.d("VoiceRepository", "Fetching voices with prefix='$prefix'")
+        val result = listRemoteVoices(prefix.ifBlank { null })
         result.onSuccess { voices ->
+            Log.d("VoiceRepository", "Fetched ${voices.size} voices")
             voiceCache = voices
             cacheTime = System.currentTimeMillis()
             return voices
+        }.onFailure { e ->
+            Log.e("VoiceRepository", "Failed to fetch voices: ${e.message}")
         }
         return voiceCache ?: emptyList()
     }

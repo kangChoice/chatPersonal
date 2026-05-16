@@ -40,6 +40,13 @@ class VoiceListViewModel @Inject constructor(
             try {
                 val voices = voiceRepository.getVoices()
                 _uiState.update { it.copy(voices = voices, isLoading = false) }
+                if (voices.isEmpty()) {
+                    // 空结果时主动探测 API 是否可达，给用户明确的错误反馈
+                    val check = voiceRepository.listRemoteVoices(null)
+                    if (check.isFailure) {
+                        _uiState.update { it.copy(error = "获取音色失败: ${check.exceptionOrNull()?.localizedMessage}") }
+                    }
+                }
             } catch (e: Exception) {
                 _uiState.update { it.copy(isLoading = false, error = e.localizedMessage) }
             }

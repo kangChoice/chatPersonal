@@ -48,6 +48,9 @@ fun SkillEditScreen(
     var showVoiceSelector by remember { mutableStateOf(false) }
 
     val isBuiltin = existingSkill?.isBuiltin == true
+    val context = LocalContext.current
+    val settingsDataStore = remember { SettingsDataStore(context) }
+    val voiceAliases by settingsDataStore.voiceAliases.collectAsState(initial = emptyMap())
 
     Scaffold(
         topBar = {
@@ -205,7 +208,9 @@ fun SkillEditScreen(
                                 fontWeight = FontWeight.Medium
                             )
                             Text(
-                                text = if (voiceId.isNotBlank()) voiceId else "未关联音色",
+                                text = if (voiceId.isNotBlank())
+                                    (voiceAliases[voiceId]?.ifBlank { null } ?: "--")
+                                else "未关联音色",
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = if (voiceId.isNotBlank())
                                     MaterialTheme.colorScheme.onSurface
@@ -274,11 +279,8 @@ fun SkillEditScreen(
     }
 
     if (showVoiceSelector) {
-        val context = LocalContext.current
-        val settingsDataStore = remember { SettingsDataStore(context) }
         val customVoices by viewModel.customVoices.collectAsStateWithLifecycle()
         val systemVoices = remember { SystemVoiceProvider.getSkillEditorVoices() }
-        val voiceAliases by settingsDataStore.voiceAliases.collectAsState(initial = emptyMap())
         VoiceSelectorSheet(
             systemVoices = systemVoices,
             customVoices = customVoices,

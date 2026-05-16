@@ -118,7 +118,10 @@ class VoiceDesignClient(
                 return Result.failure(Exception("HTTP ${response.code}: $body"))
             }
             val result = responseGson.fromJson(body, ListVoiceResponse::class.java)
-            val voiceList = result.output?.voiceList ?: emptyList()
+            if (result.output == null) {
+                return Result.failure(Exception("反序列化失败: output 为 null, body=$body"))
+            }
+            val voiceList = result.output.voiceList ?: emptyList()
             val voices = voiceList.map { voice ->
                 val id = voice.voiceId ?: ""
                 val prompt = voice.voicePrompt ?: ""

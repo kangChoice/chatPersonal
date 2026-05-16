@@ -37,7 +37,7 @@ import com.needai.chat.ui.voice.VoiceListScreen
 sealed class Screen(val route: String, val title: String, val icon: ImageVector? = null) {
     data object Chat : Screen("chat", "聊天", Icons.Default.Chat)
     data object MultiChat : Screen("multi_chat", "群聊", Icons.Default.Forum)
-    data object SkillList : Screen("skill_list", "角色管理", Icons.Default.AutoAwesome)
+    data object SkillList : Screen("skill_list", "技能管理", Icons.Default.AutoAwesome)
     data object PromptPolish : Screen("prompt_polish", "提示词", Icons.Default.Edit)
     data object Stats : Screen("stats", "统计", Icons.Default.BarChart)
     data object SkillEdit : Screen("skill_edit/{skillId}", "编辑角色")

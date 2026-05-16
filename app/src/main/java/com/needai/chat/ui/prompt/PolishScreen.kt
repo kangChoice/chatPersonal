@@ -1,6 +1,7 @@
 package com.needai.chat.ui.prompt
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -12,12 +13,15 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.needai.chat.data.local.datastore.SettingsDataStore
 import com.needai.chat.domain.model.Skill
 import com.needai.chat.ui.skills.SkillEditDialog
+import com.needai.chat.ui.voice.components.SUPPORTED_CREATION_MODELS
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -31,6 +35,8 @@ fun PolishScreen(
     var showClearConfirm by remember { mutableStateOf(false) }
     val scrollState = rememberScrollState()
     val coroutineScope = rememberCoroutineScope()
+    val context = LocalContext.current
+    val settingsDataStore = remember { SettingsDataStore(context) }
 
     Scaffold(
         topBar = {
@@ -289,6 +295,81 @@ fun PolishScreen(
                                         modifier = Modifier.padding(12.dp),
                                         style = MaterialTheme.typography.bodyMedium
                                     )
+                                }
+                            }
+                        }
+                        // Voice creation form
+                        Card(modifier = Modifier.fillMaxWidth()) {
+                            Column(
+                                modifier = Modifier.padding(16.dp),
+                                verticalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                Text(
+                                    text = "一键创建音色",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                OutlinedTextField(
+                                    value = uiState.voiceAlias,
+                                    onValueChange = viewModel::setVoiceAlias,
+                                    label = { Text("别名 *") },
+                                    singleLine = true,
+                                    modifier = Modifier.fillMaxWidth(),
+                                    isError = uiState.voiceCreateError != null && uiState.voiceAlias.isBlank()
+                                )
+                                Text("选择模型", style = MaterialTheme.typography.labelLarge)
+                                SUPPORTED_CREATION_MODELS.forEach { model ->
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clickable { viewModel.setVoiceTargetModel(model) }
+                                            .padding(vertical = 2.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        RadioButton(
+                                            selected = uiState.voiceTargetModel == model,
+                                            onClick = { viewModel.setVoiceTargetModel(model) }
+                                        )
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Column {
+                                            Text(model, style = MaterialTheme.typography.bodyMedium)
+                                            Text(
+                                                text = if (model.contains("flash")) "快速合成，成本较低" else "高音质合成，成本较高",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                                            )
+                                        }
+                                    }
+                                }
+                                if (uiState.voiceCreateError != null) {
+                                    Text(
+                                        text = uiState.voiceCreateError!!,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.error
+                                    )
+                                }
+                                Button(
+                                    onClick = {
+                                        val alias = uiState.voiceAlias.trim()
+                                        viewModel.createVoice { success, msg ->
+                                            coroutineScope.launch {
+                                                snackbarHostState.showSnackbar(msg)
+                                            }
+                                            if (success && alias.isNotBlank()) {
+                                                coroutineScope.launch {
+                                                    settingsDataStore.setVoiceAlias(alias, alias)
+                                                }
+                                            }
+                                        }
+                                    },
+                                    enabled = uiState.voiceAlias.isNotBlank() && !uiState.isCreatingVoice,
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    if (uiState.isCreatingVoice) {
+                                        CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                                        Spacer(Modifier.width(8.dp))
+                                    }
+                                    Text("创建音色")
                                 }
                             }
                         }

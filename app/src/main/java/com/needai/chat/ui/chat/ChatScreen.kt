@@ -2,6 +2,7 @@ package com.needai.chat.ui.chat
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -15,6 +16,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -71,6 +74,16 @@ fun ChatScreen(
     val voiceModelMap by viewModel.voiceModelMap.collectAsState()
     val voiceModelResolver: (String) -> String? = { voiceId ->
         SystemVoiceProvider.getModelForVoice(voiceId) ?: voiceModelMap[voiceId]
+    }
+    val backgroundList by settingsDataStore.backgrounds.collectAsState(initial = emptyList())
+    val selectedBgId by settingsDataStore.selectedBackgroundId.collectAsState(initial = "")
+    val selectedBg = remember(backgroundList, selectedBgId) {
+        backgroundList.find { it.id == selectedBgId }
+    }
+    val backgroundBitmap = remember(selectedBg) {
+        selectedBg?.imagePath?.let { path ->
+            try { android.graphics.BitmapFactory.decodeFile(path) } catch (_: Exception) { null }
+        }
     }
 
     var ttsManager by remember { mutableStateOf<ITtsManager?>(null) }
@@ -329,7 +342,19 @@ fun ChatScreen(
             }
         }
     ) { innerPadding ->
-        if (uiState.messages.isEmpty() && !uiState.isStreaming) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            if (backgroundBitmap != null) {
+                Image(
+                    bitmap = backgroundBitmap.asImageBitmap(),
+                    contentDescription = null,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(innerPadding),
+                    contentScale = ContentScale.Crop,
+                    alpha = 0.3f
+                )
+            }
+            if (uiState.messages.isEmpty() && !uiState.isStreaming) {
             Column(
                 modifier = Modifier
                     .fillMaxSize()
@@ -401,6 +426,7 @@ fun ChatScreen(
                 }
             }
         }
+        } // Box end
     }
 
     // Skill selector bottom sheet

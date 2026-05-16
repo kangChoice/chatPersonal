@@ -1,28 +1,33 @@
 package com.needai.chat.ui.voice.components
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.needai.chat.domain.model.Skill
 import com.needai.chat.domain.model.VoiceInfo
 
 @Composable
 fun VoiceCard(
     voice: VoiceInfo,
     alias: String = "",
+    boundSkills: List<Skill> = emptyList(),
     isPlaying: Boolean = false,
     canPlay: Boolean = true,
     onPlay: () -> Unit,
     onDelete: () -> Unit,
     onAliasEdit: (() -> Unit)? = null,
+    onEditBindings: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val statusColor = when (voice.status) {
@@ -88,14 +93,76 @@ fun VoiceCard(
                         fontWeight = FontWeight.Medium
                     )
                 }
+                // Row 5: Bound skills as chips
+                if (boundSkills.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(6.dp))
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        items(boundSkills.take(5), key = { it.id }) { skill ->
+                            Surface(
+                                shape = MaterialTheme.shapes.small,
+                                color = MaterialTheme.colorScheme.secondaryContainer,
+                                tonalElevation = 1.dp
+                            ) {
+                                Text(
+                                    text = skill.name,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
+                        }
+                        if (boundSkills.size > 5) {
+                            item {
+                                Surface(
+                                    shape = MaterialTheme.shapes.small,
+                                    color = MaterialTheme.colorScheme.surfaceVariant
+                                ) {
+                                    Text(
+                                        text = "+${boundSkills.size - 5}",
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
             }
-            if (onAliasEdit != null) {
-                IconButton(onClick = onAliasEdit) {
-                    Icon(
-                        Icons.Default.Edit,
-                        contentDescription = "编辑别名",
-                        tint = MaterialTheme.colorScheme.primary
-                    )
+            if (onAliasEdit != null || onEditBindings != null) {
+                var showEditMenu by remember { mutableStateOf(false) }
+                Box {
+                    IconButton(onClick = { showEditMenu = true }) {
+                        Icon(
+                            Icons.Default.MoreVert,
+                            contentDescription = "编辑",
+                            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                        )
+                    }
+                    DropdownMenu(
+                        expanded = showEditMenu,
+                        onDismissRequest = { showEditMenu = false }
+                    ) {
+                        if (onAliasEdit != null) {
+                            DropdownMenuItem(
+                                text = { Text("编辑别名") },
+                                onClick = {
+                                    showEditMenu = false
+                                    onAliasEdit()
+                                }
+                            )
+                        }
+                        if (onEditBindings != null) {
+                            DropdownMenuItem(
+                                text = { Text("编辑绑定角色") },
+                                onClick = {
+                                    showEditMenu = false
+                                    onEditBindings()
+                                }
+                            )
+                        }
+                    }
                 }
             }
             IconButton(onClick = onPlay, enabled = canPlay) {

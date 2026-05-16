@@ -1,7 +1,10 @@
 package com.needai.chat.ui.settings
 
+import android.graphics.BitmapFactory
+import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -13,11 +16,15 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.FileUpload
+import androidx.compose.material.icons.filled.Image
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.painterResource
@@ -27,7 +34,9 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import com.needai.chat.R
+import com.needai.chat.data.local.datastore.SettingsDataStore
 import com.needai.chat.domain.model.ApiProtocol
+import com.needai.chat.domain.model.BackgroundConfig
 import com.needai.chat.domain.model.ModelConfig
 import com.needai.chat.ui.settings.components.GenerationParamsDialog
 import com.needai.chat.ui.settings.components.ModelConfigEditDialog
@@ -51,6 +60,24 @@ fun SettingsScreen(
     var showQuickCreate by remember { mutableStateOf(false) }
     val context = LocalContext.current
     val uriHandler = LocalUriHandler.current
+
+    val bgSettingsDataStore = remember { SettingsDataStore(context) }
+    val backgroundList by bgSettingsDataStore.backgrounds.collectAsState(initial = emptyList())
+    val selectedBgId by bgSettingsDataStore.selectedBackgroundId.collectAsState(initial = "")
+    var showBackgroundNameDialog by remember { mutableStateOf(false) }
+    var pendingBackgroundUri by remember { mutableStateOf<Uri?>(null) }
+    var pendingBackgroundName by remember { mutableStateOf("") }
+    var bgToDelete by remember { mutableStateOf<BackgroundConfig?>(null) }
+
+    val backgroundPickerLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        if (uri != null) {
+            pendingBackgroundUri = uri
+            pendingBackgroundName = ""
+            showBackgroundNameDialog = true
+        }
+    }
 
     val exportConfigLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("application/json")
@@ -213,6 +240,116 @@ fun SettingsScreen(
                 ttsAutoRead = ttsAutoRead,
                 onTtsAutoReadChange = viewModel::setTtsAutoRead
             )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // 聊天背景
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "聊天背景",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                        FilledTonalIconButton(onClick = {
+                            backgroundPickerLauncher.launch("image/*")
+                        }) {
+                            Icon(Icons.Default.Image, contentDescription = "添加背景")
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    if (backgroundList.isEmpty()) {
+                        Text(
+                            text = "暂无背景，点击图片图标添加",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                            modifier = Modifier.padding(vertical = 8.dp)
+                        )
+                    } else {
+                        backgroundList.forEach { bg ->
+                            val isSelected = bg.id == selectedBgId
+                            val bitmap = remember(bg.imagePath) {
+                                try {
+                                    BitmapFactory.decodeFile(bg.imagePath)
+                                } catch (e: Exception) { null }
+                            }
+                            Surface(
+                                onClick = {
+                                    scope.launch {
+                                        bgSettingsDataStore.setSelectedBackgroundId(
+                                            if (isSelected) "" else bg.id
+                                        )
+                                    }
+                                },
+                                shape = MaterialTheme.shapes.medium,
+                                color = if (isSelected) MaterialTheme.colorScheme.primaryContainer
+                                else MaterialTheme.colorScheme.surface,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 4.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(8.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    if (bitmap != null) {
+                                        Image(
+                                            bitmap = bitmap.asImageBitmap(),
+                                            contentDescription = null,
+                                            modifier = Modifier
+                                                .size(48.dp)
+                                                .clip(MaterialTheme.shapes.small),
+                                            contentScale = ContentScale.Crop
+                                        )
+                                    } else {
+                                        Surface(
+                                            modifier = Modifier.size(48.dp),
+                                            shape = MaterialTheme.shapes.small,
+                                            color = MaterialTheme.colorScheme.surfaceVariant
+                                        ) {
+                                            Box(contentAlignment = Alignment.Center) {
+                                                Icon(
+                                                    Icons.Default.Image,
+                                                    contentDescription = null,
+                                                    modifier = Modifier.size(24.dp),
+                                                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
+                                                )
+                                            }
+                                        }
+                                    }
+                                    Spacer(modifier = Modifier.width(12.dp))
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = bg.name,
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            fontWeight = FontWeight.Medium
+                                        )
+                                        Text(
+                                            text = if (isSelected) "当前使用中" else "点击选择",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = if (isSelected) MaterialTheme.colorScheme.primary
+                                            else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                                        )
+                                    }
+                                    IconButton(onClick = { bgToDelete = bg }) {
+                                        Icon(
+                                            Icons.Default.Delete,
+                                            contentDescription = "删除",
+                                            tint = MaterialTheme.colorScheme.error,
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
 
             Spacer(modifier = Modifier.height(16.dp))
 
@@ -413,6 +550,89 @@ fun SettingsScreen(
             },
             onPreviewChanged = { preview ->
                 viewModel.updateModelConfig(preview)
+            }
+        )
+    }
+
+    if (showBackgroundNameDialog && pendingBackgroundUri != null) {
+        AlertDialog(
+            onDismissRequest = {
+                showBackgroundNameDialog = false
+                pendingBackgroundUri = null
+            },
+            title = { Text("命名背景", fontWeight = FontWeight.Bold) },
+            text = {
+                OutlinedTextField(
+                    value = pendingBackgroundName,
+                    onValueChange = { pendingBackgroundName = it },
+                    label = { Text("背景名称") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val name = pendingBackgroundName.trim().ifEmpty { "未命名背景" }
+                        scope.launch {
+                            try {
+                                val id = java.util.UUID.randomUUID().toString()
+                                val bgDir = java.io.File(context.filesDir, "backgrounds")
+                                bgDir.mkdirs()
+                                val destFile = java.io.File(bgDir, "$id.jpg")
+                                context.contentResolver.openInputStream(pendingBackgroundUri!!)?.use { input ->
+                                    destFile.outputStream().use { output ->
+                                        input.copyTo(output)
+                                    }
+                                }
+                                bgSettingsDataStore.addBackground(
+                                    BackgroundConfig(
+                                        id = id,
+                                        name = name,
+                                        imagePath = destFile.absolutePath
+                                    )
+                                )
+                            } catch (e: Exception) {
+                                snackbarHostState.showSnackbar("保存背景失败: ${e.localizedMessage ?: "未知错误"}")
+                            }
+                        }
+                        showBackgroundNameDialog = false
+                        pendingBackgroundUri = null
+                    },
+                    enabled = true
+                ) { Text("保存") }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    showBackgroundNameDialog = false
+                    pendingBackgroundUri = null
+                }) { Text("取消") }
+            }
+        )
+    }
+
+    if (bgToDelete != null) {
+        AlertDialog(
+            onDismissRequest = { bgToDelete = null },
+            icon = { Icon(Icons.Default.Delete, contentDescription = null) },
+            title = { Text("删除背景") },
+            text = { Text("确定要删除「${bgToDelete!!.name}」吗？") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        scope.launch {
+                            try {
+                                java.io.File(bgToDelete!!.imagePath).delete()
+                            } catch (_: Exception) { }
+                            bgSettingsDataStore.removeBackground(bgToDelete!!.id)
+                        }
+                        bgToDelete = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) { Text("删除") }
+            },
+            dismissButton = {
+                TextButton(onClick = { bgToDelete = null }) { Text("取消") }
             }
         )
     }

@@ -7,6 +7,7 @@ import com.needai.chat.domain.model.Skill
 import com.needai.chat.domain.model.StreamEvent
 import com.needai.chat.domain.repository.ModelConfigRepository
 import com.needai.chat.domain.repository.SkillRepository
+import com.needai.chat.domain.repository.VoiceRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -31,13 +32,19 @@ data class PolishUiState(
     val voicePolishedPrompt: String = "",
     val voiceIsPolishing: Boolean = false,
     val voiceCharCount: Int = 0,
-    val voiceError: String? = null
+    val voiceError: String? = null,
+    // Voice creation
+    val voiceAlias: String = "",
+    val voiceTargetModel: String = "cosyvoice-v3.5-flash",
+    val isCreatingVoice: Boolean = false,
+    val voiceCreateError: String? = null
 )
 
 @HiltViewModel
 class PolishViewModel @Inject constructor(
     private val modelConfigRepository: ModelConfigRepository,
-    private val skillRepository: SkillRepository
+    private val skillRepository: SkillRepository,
+    private val voiceRepository: VoiceRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(PolishUiState())
@@ -229,6 +236,55 @@ class PolishViewModel @Inject constructor(
         voicePolishingJob?.cancel()
         voicePolishingJob = null
         _uiState.update { it.copy(voiceIsPolishing = false) }
+    }
+
+    // ===== Voice Creation =====
+
+    fun setVoiceAlias(alias: String) {
+        _uiState.update { it.copy(voiceAlias = alias, voiceCreateError = null) }
+    }
+
+    fun setVoiceTargetModel(model: String) {
+        _uiState.update { it.copy(voiceTargetModel = model) }
+    }
+
+    fun createVoice(onResult: (Boolean, String) -> Unit) {
+        val state = _uiState.value
+        val alias = state.voiceAlias.trim()
+        val prompt = state.voicePolishedPrompt.trim()
+
+        if (alias.isEmpty()) {
+            _uiState.update { it.copy(voiceCreateError = "请输入别名") }
+            return
+        }
+        if (prompt.isEmpty()) {
+            _uiState.update { it.copy(voiceCreateError = "请先生成音色描述") }
+            return
+        }
+
+        _uiState.update { it.copy(isCreatingVoice = true, voiceCreateError = null) }
+
+        viewModelScope.launch {
+            val result = voiceRepository.createVoice(
+                targetModel = state.voiceTargetModel,
+                prefix = alias,
+                voicePrompt = prompt,
+                previewText = "你好，欢迎试听我的声音，希望你能喜欢。"
+            )
+            result.onSuccess { createResult ->
+                _uiState.update { it.copy(isCreatingVoice = false) }
+                onResult(true, "音色「${alias}」创建成功！")
+            }.onFailure { e ->
+                _uiState.update {
+                    it.copy(isCreatingVoice = false, voiceCreateError = "创建失败: ${e.localizedMessage ?: "未知错误"}")
+                }
+                onResult(false, "创建失败: ${e.localizedMessage ?: "未知错误"}")
+            }
+        }
+    }
+
+    fun dismissVoiceCreateError() {
+        _uiState.update { it.copy(voiceCreateError = null) }
     }
 
     fun createSkill(name: String, description: String, systemPrompt: String, avatar: String, greeting: String, temperature: Double, onResult: ((Boolean, String) -> Unit)? = null) {
