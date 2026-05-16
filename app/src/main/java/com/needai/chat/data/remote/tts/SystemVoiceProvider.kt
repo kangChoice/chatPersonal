@@ -173,17 +173,27 @@ object SystemVoiceProvider {
 
     fun getVoices(model: String): List<SystemVoice> {
         if (model.startsWith("cosyvoice-v3.5")) {
-            // v3.5 系列无系统预置音色，仅支持设计音色
-            return emptyList()
+            // v3.5 同 v3-flash 标杆音色
+            return voiceMap["cosyvoice-v3-flash"] ?: emptyList()
         }
         return voiceMap.entries
             .firstOrNull { model.startsWith(it.key) }
             ?.value ?: emptyList()
     }
 
+    /**
+     * 仅返回编辑角色页使用的系统音色（v3-flash 标杆音色）。
+     * 模型固定为 cosyvoice-v3-flash，不暴露 v3-plus 等其他选项。
+     */
+    fun getSkillEditorVoices(): List<SystemVoice> {
+        return (voiceMap["cosyvoice-v3-flash"] ?: emptyList()).map { voice ->
+            voice.copy(supportedModels = listOf("cosyvoice-v3-flash"))
+        }
+    }
+
     fun hasSystemVoices(model: String): Boolean {
         if (model.startsWith("cosyvoice-v3.5")) {
-            return false
+            return true
         }
         return voiceMap.entries.any { model.startsWith(it.key) }
     }

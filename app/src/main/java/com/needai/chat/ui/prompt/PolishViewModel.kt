@@ -245,7 +245,7 @@ class PolishViewModel @Inject constructor(
                 isBuiltin = false
             )
             skillRepository.insertSkill(skill)
-            onResult?.invoke(true, "技能「${skill.name}」已创建")
+            onResult?.invoke(true, "角色「${skill.name}」已创建")
         }
     }
 

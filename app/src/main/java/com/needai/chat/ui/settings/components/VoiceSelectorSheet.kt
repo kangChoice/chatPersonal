@@ -22,8 +22,8 @@ fun VoiceSelectorSheet(
     customVoices: List<VoiceInfo>,
     currentVoiceId: String,
     selectedModel: String,
+    voiceAliases: Map<String, String> = emptyMap(),
     onVoiceSelected: (String) -> Unit,
-    onManageVoices: () -> Unit,
     onDismiss: () -> Unit
 ) {
     val isV35 = selectedModel.startsWith("cosyvoice-v3.5")
@@ -114,6 +114,11 @@ fun VoiceSelectorSheet(
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
                                 )
+                                Text(
+                                    text = voice.supportedModels.joinToString("、"),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
+                                )
                             }
                         }
                     }
@@ -138,6 +143,7 @@ fun VoiceSelectorSheet(
                     )
                 }
                 customVoices.forEach { voice ->
+                    val alias = voiceAliases[voice.voiceId] ?: ""
                     Surface(
                         onClick = { onVoiceSelected(voice.voiceId) },
                         shape = MaterialTheme.shapes.medium,
@@ -158,9 +164,9 @@ fun VoiceSelectorSheet(
                             Spacer(modifier = Modifier.width(8.dp))
                             Column {
                                 Text(
-                                    text = voice.displayName.ifEmpty { voice.voiceId },
+                                    text = alias.ifEmpty { voice.displayName.ifEmpty { voice.voiceId } },
                                     style = MaterialTheme.typography.bodyMedium,
-                                    fontWeight = FontWeight.Medium
+                                    fontWeight = if (alias.isNotBlank()) FontWeight.Bold else FontWeight.Medium
                                 )
                                 if (voice.voicePrompt.isNotBlank()) {
                                     Text(
@@ -186,20 +192,11 @@ fun VoiceSelectorSheet(
             if (systemVoices.isEmpty() && customVoices.isEmpty()) {
                 Spacer(modifier = Modifier.height(12.dp))
                 Text(
-                    text = "暂无可用音色，请先「管理音色」中添加",
+                    text = "暂无可用音色",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
                     modifier = Modifier.padding(vertical = 8.dp)
                 )
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            OutlinedButton(
-                onClick = onManageVoices,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("管理音色")
             }
         }
     }

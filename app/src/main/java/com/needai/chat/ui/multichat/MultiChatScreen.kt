@@ -95,7 +95,7 @@ fun MultiChatScreen(
                         Text("多人聊天", fontWeight = FontWeight.Bold)
                         if (uiState.selectedSkills.isNotEmpty()) {
                             Text(
-                                text = "已选 ${uiState.selectedSkills.size} 个技能",
+                                text = "已选 ${uiState.selectedSkills.size} 个角色",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
                             )
@@ -114,7 +114,7 @@ fun MultiChatScreen(
                         }
                     ) {
                         IconButton(onClick = { viewModel.toggleSkillSelector() }) {
-                            Icon(Icons.Default.AutoAwesome, contentDescription = "选择技能")
+                            Icon(Icons.Default.AutoAwesome, contentDescription = "选择角色")
                         }
                     }
                     Box {
@@ -192,7 +192,7 @@ fun MultiChatScreen(
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
-                            text = "选择至少 2 个技能，发送消息开始聊天",
+                            text = "选择至少 2 个角色，发送消息开始聊天",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
                         )
@@ -363,11 +363,11 @@ private fun SkillSelectorDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("选择技能", fontWeight = FontWeight.Bold) },
+        title = { Text("选择角色", fontWeight = FontWeight.Bold) },
         text = {
             if (availableSkills.isEmpty()) {
                 Text(
-                    text = "没有可用的技能",
+                    text = "没有可用的角色",
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
                 )
             } else {
@@ -428,7 +428,7 @@ private fun MultiPromptEditorDialog(
         text = {
             Column {
                 Text(
-                    text = "该提示词将注入到每个技能中，让它们按此基调互动：",
+                    text = "该提示词将注入到每个角色中，让它们按此基调互动：",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                 )

@@ -57,7 +57,7 @@ class SkillViewModel @Inject constructor(
         )
         viewModelScope.launch {
             skillRepository.insertSkill(skill)
-            onResult?.invoke(true, "技能「${skill.name}」已创建")
+            onResult?.invoke(true, "角色「${skill.name}」已创建")
         }
     }
 
@@ -87,7 +87,7 @@ class SkillViewModel @Inject constructor(
     fun importSkill(skill: Skill, onResult: (Boolean, String) -> Unit) {
         viewModelScope.launch {
             skillRepository.insertSkill(skill)
-            onResult(true, "技能已导入")
+            onResult(true, "角色已导入")
         }
     }
 
@@ -98,7 +98,7 @@ class SkillViewModel @Inject constructor(
                 skillRepository.insertSkill(skill)
                 successCount++
             }
-            onResult(true, "成功导入 $successCount 个技能")
+            onResult(true, "成功导入 $successCount 个角色")
         }
     }
 }

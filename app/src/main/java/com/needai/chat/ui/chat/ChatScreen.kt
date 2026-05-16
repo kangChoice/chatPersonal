@@ -259,7 +259,7 @@ fun ChatScreen(
                         }
                     }
                     IconButton(onClick = { showSkillSelector = true }) {
-                        Icon(Icons.Default.AutoAwesome, contentDescription = "切换技能")
+                        Icon(Icons.Default.AutoAwesome, contentDescription = "切换角色")
                     }
                     Box {
                         IconButton(onClick = { showMenu = true }) {
@@ -436,7 +436,7 @@ fun ChatScreen(
     if (pendingSkill != null) {
         AlertDialog(
             onDismissRequest = { pendingSkill = null },
-            title = { Text("切换技能") },
+            title = { Text("切换角色") },
             text = {
                 Text("切换到「${pendingSkill!!.name}」将开启新的对话，确定要切换吗？")
             },

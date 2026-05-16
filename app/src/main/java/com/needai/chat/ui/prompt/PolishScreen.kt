@@ -196,7 +196,7 @@ fun PolishScreen(
                                     onClick = { showCreateDialog = true },
                                     modifier = Modifier.fillMaxWidth()
                                 ) {
-                                    Text("创建技能")
+                                    Text("创建角色")
                                 }
                             }
                         }

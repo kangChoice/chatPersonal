@@ -60,7 +60,7 @@ fun MultiChatMessageBubble(
                         )
                     }
                     Text(
-                        text = message.skillName ?: "技能",
+                        text = message.skillName ?: "角色",
                         style = MaterialTheme.typography.labelMedium,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary

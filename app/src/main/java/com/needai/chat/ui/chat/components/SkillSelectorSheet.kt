@@ -33,7 +33,7 @@ fun SkillSelectorSheet(
                 .padding(bottom = 32.dp)
         ) {
             Text(
-                text = "选择技能",
+                text = "选择角色",
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.padding(bottom = 16.dp)

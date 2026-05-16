@@ -33,8 +33,6 @@ import com.needai.chat.ui.settings.components.GenerationParamsDialog
 import com.needai.chat.ui.settings.components.ModelConfigEditDialog
 import com.needai.chat.ui.settings.components.QuickCreateProviderDialog
 import com.needai.chat.ui.settings.components.TtsSettingsSection
-import com.needai.chat.ui.navigation.Screen
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
@@ -197,21 +195,15 @@ fun SettingsScreen(
             Spacer(modifier = Modifier.height(16.dp))
 
             // TTS 配置
-            val ttsProvider by viewModel.ttsProvider.collectAsStateWithLifecycle()
             val ttsApiKey by viewModel.ttsApiKey.collectAsStateWithLifecycle()
-            val ttsVoice by viewModel.ttsVoice.collectAsStateWithLifecycle()
             val ttsVolume by viewModel.ttsVolume.collectAsStateWithLifecycle()
             val ttsRate by viewModel.ttsRate.collectAsStateWithLifecycle()
             val ttsPitch by viewModel.ttsPitch.collectAsStateWithLifecycle()
             val ttsAutoRead by viewModel.ttsAutoRead.collectAsStateWithLifecycle()
 
             TtsSettingsSection(
-                ttsProvider = ttsProvider,
-                onTtsProviderChange = viewModel::setTtsProvider,
                 ttsApiKey = ttsApiKey,
                 onTtsApiKeyChange = viewModel::setTtsApiKey,
-                ttsVoice = ttsVoice,
-                onTtsVoiceChange = viewModel::setTtsVoice,
                 ttsVolume = ttsVolume,
                 onTtsVolumeChange = viewModel::setTtsVolume,
                 ttsRate = ttsRate,
@@ -219,8 +211,7 @@ fun SettingsScreen(
                 ttsPitch = ttsPitch,
                 onTtsPitchChange = viewModel::setTtsPitch,
                 ttsAutoRead = ttsAutoRead,
-                onTtsAutoReadChange = viewModel::setTtsAutoRead,
-                onManageVoices = { navController.navigate(Screen.VoiceManagement.route) }
+                onTtsAutoReadChange = viewModel::setTtsAutoRead
             )
 
             Spacer(modifier = Modifier.height(16.dp))

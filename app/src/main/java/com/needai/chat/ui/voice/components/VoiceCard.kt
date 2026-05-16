@@ -3,6 +3,7 @@ package com.needai.chat.ui.voice.components
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.*
@@ -16,10 +17,12 @@ import com.needai.chat.domain.model.VoiceInfo
 @Composable
 fun VoiceCard(
     voice: VoiceInfo,
+    alias: String = "",
     isPlaying: Boolean = false,
     canPlay: Boolean = true,
     onPlay: () -> Unit,
     onDelete: () -> Unit,
+    onAliasEdit: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val statusColor = when (voice.status) {
@@ -48,18 +51,30 @@ fun VoiceCard(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(modifier = Modifier.weight(1f)) {
+                // Row 1: Alias/Name
                 Text(
-                    text = voice.displayName.ifEmpty { voice.voiceId },
+                    text = alias.ifEmpty { voice.displayName.ifEmpty { voice.voiceId } },
                     style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = FontWeight.Medium
+                    fontWeight = if (alias.isNotBlank()) FontWeight.Bold else FontWeight.Medium
                 )
-                Spacer(modifier = Modifier.height(2.dp))
+                // Row 2: Voice prompt
+                if (voice.voicePrompt.isNotBlank()) {
+                    Text(
+                        text = voice.voicePrompt,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                        maxLines = 2
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                }
+                // Row 3: Model info
                 Text(
                     text = "模型: ${voice.targetModel.ifEmpty { "未知" }}",
-                    style = MaterialTheme.typography.bodySmall,
+                    style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                 )
                 Spacer(modifier = Modifier.height(2.dp))
+                // Row 4: Status
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         text = "状态: ",
@@ -71,6 +86,15 @@ fun VoiceCard(
                         style = MaterialTheme.typography.bodySmall,
                         color = statusColor,
                         fontWeight = FontWeight.Medium
+                    )
+                }
+            }
+            if (onAliasEdit != null) {
+                IconButton(onClick = onAliasEdit) {
+                    Icon(
+                        Icons.Default.Edit,
+                        contentDescription = "编辑别名",
+                        tint = MaterialTheme.colorScheme.primary
                     )
                 }
             }

@@ -157,7 +157,7 @@ fun SkillListScreen(
             TopAppBar(
                 title = {
                     Column {
-                        Text("技能管理", fontWeight = FontWeight.Bold)
+                        Text("角色管理", fontWeight = FontWeight.Bold)
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier
@@ -191,7 +191,7 @@ fun SkillListScreen(
                     }
                     if (!isSelectionMode) {
                         IconButton(onClick = { showCreateDialog = true }) {
-                            Icon(Icons.Default.Add, contentDescription = "创建技能")
+                            Icon(Icons.Default.Add, contentDescription = "创建角色")
                         }
                         TextButton(onClick = {
                             importSkillLauncher.launch(arrayOf("application/json"))
@@ -214,7 +214,7 @@ fun SkillListScreen(
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = "暂无技能，点击右上角 + 创建",
+                    text = "暂无角色，点击右上角 + 创建",
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
                 )
@@ -283,9 +283,9 @@ fun SkillListScreen(
         AlertDialog(
             onDismissRequest = { skillToDelete = null },
             icon = { Icon(Icons.Default.Delete, contentDescription = null) },
-            title = { Text("删除技能") },
+            title = { Text("删除角色") },
             text = {
-                Text("确定要删除「${skillToDelete!!.name}」吗？删除后，该技能对应的所有历史会话记录也将一并删除，此操作不可撤销。")
+                Text("确定要删除「${skillToDelete!!.name}」吗？删除后，该角色对应的所有历史会话记录也将一并删除，此操作不可撤销。")
             },
             confirmButton = {
                 Button(
@@ -326,7 +326,7 @@ fun SkillEditDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(if (isEdit) "编辑技能" else "创建技能") },
+        title = { Text(if (isEdit) "编辑角色" else "创建角色") },
         text = {
             Column(
                 modifier = Modifier

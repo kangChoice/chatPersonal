@@ -10,6 +10,7 @@ import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.needai.chat.util.Constants
+import org.json.JSONObject
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
@@ -33,6 +34,7 @@ class SettingsDataStore(private val context: Context) {
         private val TTS_PITCH = floatPreferencesKey("tts_pitch")
         private val TTS_PREFIX = stringPreferencesKey("tts_prefix")
         private val TTS_AUTO_READ = booleanPreferencesKey("tts_auto_read")
+        private val VOICE_ALIASES = stringPreferencesKey("voice_aliases")
     }
 
     val selectedSkillId: Flow<String> = context.settingsStore.data.map { preferences ->
@@ -165,6 +167,48 @@ class SettingsDataStore(private val context: Context) {
         context.settingsStore.edit { preferences ->
             preferences[TTS_AUTO_READ] = enabled
         }
+    }
+
+    // ===== 音色别名映射 =====
+
+    val voiceAliases: Flow<Map<String, String>> = context.settingsStore.data.map { preferences ->
+        val json = preferences[VOICE_ALIASES] ?: "{}"
+        parseAliasesMap(json)
+    }
+
+    suspend fun setVoiceAlias(voiceId: String, alias: String) {
+        context.settingsStore.edit { preferences ->
+            val current = parseAliasesMap(preferences[VOICE_ALIASES] ?: "{}")
+            val updated = current.toMutableMap()
+            if (alias.isBlank()) updated.remove(voiceId)
+            else updated[voiceId] = alias
+            preferences[VOICE_ALIASES] = encodeAliasesMap(updated)
+        }
+    }
+
+    suspend fun setVoiceAliases(aliases: Map<String, String>) {
+        context.settingsStore.edit { preferences ->
+            preferences[VOICE_ALIASES] = encodeAliasesMap(aliases)
+        }
+    }
+
+    private fun parseAliasesMap(json: String): Map<String, String> {
+        val map = mutableMapOf<String, String>()
+        try {
+            val obj = JSONObject(json)
+            for (key in obj.keys()) {
+                map[key] = obj.optString(key, "")
+            }
+        } catch (_: Exception) { }
+        return map
+    }
+
+    private fun encodeAliasesMap(map: Map<String, String>): String {
+        val obj = JSONObject()
+        for ((key, value) in map) {
+            obj.put(key, value)
+        }
+        return obj.toString()
     }
 
 }

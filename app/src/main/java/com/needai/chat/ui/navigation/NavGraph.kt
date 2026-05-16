@@ -29,7 +29,7 @@ import com.needai.chat.ui.multichat.MultiChatScreen
 import com.needai.chat.ui.onboarding.OnboardingOverlay
 import com.needai.chat.ui.settings.SettingsScreen
 import com.needai.chat.ui.skills.SkillEditScreen
-import com.needai.chat.ui.skills.SkillListScreen
+import com.needai.chat.ui.skills.SkillAndVoiceScreen
 import com.needai.chat.ui.prompt.PolishScreen
 import com.needai.chat.ui.stats.StatsScreen
 import com.needai.chat.ui.voice.VoiceListScreen
@@ -37,10 +37,10 @@ import com.needai.chat.ui.voice.VoiceListScreen
 sealed class Screen(val route: String, val title: String, val icon: ImageVector? = null) {
     data object Chat : Screen("chat", "聊天", Icons.Default.Chat)
     data object MultiChat : Screen("multi_chat", "群聊", Icons.Default.Forum)
-    data object SkillList : Screen("skill_list", "技能", Icons.Default.AutoAwesome)
+    data object SkillList : Screen("skill_list", "角色管理", Icons.Default.AutoAwesome)
     data object PromptPolish : Screen("prompt_polish", "提示词", Icons.Default.Edit)
     data object Stats : Screen("stats", "统计", Icons.Default.BarChart)
-    data object SkillEdit : Screen("skill_edit/{skillId}", "编辑技能")
+    data object SkillEdit : Screen("skill_edit/{skillId}", "编辑角色")
     data object VoiceManagement : Screen("voice_management", "音色管理")
     data object Settings : Screen("settings", "设置", Icons.Default.Settings)
 
@@ -127,7 +127,7 @@ fun MainScreen() {
                         MultiChatScreen()
                     }
                     composable(Screen.SkillList.route) {
-                        SkillListScreen(navController = navController)
+                        SkillAndVoiceScreen(navController = navController)
                     }
                     composable(Screen.PromptPolish.route) {
                         PolishScreen()

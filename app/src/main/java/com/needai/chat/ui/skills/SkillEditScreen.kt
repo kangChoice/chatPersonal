@@ -52,7 +52,7 @@ fun SkillEditScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(if (isNew) "创建技能" else "编辑技能", fontWeight = FontWeight.Bold) },
+                title = { Text(if (isNew) "创建角色" else "编辑角色", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "返回")
@@ -79,7 +79,7 @@ fun SkillEditScreen(
             OutlinedTextField(
                 value = name,
                 onValueChange = { name = it },
-                label = { Text("技能名称") },
+                label = { Text("角色名称") },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
                 enabled = !isBuiltin
@@ -253,7 +253,7 @@ fun SkillEditScreen(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text(
-                    if (isNew) "创建技能"
+                    if (isNew) "创建角色"
                     else if (isBuiltin) "返回"
                     else "保存修改"
                 )
@@ -276,21 +276,18 @@ fun SkillEditScreen(
     if (showVoiceSelector) {
         val context = LocalContext.current
         val settingsDataStore = remember { SettingsDataStore(context) }
-        val ttsModel by settingsDataStore.ttsModel.collectAsState(initial = "cosyvoice-v3.5-flash")
         val customVoices by viewModel.customVoices.collectAsStateWithLifecycle()
-        val systemVoices = remember(ttsModel) { SystemVoiceProvider.getVoices(ttsModel) }
+        val systemVoices = remember { SystemVoiceProvider.getSkillEditorVoices() }
+        val voiceAliases by settingsDataStore.voiceAliases.collectAsState(initial = emptyMap())
         VoiceSelectorSheet(
             systemVoices = systemVoices,
             customVoices = customVoices,
             currentVoiceId = voiceId,
-            selectedModel = ttsModel,
+            selectedModel = "cosyvoice-v3-flash",
+            voiceAliases = voiceAliases,
             onVoiceSelected = { selected ->
                 voiceId = selected
                 showVoiceSelector = false
-            },
-            onManageVoices = {
-                showVoiceSelector = false
-                // Navigate to voice management (handled by caller)
             },
             onDismiss = { showVoiceSelector = false }
         )
@@ -299,7 +296,7 @@ fun SkillEditScreen(
     if (showDeleteConfirm) {
         AlertDialog(
             onDismissRequest = { showDeleteConfirm = false },
-            title = { Text("删除技能") },
+            title = { Text("删除角色") },
             text = { Text("确定要删除「${existingSkill?.name}」吗？此操作不可撤销。") },
             confirmButton = {
                 TextButton(
