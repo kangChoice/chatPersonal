@@ -1,5 +1,6 @@
 package com.needai.chat.ui.chat
 
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
@@ -68,11 +69,13 @@ import kotlinx.coroutines.launch
 @Composable
 fun ChatScreen(
     navController: NavController,
-    viewModel: ChatViewModel = hiltViewModel()
+    viewModel: ChatViewModel = hiltViewModel(),
+    onChatDetailChange: (Boolean) -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var showSkillSelector by remember { mutableStateOf(false) }
     var showCarousel by remember { mutableStateOf(true) }
+    LaunchedEffect(showCarousel) { onChatDetailChange(!showCarousel) }
     var carouselSelectedIndex by remember { mutableIntStateOf(0) }
     var showMenu by remember { mutableStateOf(false) }
     var showHistorySession by remember { mutableStateOf(false) }
@@ -215,10 +218,25 @@ fun ChatScreen(
         }
     }
 
+    // ===== 系统返回手势 =====
+    val hasDialog = showExportDialog || pendingSkill != null || sessionToDelete != null ||
+        showMenu || showSkillSelector || showHistorySession
+    BackHandler(enabled = hasDialog || !showCarousel) {
+        when {
+            showExportDialog -> showExportDialog = false
+            pendingSkill != null -> pendingSkill = null
+            sessionToDelete != null -> sessionToDelete = null
+            showMenu -> showMenu = false
+            showSkillSelector -> showSkillSelector = false
+            showHistorySession -> showHistorySession = false
+            !showCarousel -> showCarousel = true
+        }
+    }
+
     // ============================================================
     // LAYOUT — 精确对应 index.html 的 .chat-page 结构
     // ============================================================
-    Box(modifier = Modifier.fillMaxSize()) {
+    Box(modifier = Modifier.fillMaxSize().imePadding()) {
 
         // Layer 1: 背景图片 — 对应 .chat-bg img (hide in carousel)
         if (!showCarousel && backgroundBitmap != null) {
@@ -250,6 +268,7 @@ fun ChatScreen(
         Column(modifier = Modifier.fillMaxSize()) {
 
             // ========== .chat-nav ==========
+            val navTitleColor = MaterialTheme.colorScheme.onBackground
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -275,15 +294,20 @@ fun ChatScreen(
                 }
 
                 // .chat-nav-title
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Column(
+                    modifier = Modifier.weight(1f).padding(horizontal = 8.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
                     Text(
                         text = skill.name,
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Bold,
-                        color = Color.White,
-                        letterSpacing = 0.02.sp
+                        color = navTitleColor,
+                        letterSpacing = 0.02.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
-                    val subtitleColor = if (uiState.isModelConfigured) Color.White.copy(alpha = 0.7f) else StatusRed.copy(alpha = 0.8f)
+                    val subtitleColor = if (uiState.isModelConfigured) navTitleColor.copy(alpha = 0.6f) else StatusRed.copy(alpha = 0.8f)
                     val subtitleText = if (uiState.isModelConfigured) {
                         "● ${uiState.currentModelName.ifEmpty { "远程模型" }}"
                     } else {
@@ -375,20 +399,23 @@ fun ChatScreen(
                             MessageBubble(
                                 message = message,
                                 onSpeak = {
-                                    val mgr = ttsManager
-                                    if (mgr != null) {
-                                        if (speakingMessageId == message.id) {
-                                            mgr.stop(); speakingMessageId = null
-                                            coroutineScope.launch { snackbarHostState.showSnackbar("TTS: 停止朗读") }
-                                        } else {
-                                            val voiceId = if (uiState.currentSkill.voiceId.isNotBlank()) uiState.currentSkill.voiceId else ttsVoice
-                                            coroutineScope.launch { snackbarHostState.showSnackbar("TTS: 朗读") }
-                                            mgr.speak(message.content, voiceId) { speakingMessageId = null }
-                                            speakingMessageId = message.id
+                                    if (autoSpeaking) {
+                                        ttsManager?.stop(); autoSpeaking = false
+                                    } else {
+                                        val mgr = ttsManager
+                                        if (mgr != null) {
+                                            if (speakingMessageId == message.id) {
+                                                mgr.stop(); speakingMessageId = null
+                                            } else {
+                                                val voiceId = if (uiState.currentSkill.voiceId.isNotBlank()) uiState.currentSkill.voiceId else ttsVoice
+                                                mgr.speak(message.content, voiceId) { speakingMessageId = null }
+                                                speakingMessageId = message.id
+                                            }
                                         }
                                     }
                                 },
-                                isSpeaking = speakingMessageId == message.id
+                                isSpeaking = speakingMessageId == message.id,
+                                isAutoSpeaking = autoSpeaking
                             )
                         }
 

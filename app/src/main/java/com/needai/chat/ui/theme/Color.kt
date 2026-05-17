@@ -10,9 +10,9 @@ val BrandBlue = Color(0xFF5B9DFF)
 // ============ 页面基础色 ============
 val BgPage = Color(0xFFF9F9FB)       // .fluid-glow background
 val BgCard = Color(0xFFFFFFFF)
-val TextPrimary = Color(0xFF1A202C)
-val TextSecondary = Color(0xFF4A5568) // 加深以提高透明度底色下的可读性
-val TextTertiary = Color(0xFF718096) // 同上
+val TextPrimary = Color(0xFF111318)      // 加深一级
+val TextSecondary = Color(0xFF2D3748)     // 加深一级
+val TextTertiary = Color(0xFF4A5568)     // 加深一级
 val DividerColor = Color(0x1A718096)
 
 // ============ 毛玻璃色（精确对应 HTML 值） ============
@@ -42,11 +42,16 @@ val StatusRed = Color(0xFFEF5350)
 val DarkBg = Color(0xFF121212)
 val DarkSurface = Color(0xFF1E1E1E)
 val DarkCard = Color(0xFF2A2A2A)
-val DarkTextPrimary = Color(0xFFE6E1E5)
-val DarkTextSecondary = Color(0xFFB0ABB0)
-val DarkTextTertiary = Color(0xFF8A858A)
+val DarkTextPrimary = Color(0xFFF0EBF0)     // 提亮一级
+val DarkTextSecondary = Color(0xFFCECACE)    // 提亮一级
+val DarkTextTertiary = Color(0xFFA8A2A8)    // 提亮一级
 val DarkDivider = Color(0x33FFFFFF)
 val DarkGlassWhite = Color.White.copy(alpha = 0.12f)
 val DarkGlassInput = Color.White.copy(alpha = 0.10f)
 val DarkBubbleAiBg = Color.White.copy(alpha = 0.12f)
 val DarkBubbleAiBorder = Color.White.copy(alpha = 0.08f)
+
+// ============ 深色模式光晕色（在深色背景上更明显） ============
+val DarkGlowMint = Color(0x6688E2CE)   // alpha 0.4
+val DarkGlowPink = Color(0x55FFAEC9)   // alpha 0.33
+val DarkGlowBlue = Color(0x445B9DFF)   // alpha 0.27

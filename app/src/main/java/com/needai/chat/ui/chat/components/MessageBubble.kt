@@ -10,6 +10,7 @@ import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -34,7 +35,8 @@ fun MessageBubble(
     modifier: Modifier = Modifier,
     fontSize: Float = 16f,
     onSpeak: (() -> Unit)? = null,
-    isSpeaking: Boolean = false
+    isSpeaking: Boolean = false,
+    isAutoSpeaking: Boolean = false
 ) {
     val isUser = message.role == MessageRole.USER
 
@@ -103,6 +105,7 @@ fun MessageBubble(
 
         // TTS 朗读按钮（AI 消息专属）
         if (!isUser && onSpeak != null) {
+            val isDark = MaterialTheme.colorScheme.background == DarkBg
             Row(
                 modifier = Modifier.padding(start = 8.dp, top = 4.dp),
                 horizontalArrangement = Arrangement.Start
@@ -111,14 +114,19 @@ fun MessageBubble(
                     modifier = Modifier
                         .size(28.dp)
                         .clip(RoundedCornerShape(999.dp))
-                        .background(Color.White.copy(alpha = 0.15f)),
+                        .background(
+                            if (isDark) Color.White.copy(alpha = 0.15f)
+                            else Color.Black.copy(alpha = 0.08f)
+                        ),
                     contentAlignment = Alignment.Center
                 ) {
+                    val showStop = isSpeaking || isAutoSpeaking
                     IconButton(onClick = onSpeak, modifier = Modifier.size(28.dp)) {
                         Icon(
-                            imageVector = if (isSpeaking) Icons.Default.Stop else Icons.AutoMirrored.Filled.VolumeUp,
-                            contentDescription = if (isSpeaking) "停止" else "朗读",
-                            tint = Color.White.copy(alpha = 0.6f),
+                            imageVector = if (showStop) Icons.Default.Stop else Icons.AutoMirrored.Filled.VolumeUp,
+                            contentDescription = if (showStop) "停止" else "朗读",
+                            tint = if (isDark) Color.White.copy(alpha = 0.6f)
+                                   else MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f),
                             modifier = Modifier.size(14.dp)
                         )
                     }

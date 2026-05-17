@@ -1,5 +1,6 @@
 package com.needai.chat.ui.navigation
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
@@ -61,12 +62,18 @@ private val onboardingRoutes = listOf(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MainScreen() {
+fun MainScreen(isDark: Boolean = false) {
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = navBackStackEntry?.destination
-    val showBottomBar = bottomNavItems.any { screen ->
-        currentDestination?.hierarchy?.any { it.route == screen.route } == true
+    var isChatDetail by remember { mutableStateOf(false) }
+    var isMultiChatDetail by remember { mutableStateOf(false) }
+    val showBottomBar = when (currentDestination?.route) {
+        Screen.Chat.route -> !isChatDetail
+        Screen.MultiChat.route -> !isMultiChatDetail
+        else -> bottomNavItems.any { screen ->
+            currentDestination?.hierarchy?.any { it.route == screen.route } == true
+        }
     }
 
     // Current selected tab index
@@ -79,6 +86,17 @@ fun MainScreen() {
     // Onboarding state
     var showOnboarding by remember { mutableStateOf(false) }
     var onboardingStep by remember { mutableIntStateOf(-1) }
+
+    // 系统返回手势：非聊天 tab → 回到聊天页
+    BackHandler(enabled = currentDestination?.route != Screen.Chat.route) {
+        navController.navigate(Screen.Chat.route) {
+            popUpTo(navController.graph.findStartDestination().id) {
+                saveState = true
+            }
+            launchSingleTop = true
+            restoreState = true
+        }
+    }
 
     // Auto-navigate when onboarding step changes
     LaunchedEffect(onboardingStep) {
@@ -96,7 +114,7 @@ fun MainScreen() {
 
     Box(modifier = Modifier.fillMaxSize().background(BgPage)) {
         // 根级动态波动底色，确保页面切换时始终显示
-        com.needai.chat.ui.theme.FluidGlowBackground()
+        com.needai.chat.ui.theme.FluidGlowBackground(isDark = isDark)
         Scaffold(
             containerColor = Color.Transparent,
             bottomBar = {
@@ -135,10 +153,15 @@ fun MainScreen() {
                     startDestination = Screen.Chat.route
                 ) {
                     composable(Screen.Chat.route) {
-                        ChatScreen(navController = navController)
+                        ChatScreen(
+                            navController = navController,
+                            onChatDetailChange = { isChatDetail = it }
+                        )
                     }
                     composable(Screen.MultiChat.route) {
-                        MultiChatScreen()
+                        MultiChatScreen(
+                            onChatDetailChange = { isMultiChatDetail = it }
+                        )
                     }
                     composable(Screen.SkillList.route) {
                         SkillAndVoiceScreen(navController = navController)

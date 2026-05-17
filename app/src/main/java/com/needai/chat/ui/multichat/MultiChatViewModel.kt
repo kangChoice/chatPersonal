@@ -118,7 +118,7 @@ class MultiChatViewModel @Inject constructor(
                     currentRespondingSkill = null,
                     currentStreamingContent = "",
                     inputText = "",
-                    showSkillSelector = true
+                    showSkillSelector = false
                 )
             }
         }

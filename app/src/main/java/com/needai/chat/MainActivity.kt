@@ -9,7 +9,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.toArgb
 import com.needai.chat.data.local.datastore.SettingsDataStore
 import com.needai.chat.ui.navigation.MainScreen
 import com.needai.chat.ui.theme.NeedAiTheme
@@ -25,15 +27,18 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        window.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(0xFFF9F9FB.toInt()))
         setContent {
             val isDarkMode by settingsDataStore.isDarkMode.collectAsState(initial = false)
             NeedAiTheme(darkTheme = isDarkMode) {
+                val bgColor = MaterialTheme.colorScheme.background
+                SideEffect {
+                    window.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(bgColor.toArgb()))
+                }
                 Surface(
                     modifier = Modifier.fillMaxSize(),
-                    color = MaterialTheme.colorScheme.background
+                    color = bgColor
                 ) {
-                    MainScreen()
+                    MainScreen(isDark = isDarkMode)
                 }
             }
         }

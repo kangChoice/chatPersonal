@@ -44,8 +44,7 @@ fun ChatInputBar(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 8.dp)
-            .navigationBarsPadding(),
+            .padding(horizontal = 12.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         // === .chat-input-wrap ===
@@ -88,8 +87,8 @@ fun ChatInputBar(
                             innerTextField()
                         }
                     },
-                    singleLine = true,
-                    maxLines = 1
+                    singleLine = false,
+                    maxLines = 5
                 )
 
                 // Send / Stop button — .send-btn

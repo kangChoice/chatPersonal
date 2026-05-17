@@ -38,10 +38,12 @@ import com.needai.chat.ui.chat.components.ChatInputBar
 import com.needai.chat.ui.chat.components.HistorySessionSheet
 import com.needai.chat.ui.multichat.components.MultiChatMessageBubble
 import com.needai.chat.ui.theme.*
+import androidx.activity.compose.BackHandler
 
 @Composable
 fun MultiChatScreen(
-    viewModel: MultiChatViewModel = hiltViewModel()
+    viewModel: MultiChatViewModel = hiltViewModel(),
+    onChatDetailChange: (Boolean) -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val listState = rememberLazyListState()
@@ -49,6 +51,11 @@ fun MultiChatScreen(
     var showMenu by remember { mutableStateOf(false) }
     var showHistorySession by remember { mutableStateOf(false) }
     var sessionToDelete by remember { mutableStateOf<ChatSession?>(null) }
+    var showSetup by remember { mutableStateOf(true) }
+
+    // Notify parent about detail state for bottom nav
+    LaunchedEffect(showSetup) { onChatDetailChange(!showSetup) }
+
     val context = LocalContext.current
     val settingsDataStore = remember { SettingsDataStore(context) }
     val ttsApiKey by settingsDataStore.ttsApiKey.collectAsState(initial = "")
@@ -93,249 +100,278 @@ fun MultiChatScreen(
         }
     }
 
-    Box(modifier = Modifier.fillMaxSize()) {
-        Scaffold(
-            containerColor = Color.Transparent,
-            topBar = {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 4.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column {
-                        Text("多人聊天", fontWeight = FontWeight.Bold)
-                        if (uiState.selectedSkills.isNotEmpty()) {
-                            Text(
-                                text = "已选 ${uiState.selectedSkills.size} 个角色",
-                                fontSize = 11.sp,
-                                color = TextSecondary
-                            )
-                        }
-                    }
-                    Row {
+    // ===== 系统返回手势 =====
+    BackHandler(enabled = !showSetup) {
+        showSetup = true
+    }
+
+    if (showSetup) {
+        // ========== 前置角色选择页面 ==========
+        MultiChatSetupPage(
+            availableSkills = uiState.availableSkills,
+            selectedSkills = uiState.selectedSkills,
+            multiPrompt = uiState.multiPrompt,
+            historySessionCount = uiState.historySessions.size,
+            onToggle = viewModel::toggleSkillSelection,
+            onPromptChanged = viewModel::onMultiPromptChanged,
+            onConfirm = {
+                if (uiState.selectedSkills.size >= 2) {
+                    showSetup = false
+                }
+            },
+            onHistorySession = { showHistorySession = true }
+        )
+    } else {
+        // ========== 群聊详细页面 ==========
+        Box(modifier = Modifier.fillMaxSize()) {
+            Scaffold(
+                containerColor = Color.Transparent,
+                topBar = {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .statusBarsPadding()
+                            .padding(horizontal = 16.dp, vertical = 4.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        // 返回 → 角色选择页
                         Box(
                             modifier = Modifier
                                 .size(36.dp)
                                 .clip(CircleShape)
-                                .background(GlassWhite)
-                                .border(0.5.dp, Color.White.copy(alpha = 0.5f), CircleShape)
-                                .clickable { viewModel.togglePromptEditor() },
+                                .background(Color.Black.copy(alpha = 0.3f))
+                                .border(0.5.dp, Color.White.copy(alpha = 0.2f), CircleShape)
+                                .clickable { showSetup = true },
                             contentAlignment = Alignment.Center
                         ) {
-                            Icon(Icons.Default.Edit, contentDescription = "提示词配置", tint = BrandBlue, modifier = Modifier.size(18.dp))
+                            Text("<", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
                         }
-                        Spacer(Modifier.width(8.dp))
-                        Box(
-                            modifier = Modifier
-                                .size(36.dp)
-                                .clip(CircleShape)
-                                .background(GlassWhite)
-                                .border(0.5.dp, Color.White.copy(alpha = 0.5f), CircleShape)
-                                .clickable { viewModel.toggleSkillSelector() },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(Icons.Default.AutoAwesome, contentDescription = "选择角色", tint = BrandPink, modifier = Modifier.size(18.dp))
+
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text("多人聊天", fontWeight = FontWeight.Bold)
+                            if (uiState.selectedSkills.isNotEmpty()) {
+                                Text(
+                                    text = "已选 ${uiState.selectedSkills.size} 个角色",
+                                    fontSize = 11.sp,
+                                    color = TextSecondary
+                                )
+                            }
                         }
-                        Spacer(Modifier.width(8.dp))
-                        Box {
+
+                        Row {
                             Box(
                                 modifier = Modifier
                                     .size(36.dp)
                                     .clip(CircleShape)
                                     .background(GlassWhite)
                                     .border(0.5.dp, Color.White.copy(alpha = 0.5f), CircleShape)
-                                    .clickable { showMenu = true },
+                                    .clickable { viewModel.togglePromptEditor() },
                                 contentAlignment = Alignment.Center
                             ) {
-                                Icon(Icons.Default.Add, contentDescription = "更多", tint = BrandBlue, modifier = Modifier.size(18.dp))
+                                Icon(Icons.Default.Edit, contentDescription = "提示词配置", tint = BrandBlue, modifier = Modifier.size(18.dp))
                             }
-                            DropdownMenu(
-                                expanded = showMenu,
-                                onDismissRequest = { showMenu = false }
+                            Spacer(Modifier.width(8.dp))
+                            Box(
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .clip(CircleShape)
+                                    .background(GlassWhite)
+                                    .border(0.5.dp, Color.White.copy(alpha = 0.5f), CircleShape)
+                                    .clickable { viewModel.toggleSkillSelector() },
+                                contentAlignment = Alignment.Center
                             ) {
-                                DropdownMenuItem(
-                                    text = { Text("新建群聊") },
-                                    onClick = {
-                                        viewModel.newSession()
-                                        showMenu = false
-                                    }
-                                )
-                                DropdownMenuItem(
-                                    text = { Text("历史会话") },
-                                    onClick = {
-                                        showMenu = false
-                                        showHistorySession = true
-                                    }
-                                )
-                                DropdownMenuItem(
-                                    text = { Text("清空对话") },
-                                    onClick = {
-                                        viewModel.clearMessages()
-                                        showMenu = false
-                                    }
-                                )
+                                Icon(Icons.Default.AutoAwesome, contentDescription = "选择角色", tint = BrandPink, modifier = Modifier.size(18.dp))
                             }
-                        }
-                    }
-                }
-            },
-        bottomBar = {
-            ChatInputBar(
-                inputText = uiState.inputText,
-                isStreaming = uiState.isGenerating,
-                onInputChanged = viewModel::onInputChanged,
-                onSend = viewModel::sendMessage,
-                onStop = viewModel::stopGeneration
-            )
-        },
-        snackbarHost = {
-            SnackbarHost(snackbarHostState) { data ->
-                Snackbar(
-                    snackbarData = data,
-                    containerColor = Color.Black.copy(alpha = 0.7f),
-                    contentColor = Color.White,
-                    shape = RoundedCornerShape(999.dp)
-                )
-            }
-        }
-    ) { innerPadding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-        ) {
-            // Selected skills chips
-            if (uiState.selectedSkills.isNotEmpty()) {
-                SelectedSkillsRow(
-                    selectedSkills = uiState.selectedSkills,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
-                )
-            }
-
-            // Empty state
-            if (uiState.messages.isEmpty()) {
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxWidth(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(
-                            text = "多人聊天",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = "选择至少 2 个角色，发送消息开始聊天",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
-                        )
-                        if (uiState.historySessions.isNotEmpty()) {
-                            Spacer(modifier = Modifier.height(16.dp))
-                            OutlinedButton(onClick = { showHistorySession = true }) {
-                                Text("查看历史会话 (${uiState.historySessions.size})")
-                            }
-                        }
-                    }
-                }
-            } else {
-                LazyColumn(
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp),
-                    state = listState,
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                    contentPadding = PaddingValues(vertical = 12.dp)
-                ) {
-                    items(uiState.messages, key = { it.id }) { message ->
-                        MultiChatMessageBubble(
-                            message = message,
-                            onSpeak = {
-                                if (speakingMsgId == message.id) {
-                                    ttsManager?.stop()
-                                    speakingMsgId = null
-                                } else {
-                                    ttsManager?.speak(message.content, ttsVoice)
-                                    speakingMsgId = message.id
+                            Spacer(Modifier.width(8.dp))
+                            Box {
+                                Box(
+                                    modifier = Modifier
+                                        .size(36.dp)
+                                        .clip(CircleShape)
+                                        .background(GlassWhite)
+                                        .border(0.5.dp, Color.White.copy(alpha = 0.5f), CircleShape)
+                                        .clickable { showMenu = true },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(Icons.Default.Add, contentDescription = "更多", tint = BrandBlue, modifier = Modifier.size(18.dp))
                                 }
-                            },
-                            isSpeaking = speakingMsgId == message.id
+                                DropdownMenu(
+                                    expanded = showMenu,
+                                    onDismissRequest = { showMenu = false }
+                                ) {
+                                    DropdownMenuItem(
+                                        text = { Text("新建群聊") },
+                                        onClick = {
+                                            viewModel.newSession()
+                                            showMenu = false
+                                            showSetup = true
+                                        }
+                                    )
+                                    DropdownMenuItem(
+                                        text = { Text("历史会话") },
+                                        onClick = {
+                                            showMenu = false
+                                            showHistorySession = true
+                                        }
+                                    )
+                                    DropdownMenuItem(
+                                        text = { Text("清空对话") },
+                                        onClick = {
+                                            viewModel.clearMessages()
+                                            showMenu = false
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                    }
+                },
+                bottomBar = {
+                    ChatInputBar(
+                        inputText = uiState.inputText,
+                        isStreaming = uiState.isGenerating,
+                        onInputChanged = viewModel::onInputChanged,
+                        onSend = viewModel::sendMessage,
+                        onStop = viewModel::stopGeneration
+                    )
+                },
+                snackbarHost = {
+                    SnackbarHost(snackbarHostState) { data ->
+                        Snackbar(
+                            snackbarData = data,
+                            containerColor = Color.Black.copy(alpha = 0.7f),
+                            contentColor = Color.White,
+                            shape = RoundedCornerShape(999.dp)
                         )
                     }
                 }
-            }
-
-            // Current responding skill indicator
-            if (uiState.isGenerating && uiState.currentRespondingSkill != null) {
-                Row(
+            ) { innerPadding ->
+                Column(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        .fillMaxSize()
+                        .padding(innerPadding)
                 ) {
-                    Text(
-                        text = uiState.currentRespondingSkill!!.avatar,
-                        fontSize = 14.sp
-                    )
-                    Text(
-                        text = "${uiState.currentRespondingSkill!!.name} 正在输入...",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
-                    )
-                    LinearProgressIndicator(
-                        modifier = Modifier.width(80.dp).height(2.dp),
-                        strokeCap = StrokeCap.Round
-                    )
-                }
-            }
+                    // Selected skills chips
+                    if (uiState.selectedSkills.isNotEmpty()) {
+                        SelectedSkillsRow(
+                            selectedSkills = uiState.selectedSkills,
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+                        )
+                    }
 
-            // Clear button (when messages exist and not generating)
-            if (uiState.messages.isNotEmpty() && !uiState.isGenerating) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 2.dp),
-                    horizontalArrangement = Arrangement.Center
-                ) {
-                    TextButton(onClick = viewModel::clearMessages) {
-                        Text("清空对话", style = MaterialTheme.typography.bodySmall)
+                    // Empty state
+                    if (uiState.messages.isEmpty()) {
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxWidth(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text(
+                                    text = "点击下方输入框开始群聊",
+                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
+                                )
+                            }
+                        }
+                    } else {
+                        LazyColumn(
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp),
+                            state = listState,
+                            verticalArrangement = Arrangement.spacedBy(12.dp),
+                            contentPadding = PaddingValues(vertical = 12.dp)
+                        ) {
+                            items(uiState.messages, key = { it.id }) { message ->
+                                MultiChatMessageBubble(
+                                    message = message,
+                                    onSpeak = {
+                                        if (speakingMsgId == message.id) {
+                                            ttsManager?.stop()
+                                            speakingMsgId = null
+                                        } else {
+                                            ttsManager?.speak(message.content, ttsVoice)
+                                            speakingMsgId = message.id
+                                        }
+                                    },
+                                    isSpeaking = speakingMsgId == message.id
+                                )
+                            }
+                        }
+                    }
+
+                    // Current responding skill indicator
+                    if (uiState.isGenerating && uiState.currentRespondingSkill != null) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Text(
+                                text = uiState.currentRespondingSkill!!.avatar,
+                                fontSize = 14.sp
+                            )
+                            Text(
+                                text = "${uiState.currentRespondingSkill!!.name} 正在输入...",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                            )
+                            LinearProgressIndicator(
+                                modifier = Modifier.width(80.dp).height(2.dp),
+                                strokeCap = StrokeCap.Round
+                            )
+                        }
+                    }
+
+                    // Clear button (when messages exist and not generating)
+                    if (uiState.messages.isNotEmpty() && !uiState.isGenerating) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 2.dp),
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            TextButton(onClick = viewModel::clearMessages) {
+                                Text("清空对话", style = MaterialTheme.typography.bodySmall)
+                            }
+                        }
                     }
                 }
             }
         }
-    }
-}
 
-    if (uiState.showSkillSelector) {
-        SkillSelectorDialog(
-            availableSkills = uiState.availableSkills,
-            selectedSkills = uiState.selectedSkills,
-            onToggle = viewModel::toggleSkillSelection,
-            onDismiss = viewModel::toggleSkillSelector
-        )
+        // Dialogs (shown only in chat detail)
+        if (uiState.showSkillSelector) {
+            SkillSelectorDialog(
+                availableSkills = uiState.availableSkills,
+                selectedSkills = uiState.selectedSkills,
+                onToggle = viewModel::toggleSkillSelection,
+                onDismiss = viewModel::toggleSkillSelector
+            )
+        }
+
+        if (uiState.showPromptEditor) {
+            MultiPromptEditorDialog(
+                currentPrompt = uiState.multiPrompt,
+                onPromptChanged = viewModel::onMultiPromptChanged,
+                onDismiss = viewModel::togglePromptEditor
+            )
+        }
     }
 
-    if (uiState.showPromptEditor) {
-        MultiPromptEditorDialog(
-            currentPrompt = uiState.multiPrompt,
-            onPromptChanged = viewModel::onMultiPromptChanged,
-            onDismiss = viewModel::togglePromptEditor
-        )
-    }
-
+    // Shared dialogs (visible in both setup and detail)
     if (showHistorySession) {
         HistorySessionSheet(
             sessions = uiState.historySessions,
             currentSessionId = uiState.sessionId,
             onSessionSelected = { session ->
                 viewModel.switchToSession(session)
+                showSetup = false
             },
             onDeleteSession = { session ->
                 sessionToDelete = session
@@ -344,33 +380,176 @@ fun MultiChatScreen(
         )
     }
 
-    // Delete session confirmation dialog
     if (sessionToDelete != null) {
         AlertDialog(
             onDismissRequest = { sessionToDelete = null },
             icon = { Icon(Icons.Default.Delete, contentDescription = null) },
             title = { Text("删除会话") },
-            text = {
-                Text("确定要删除会话「${sessionToDelete!!.title}」吗？此操作不可撤销。")
-            },
+            text = { Text("确定要删除会话「${sessionToDelete!!.title}」吗？此操作不可撤销。") },
             confirmButton = {
                 Button(
                     onClick = {
                         viewModel.deleteSession(sessionToDelete!!.id)
                         sessionToDelete = null
                     },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.error
-                    )
-                ) {
-                    Text("删除")
-                }
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) { Text("删除") }
             },
-            dismissButton = {
-                TextButton(onClick = { sessionToDelete = null }) {
-                    Text("取消")
+            dismissButton = { TextButton(onClick = { sessionToDelete = null }) { Text("取消") } }
+        )
+    }
+}
+
+// ========== 前置角色选择页面 ==========
+@Composable
+private fun MultiChatSetupPage(
+    availableSkills: List<Skill>,
+    selectedSkills: List<Skill>,
+    multiPrompt: String,
+    historySessionCount: Int = 0,
+    onToggle: (Skill) -> Unit,
+    onPromptChanged: (String) -> Unit,
+    onConfirm: () -> Unit,
+    onHistorySession: () -> Unit
+) {
+    var promptText by remember(multiPrompt) { mutableStateOf(multiPrompt) }
+
+    Box(modifier = Modifier.fillMaxSize().background(BgPage)) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 20.dp)
+        ) {
+            Spacer(Modifier.height(16.dp))
+
+            // 标题
+            Text("多人聊天", fontWeight = FontWeight.Bold, fontSize = 22.sp)
+            Spacer(Modifier.height(4.dp))
+            Text("选择至少 2 个角色，共同参与群聊", fontSize = 13.sp, color = TextTertiary)
+            Spacer(Modifier.height(8.dp))
+            if (historySessionCount > 0) {
+                TextButton(onClick = onHistorySession) {
+                    Text("查看历史会话 ($historySessionCount)", fontSize = 12.sp)
                 }
             }
+
+            Spacer(Modifier.height(12.dp))
+
+            // 群聊氛围设定
+            Text("群聊氛围设定", fontWeight = FontWeight.Medium, fontSize = 14.sp)
+            Spacer(Modifier.height(6.dp))
+            OutlinedTextField(
+                value = promptText,
+                onValueChange = { promptText = it; onPromptChanged(it) },
+                modifier = Modifier.fillMaxWidth(),
+                minLines = 2,
+                maxLines = 3,
+                textStyle = LocalTextStyle.current.copy(fontSize = 13.sp),
+                placeholder = { Text("设定群聊互动基调...", fontSize = 13.sp) },
+                shape = RoundedCornerShape(12.dp)
+            )
+
+            Spacer(Modifier.height(16.dp))
+
+            // 选择角色标题 + 计数
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("选择角色", fontWeight = FontWeight.Medium, fontSize = 14.sp)
+                Text(
+                    "已选 ${selectedSkills.size} 个",
+                    fontSize = 12.sp,
+                    color = if (selectedSkills.size >= 2) BrandMint else TextTertiary
+                )
+            }
+            Spacer(Modifier.height(8.dp))
+
+            // 角色列表
+            LazyColumn(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                items(availableSkills, key = { it.id }) { skill ->
+                    val isSelected = selectedSkills.any { it.id == skill.id }
+                    SkillSelectItem(
+                        skill = skill,
+                        isSelected = isSelected,
+                        onClick = { onToggle(skill) }
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(12.dp))
+
+            // 开始聊天按钮
+            Button(
+                onClick = onConfirm,
+                enabled = selectedSkills.size >= 2,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(50.dp),
+                shape = RoundedCornerShape(999.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = if (selectedSkills.size >= 2) BrandBlue else TextTertiary.copy(alpha = 0.3f)
+                )
+            ) {
+                Text(
+                    if (selectedSkills.size < 2) "至少选择 2 个角色 (${selectedSkills.size}/2)"
+                    else "开始群聊 (${selectedSkills.size} 个角色)",
+                    fontWeight = FontWeight.Medium,
+                    fontSize = 15.sp
+                )
+            }
+
+            Spacer(Modifier.height(16.dp))
+        }
+    }
+}
+
+@Composable
+private fun SkillSelectItem(
+    skill: Skill,
+    isSelected: Boolean,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(if (isSelected) BrandBlue.copy(alpha = 0.1f) else Color.Transparent)
+            .border(
+                width = if (isSelected) 1.dp else 0.5.dp,
+                color = if (isSelected) BrandBlue.copy(alpha = 0.4f) else DividerColor,
+                shape = RoundedCornerShape(12.dp)
+            )
+            .clickable { onClick() }
+            .padding(12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(text = skill.avatar, fontSize = 24.sp)
+        Spacer(Modifier.width(12.dp))
+        Column(Modifier.weight(1f)) {
+            Text(
+                text = skill.name,
+                fontWeight = FontWeight.Medium,
+                fontSize = 14.sp,
+                color = MaterialTheme.colorScheme.onBackground
+            )
+            if (skill.description.isNotBlank()) {
+                Text(
+                    text = skill.description,
+                    fontSize = 11.sp,
+                    color = TextTertiary,
+                    maxLines = 1
+                )
+            }
+        }
+        Checkbox(
+            checked = isSelected,
+            onCheckedChange = { onClick() },
+            colors = CheckboxDefaults.colors(checkedColor = BrandBlue)
         )
     }
 }

@@ -35,9 +35,10 @@ import kotlin.math.PI
 @Composable
 fun FluidGlowBackground(
     modifier: Modifier = Modifier,
-    mintColor: Color = GlowMint,
-    pinkColor: Color = GlowPink,
-    blueColor: Color = GlowBlue
+    isDark: Boolean = false,
+    mintColor: Color = if (isDark) DarkGlowMint else GlowMint,
+    pinkColor: Color = if (isDark) DarkGlowPink else GlowPink,
+    blueColor: Color = if (isDark) DarkGlowBlue else GlowBlue
 ) {
     val infiniteTransition = rememberInfiniteTransition()
 
