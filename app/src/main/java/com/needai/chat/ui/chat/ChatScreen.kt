@@ -75,7 +75,10 @@ fun ChatScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var showSkillSelector by remember { mutableStateOf(false) }
     var showCarousel by remember { mutableStateOf(true) }
-    LaunchedEffect(showCarousel) { onChatDetailChange(!showCarousel) }
+    LaunchedEffect(showCarousel) {
+        onChatDetailChange(!showCarousel)
+        if (showCarousel) viewModel.onInputChanged("")
+    }
     var carouselSelectedIndex by remember { mutableIntStateOf(0) }
     var showMenu by remember { mutableStateOf(false) }
     var showHistorySession by remember { mutableStateOf(false) }
@@ -171,7 +174,7 @@ fun ChatScreen(
         }
     }
 
-    // Auto-read TTS（保持不变）
+    // Auto-read TTS
     LaunchedEffect(uiState.isStreaming) {
         if (!uiState.isStreaming) return@LaunchedEffect
         if (!ttsAutoRead || ttsManager == null) return@LaunchedEffect
@@ -182,18 +185,17 @@ fun ChatScreen(
         if (!uiState.isStreaming) return@LaunchedEffect
         autoSpeaking = true
         coroutineScope.launch { snackbarHostState.showSnackbar("TTS: 自动朗读") }
-        var lastProcessedText = ""
+        var lastSentFilteredLen = 0
         var sentenceBuffer = StringBuilder()
         try {
-            val firstText = uiState.currentStreamingMessage
-            if (firstText.isNotEmpty()) { tts.speakQueued(firstText, voiceId); lastProcessedText = firstText }
             while (uiState.isStreaming && autoSpeaking) {
                 delay(200)
                 val currentText = uiState.currentStreamingMessage
-                if (currentText.length <= lastProcessedText.length) continue
-                val newPart = currentText.substring(lastProcessedText.length)
+                val filtered = stripParenthetical(currentText)
+                if (filtered.length <= lastSentFilteredLen) continue
+                val newPart = filtered.substring(lastSentFilteredLen)
                 sentenceBuffer.append(newPart)
-                lastProcessedText = currentText
+                lastSentFilteredLen = filtered.length
                 val buf = sentenceBuffer.toString()
                 val lastSentenceEnd = buf.indexOfLast { it in "。！？" }
                 val lastComma = buf.indexOfLast { it in "；，" }
@@ -211,11 +213,40 @@ fun ChatScreen(
                 }
             }
         } finally {
-            if (sentenceBuffer.isNotEmpty()) tts.speakQueued(sentenceBuffer.toString(), voiceId)
-            val finalText = uiState.currentStreamingMessage
-            if (finalText.length > lastProcessedText.length) tts.speakQueued(finalText.substring(lastProcessedText.length), voiceId)
-            speakingMessageId = null; autoSpeaking = false
+            // 仅在未被手动停止时 flush 残留文本，避免用户点停止后又重新播放
+            if (autoSpeaking && sentenceBuffer.isNotEmpty()) {
+                tts.speakQueued(sentenceBuffer.toString(), voiceId)
+            }
+            // currentStreamingMessage 在 isStreaming=false 时被同步清空，
+            // 回退到 messages 中已持久化的完整内容，避免轮询窗口遗漏最后一帧文本
+            if (autoSpeaking) {
+                val streamText = uiState.currentStreamingMessage
+                val finalRawText = if (streamText.isNotEmpty()) {
+                    streamText
+                } else {
+                    uiState.messages.lastOrNull {
+                        it.role == com.needai.chat.domain.model.MessageRole.ASSISTANT
+                    }?.content ?: ""
+                }
+                val finalFiltered = stripParenthetical(finalRawText)
+                if (finalFiltered.length > lastSentFilteredLen) {
+                    tts.speakQueued(finalFiltered.substring(lastSentFilteredLen), voiceId)
+                }
+            }
+            speakingMessageId = null
         }
+    }
+
+    // Keep autoSpeaking true while TTS is still playing.
+    // Use wasActive flag to avoid turning off autoSpeaking before TTS has even started.
+    LaunchedEffect(autoSpeaking) {
+        if (!autoSpeaking) return@LaunchedEffect
+        var ttsWasActive = false
+        while (!ttsWasActive || ttsManager?.isBusy() == true) {
+            if (ttsManager?.isBusy() == true) ttsWasActive = true
+            delay(200)
+        }
+        autoSpeaking = false
     }
 
     // ===== 系统返回手势 =====
@@ -408,11 +439,14 @@ fun ChatScreen(
                                                 mgr.stop(); speakingMessageId = null
                                             } else {
                                                 val voiceId = if (uiState.currentSkill.voiceId.isNotBlank()) uiState.currentSkill.voiceId else ttsVoice
-                                                mgr.speak(message.content, voiceId) { speakingMessageId = null }
+                                                mgr.speak(stripParenthetical(message.content), voiceId) { speakingMessageId = null }
                                                 speakingMessageId = message.id
                                             }
                                         }
                                     }
+                                },
+                                onCopy = {
+                                    coroutineScope.launch { snackbarHostState.showSnackbar("已复制", duration = SnackbarDuration.Short) }
                                 },
                                 isSpeaking = speakingMessageId == message.id,
                                 isAutoSpeaking = autoSpeaking
@@ -562,11 +596,34 @@ fun ChatScreen(
             modifier = Modifier.align(Alignment.TopCenter).padding(top = 64.dp)
         ) { data ->
             Snackbar(
-                snackbarData = data,
-                containerColor = Color.Black.copy(alpha = 0.7f),
-                contentColor = Color.White,
-                shape = RoundedCornerShape(999.dp)
-            )
+                modifier = Modifier.clip(RoundedCornerShape(999.dp)),
+                containerColor = Color(0xFFF5F5F5),
+                contentColor = Color.Black,
+                shape = RoundedCornerShape(999.dp),
+            ) {
+                Text(
+                    text = data.visuals.message,
+                    color = Color.Black,
+                    fontSize = 13.sp,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
         }
     }
 }
+
+/** 去除 （）() 内的动作/场景描述，只保留正文 */
+private fun stripParenthetical(text: String): String {
+    val result = StringBuilder()
+    var depth = 0
+    for (c in text) {
+        when (c) {
+            '(', '（' -> depth++
+            ')', '）' -> if (depth > 0) depth--
+            else -> if (depth == 0) result.append(c)
+        }
+    }
+    return result.toString().trim()
+}
+

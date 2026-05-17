@@ -12,9 +12,12 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -121,11 +124,28 @@ fun SkillListScreen(
         snackbarHost = {
             SnackbarHost(snackbarHostState) { data ->
                 Snackbar(
-                    snackbarData = data,
-                    containerColor = Color.Black.copy(alpha = 0.7f),
+                    modifier = Modifier.clip(RoundedCornerShape(999.dp)),
+                    containerColor = Color.Black.copy(alpha = 0.75f),
                     contentColor = Color.White,
                     shape = RoundedCornerShape(999.dp)
-                )
+                ) {
+                    val icon = when {
+                        data.visuals.message.contains("已创建") || data.visuals.message.contains("已导入") -> Icons.Default.Check
+                        data.visuals.message.contains("失败") -> Icons.Default.Warning
+                        else -> null
+                    }
+                    if (icon != null) {
+                        Icon(icon, null, tint = Color.White.copy(alpha = 0.9f), modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(8.dp))
+                    }
+                    Text(
+                        text = data.visuals.message,
+                        color = Color.White,
+                        fontSize = 13.sp,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
             }
         },
         bottomBar = {

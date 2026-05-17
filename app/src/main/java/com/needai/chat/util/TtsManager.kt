@@ -11,6 +11,7 @@ interface ITtsManager {
     fun startStreaming(voiceId: String = "", onDone: (() -> Unit)? = null): IStreamingTtsSession?
     fun stop()
     fun shutdown()
+    fun isBusy(): Boolean
 }
 
 interface IStreamingTtsSession {
@@ -102,7 +103,7 @@ class TtsManagerImpl(
             }
             val end = start + maxChars
             val segment = text.substring(start, end)
-            val sentenceBreak = segment.indexOfLast { it in "。！？；" }
+            val sentenceBreak = segment.indexOfLast { it in "。！？；)）" }
             val secondaryBreak = segment.indexOfLast { it in "，、：" }
             val splitAt = when {
                 sentenceBreak > maxChars / 2 -> sentenceBreak + 1
@@ -411,6 +412,14 @@ class TtsManagerImpl(
         persistentClient = null
         persistentClientVoiceId = ""
         scope.cancel()
+    }
+
+    override fun isBusy(): Boolean {
+        if (synthesisJob?.isActive == true) return true
+        if (queueJob?.isActive == true) return true
+        if (activeStreamCollectors.any { it.value.isActive }) return true
+        if (audioPlayer?.isPlaying() == true) return true
+        return false
     }
 
     private fun drainAndStop(player: PcmAudioPlayer) {

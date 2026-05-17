@@ -114,6 +114,9 @@ class PcmAudioPlayer(
     }
 
     @Synchronized
+    fun isPlaying(): Boolean = isPlaying
+
+    @Synchronized
     fun release() {
         isPlaying = false
         audioTrack?.let {

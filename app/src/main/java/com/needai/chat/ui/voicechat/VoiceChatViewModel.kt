@@ -51,6 +51,13 @@ data class ChatEntry(
     val text: String
 )
 
+private data class TtsSettings(
+    val key: String,
+    val volume: Int,
+    val rate: Float,
+    val pitch: Float
+)
+
 @HiltViewModel
 class VoiceChatViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
@@ -73,6 +80,9 @@ class VoiceChatViewModel @Inject constructor(
     private var ttsManager: ITtsManager? = null
     private var allVoices: List<VoiceInfo> = emptyList()
     private var ttsApiKey: String = ""
+    private var ttsVolume: Int = 50
+    private var ttsRate: Float = 1.0f
+    private var ttsPitch: Float = 1.0f
 
     // TTS 队列追踪
     private var pendingTtsCount = 0
@@ -106,12 +116,22 @@ class VoiceChatViewModel @Inject constructor(
             allVoices = voiceRepository.getVoices()
         }
 
-        // 监听 TTS API Key
+        // 监听 TTS API Key 和语速/音量/音高设置
         viewModelScope.launch {
-            settingsDataStore.ttsApiKey.collect { key ->
-                ttsApiKey = key
-                if (key.isNotBlank()) {
-                    voiceChatManager = VoiceChatManager(context, key)
+            combine(
+                settingsDataStore.ttsApiKey,
+                settingsDataStore.ttsVolume,
+                settingsDataStore.ttsRate,
+                settingsDataStore.ttsPitch
+            ) { key, volume, rate, pitch ->
+                TtsSettings(key, volume, rate, pitch)
+            }.collect { settings ->
+                ttsApiKey = settings.key
+                ttsVolume = settings.volume
+                ttsRate = settings.rate
+                ttsPitch = settings.pitch
+                if (settings.key.isNotBlank()) {
+                    voiceChatManager = VoiceChatManager(context, settings.key)
                     setupVoiceChatCallbacks()
                     reinitTtsManager()
                 }
@@ -129,6 +149,11 @@ class VoiceChatViewModel @Inject constructor(
         }
         ttsManager = TtsManagerImpl(
             apiKey = ttsApiKey,
+            parameters = com.needai.chat.data.remote.tts.CosyVoiceParameters(
+                volume = ttsVolume,
+                rate = ttsRate,
+                pitch = ttsPitch
+            ),
             voiceModelResolver = voiceModelResolver
         )
     }
@@ -442,21 +467,82 @@ class VoiceChatViewModel @Inject constructor(
 
     private val ttsSentenceBuffer = StringBuilder()
 
+    /** 找到不在括号内的句子结束位置。右括号 `)` `）` 本身也视为断句点。 */
+    private fun findSentenceEnd(text: String): Int {
+        var depth = 0
+        for (i in text.indices) {
+            when (text[i]) {
+                '（', '(', '「', '『', '{', '[' -> depth++
+                '）', ')' -> {
+                    depth--
+                    if (depth <= 0) return i  // 闭合括号视为断句
+                }
+                '」', '』', '}', ']' -> depth--
+                '。', '！', '？', '\n', '.', '!', '?' -> if (depth <= 0) return i
+            }
+        }
+        return -1
+    }
+
     private fun appendTtsText(token: String) {
         ttsSentenceBuffer.append(token)
         val text = ttsSentenceBuffer.toString()
-        val sentenceEnd = text.indexOfAny(charArrayOf('。', '！', '？', '\n', '.', '!', '?'))
-        if (sentenceEnd > 0) {
-            val sentence = text.substring(0, sentenceEnd + 1)
-            ttsSentenceBuffer.delete(0, sentenceEnd + 1)
-            playTtsSentence(sentence)
-        } else if (text.length > 50) {
-            ttsSentenceBuffer.clear()
-            playTtsSentence(text)
+
+        // 括号未闭合时等待，不进行任何切分，避免括号内文本被截断发送给 TTS
+        if (hasUnmatchedParen(text)) return
+
+        // 括号已闭合，正常提取完整句子
+        var remaining = text
+        while (true) {
+            val sentenceEnd = findSentenceEnd(remaining)
+            if (sentenceEnd > 0) {
+                val sentence = remaining.substring(0, sentenceEnd + 1)
+                playTtsSentence(sentence)
+                remaining = remaining.substring(sentenceEnd + 1)
+            } else break
+        }
+        ttsSentenceBuffer.clear()
+        ttsSentenceBuffer.append(remaining)
+
+        // 超过 80 字仍无断句，找最后的逗号/分号切分
+        if (remaining.length > 80 && !hasUnmatchedParen(remaining)) {
+            val lastBreak = remaining.indexOfLast { it in "，、；,;" }
+            val splitAt = if (lastBreak >= remaining.length / 2) lastBreak + 1 else remaining.length
+            val overflow = remaining.substring(0, splitAt)
+            playTtsSentence(overflow)
+            ttsSentenceBuffer.delete(0, splitAt)
         }
     }
 
+    /** 去除 （）() 内的动作/场景描述，只保留正文 */
+    private fun stripParenthetical(text: String): String {
+        val result = StringBuilder()
+        var depth = 0
+        for (c in text) {
+            when (c) {
+                '(', '（' -> depth++
+                ')', '）' -> if (depth > 0) depth--
+                else -> if (depth == 0) result.append(c)
+            }
+        }
+        return result.toString().trim()
+    }
+
+    /** 文本中是否存在未闭合的左括号 */
+    private fun hasUnmatchedParen(text: String): Boolean {
+        var depth = 0
+        for (c in text) {
+            when (c) {
+                '（', '(' -> depth++
+                '）', ')' -> if (depth > 0) depth--
+            }
+        }
+        return depth > 0
+    }
+
     private fun playTtsSentence(sentence: String) {
+        val cleanText = stripParenthetical(sentence)
+        if (cleanText.isBlank()) return
         val skill = getSelectedSkill()
         val voiceId = skill?.voiceId ?: ""
         pendingTtsCount++
@@ -464,7 +550,7 @@ class VoiceChatViewModel @Inject constructor(
 
         val mgr = ttsManager
         if (mgr is TtsManagerImpl) {
-            mgr.speakQueued(sentence, voiceId = voiceId, onDone = {
+            mgr.speakQueued(cleanText, voiceId = voiceId, onDone = {
                 pendingTtsCount--
                 checkTtsDone()
             })
@@ -476,7 +562,16 @@ class VoiceChatViewModel @Inject constructor(
 
     private fun flushTtsText() {
         if (ttsSentenceBuffer.isNotEmpty()) {
-            playTtsSentence(ttsSentenceBuffer.toString())
+            val remaining = ttsSentenceBuffer.toString()
+            // 只有满足以下任一条件才 flush：
+            // 1. 有句尾标点（包括 )）— 是一个完整句子
+            // 2. 超过 15 字且末尾是逗号/语气词 — 可能是完整的半句
+            // 3. 超过 30 字 — 够长直接读，比丢失好
+            val hasEnding = remaining.any { it in "。！？.!?)）" }
+            val endsWell = remaining.length >= 15 && remaining.last() in "，、，；"
+            if (hasEnding || endsWell || remaining.length >= 30) {
+                playTtsSentence(remaining)
+            }
             ttsSentenceBuffer.clear()
         }
         ttsStreamDone = true

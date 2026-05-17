@@ -12,6 +12,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -41,6 +42,10 @@ fun ChatInputBar(
     onStop: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val isDarkBg = MaterialTheme.colorScheme.background == DarkBg
+    val borderColor = remember(isDarkBg) {
+        if (isDarkBg) Color.White.copy(alpha = 0.35f) else Color(0xFF718096).copy(alpha = 0.45f)
+    }
     Column(
         modifier = modifier
             .fillMaxWidth()
@@ -54,7 +59,7 @@ fun ChatInputBar(
                 .height(48.dp)
                 .clip(RoundedCornerShape(999.dp))
                 .background(GlassInput)
-                .border(0.5.dp, Color.White.copy(alpha = 0.5f), RoundedCornerShape(999.dp))
+                .border(0.5.dp, borderColor, RoundedCornerShape(999.dp))
         ) {
             Row(
                 modifier = Modifier

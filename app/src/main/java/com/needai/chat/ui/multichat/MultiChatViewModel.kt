@@ -12,7 +12,6 @@ import com.needai.chat.domain.repository.ChatRepository
 import com.needai.chat.domain.repository.ModelConfigRepository
 import com.needai.chat.domain.repository.SessionRepository
 import com.needai.chat.domain.repository.SkillRepository
-import com.needai.chat.domain.repository.VoiceRepository
 import com.needai.chat.domain.usecase.ChatMessage
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -30,31 +29,18 @@ class MultiChatViewModel @Inject constructor(
     private val modelConfigRepository: ModelConfigRepository,
     private val sessionRepository: SessionRepository,
     private val chatRepository: ChatRepository,
-    private val modelClient: ModelClient,
-    private val voiceRepository: VoiceRepository
+    private val modelClient: ModelClient
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(MultiChatUiState())
     val uiState: StateFlow<MultiChatUiState> = _uiState.asStateFlow()
-
-    private val _voiceModelMap = MutableStateFlow<Map<String, String>>(emptyMap())
-    val voiceModelMap: StateFlow<Map<String, String>> = _voiceModelMap.asStateFlow()
 
     private var currentGenerationJob: kotlinx.coroutines.Job? = null
 
     init {
         loadSkills()
         loadHistorySessions()
-        loadVoiceModelMap()
         newSession()
-    }
-
-    private fun loadVoiceModelMap() {
-        viewModelScope.launch {
-            val voices = voiceRepository.getVoices()
-            _voiceModelMap.value = voices.filter { it.targetModel.isNotBlank() }
-                .associate { it.voiceId to it.targetModel }
-        }
     }
 
     private fun loadSkills() {

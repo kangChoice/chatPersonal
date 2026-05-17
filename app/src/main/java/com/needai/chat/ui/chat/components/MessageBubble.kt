@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
+import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -18,6 +19,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.needai.chat.domain.model.Message
@@ -35,6 +38,7 @@ fun MessageBubble(
     modifier: Modifier = Modifier,
     fontSize: Float = 16f,
     onSpeak: (() -> Unit)? = null,
+    onCopy: (() -> Unit)? = null,
     isSpeaking: Boolean = false,
     isAutoSpeaking: Boolean = false
 ) {
@@ -103,32 +107,58 @@ fun MessageBubble(
             }
         }
 
-        // TTS 朗读按钮（AI 消息专属）
-        if (!isUser && onSpeak != null) {
+        // TTS 朗读 + 复制按钮（AI 消息专属）
+        if (!isUser) {
+            val clipboard = LocalClipboardManager.current
             val isDark = MaterialTheme.colorScheme.background == DarkBg
+            val btnBg = if (isDark) Color.White.copy(alpha = 0.15f)
+                        else Color.Black.copy(alpha = 0.08f)
+            val btnTint = if (isDark) Color.White.copy(alpha = 0.6f)
+                          else MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f)
+
             Row(
                 modifier = Modifier.padding(start = 8.dp, top = 4.dp),
-                horizontalArrangement = Arrangement.Start
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
+                // 复制按钮
                 Box(
                     modifier = Modifier
                         .size(28.dp)
                         .clip(RoundedCornerShape(999.dp))
-                        .background(
-                            if (isDark) Color.White.copy(alpha = 0.15f)
-                            else Color.Black.copy(alpha = 0.08f)
-                        ),
+                        .background(btnBg),
                     contentAlignment = Alignment.Center
                 ) {
-                    val showStop = isSpeaking || isAutoSpeaking
-                    IconButton(onClick = onSpeak, modifier = Modifier.size(28.dp)) {
+                    IconButton(onClick = {
+                        clipboard.setText(AnnotatedString(message.content))
+                        onCopy?.invoke()
+                    }, modifier = Modifier.size(28.dp)) {
                         Icon(
-                            imageVector = if (showStop) Icons.Default.Stop else Icons.AutoMirrored.Filled.VolumeUp,
-                            contentDescription = if (showStop) "停止" else "朗读",
-                            tint = if (isDark) Color.White.copy(alpha = 0.6f)
-                                   else MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f),
-                            modifier = Modifier.size(14.dp)
+                            imageVector = Icons.Outlined.ContentCopy,
+                            contentDescription = "复制",
+                            tint = btnTint,
+                            modifier = Modifier.size(16.dp)
                         )
+                    }
+                }
+
+                // 朗读按钮
+                if (onSpeak != null) {
+                    Box(
+                        modifier = Modifier
+                            .size(28.dp)
+                            .clip(RoundedCornerShape(999.dp))
+                            .background(btnBg),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        val showStop = isSpeaking || isAutoSpeaking
+                        IconButton(onClick = onSpeak, modifier = Modifier.size(28.dp)) {
+                            Icon(
+                                imageVector = if (showStop) Icons.Default.Stop else Icons.AutoMirrored.Filled.VolumeUp,
+                                contentDescription = if (showStop) "停止" else "朗读",
+                                tint = btnTint,
+                                modifier = Modifier.size(14.dp)
+                            )
+                        }
                     }
                 }
             }
