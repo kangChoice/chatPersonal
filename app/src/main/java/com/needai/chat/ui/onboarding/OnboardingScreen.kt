@@ -30,29 +30,29 @@ data class OnboardingStep(
 private val steps = listOf(
     OnboardingStep(
         emoji = "💬",
-        title = "智能对话",
-        description = "与 AI 角色畅快交流，支持多轮对话上下文理解。点击顶部角色名可快速切换角色，底部输入框支持文字输入与语音输入。AI 回复支持 TTS 语音朗读，长消息自动分段合成。",
-        warning = "首次使用前请前往设置页配置 API Key 和聊天模型，否则⽆法开始对话。"
+        title = "聊天",
+        description = "与 AI 角色一对一畅快交流，支持多轮对话上下文理解。点击角色卡片进入详情，底部输入框支持文字输入。AI 回复支持 TTS 语音朗读，长消息自动分段合成。",
+        warning = "首次使用前请前往设置页配置 API Key 和聊天模型，否则无法开始对话。"
     ),
     OnboardingStep(
-        emoji = "📝",
-        title = "提示词润色",
-        description = "输入角色描述即可让 AI 自动生成专业的系统提示词。支持角色提示词和音色描述两种模式。生成后可直接创建新角色或一键创建自定义音色，极大提升角色创建效率。"
+        emoji = "👥",
+        title = "群聊",
+        description = "选择多个角色同时参与群聊对话，AI 角色之间会相互互动。支持自定义群聊氛围提示词，打造独特的多人聊天体验。至少选择 2 个角色即可开始群聊。"
     ),
     OnboardingStep(
         emoji = "🎯",
-        title = "角色与音色管理",
+        title = "技能管理",
         description = "管理所有自定义角色和音色。角色支持创建、编辑、导出/导入；音色支持创建（声音克隆）、绑定角色、试听和别名管理。已绑定音色的角色在对话中会自动使用该音色朗读。"
     ),
     OnboardingStep(
-        emoji = "⚙️",
-        title = "设置与个性化",
-        description = "配置 API Key 和模型（支持 OpenAI、DeepSeek、Anthropic 等主流供应商）、调整 TTS 参数（语速/音调/音量）、设置自定义聊天背景。所有模型配置自由切换，满足不同场景需求。"
+        emoji = "📝",
+        title = "提示词优化",
+        description = "输入角色描述即可让 AI 自动生成专业的系统提示词。支持角色提示词和音色描述两种模式。生成后可直接创建新角色或一键创建自定义音色，极大提升角色创建效率。"
     ),
     OnboardingStep(
-        emoji = "🎤",
-        title = "语音通话",
-        description = "支持全双工语音对话：语音识别 → AI 思考 → 语音合成一气呵成。实时 VAD 语音检测 + AEC 回声消除，对话过程中可随时打断。需要有效的 TTS API Key 支持。"
+        emoji = "⚙️",
+        title = "设置",
+        description = "配置 API Key 和模型（支持 OpenAI、DeepSeek、Anthropic 等主流供应商）、调整 TTS 参数（语速/音调/音量）、设置自定义聊天背景。所有模型配置自由切换，满足不同场景需求。"
     )
 )
 

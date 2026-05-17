@@ -415,7 +415,8 @@ fun SettingsScreen(
                     }
                     Switch(
                         checked = isDarkMode,
-                        onCheckedChange = { viewModel.setDarkMode(it) }
+                        onCheckedChange = { viewModel.setDarkMode(it) },
+                        enabled = false
                     )
                 }
             }

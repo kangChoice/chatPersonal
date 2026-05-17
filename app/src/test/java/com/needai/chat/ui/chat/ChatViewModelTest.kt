@@ -93,18 +93,6 @@ class ChatViewModelTest {
     }
 
     @Test
-    fun `newSession should reset session id`() = runTest {
-        val oldSessionId = viewModel.uiState.value.sessionId
-
-        viewModel.newSession()
-        advanceUntilIdle()
-
-        val newSessionId = viewModel.uiState.value.sessionId
-        assertNotEquals(oldSessionId, newSessionId)
-        assertTrue(viewModel.uiState.value.messages.isEmpty())
-    }
-
-    @Test
     fun `switchSkill should update current skill`() = runTest {
         val newSkill = Skill(
             id = "friend",

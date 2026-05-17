@@ -59,7 +59,9 @@ fun SkillCarousel(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Column {
+            Row(
+                verticalAlignment = Alignment.Bottom
+            ) {
                 Text(
                     text = "NeedAI",
                     style = TextStyle(
@@ -69,6 +71,16 @@ fun SkillCarousel(
                             listOf(BrandBlue, BrandPink, BrandMint)
                         )
                     )
+                )
+                Text(
+                    text = "需要爱",
+                    fontSize = 12.sp,
+                    style = TextStyle(
+                        brush = Brush.linearGradient(
+                            listOf(BrandBlue, BrandPink, BrandMint)
+                        )
+                    ),
+                    modifier = Modifier.padding(start = 6.dp, bottom = 3.dp)
                 )
             }
         }

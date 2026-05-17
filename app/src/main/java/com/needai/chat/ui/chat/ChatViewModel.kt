@@ -309,51 +309,12 @@ class ChatViewModel @Inject constructor(
         }
     }
 
-    fun switchToHistorySession(session: ChatSession) {
-        viewModelScope.launch {
-            saveCurrentSession()
-
-            // Load the session's skill
-            val skill = skillRepository.getSkillById(session.skillId)
-            if (skill != null) {
-                skillRepository.setSelectedSkillId(skill.id)
-            }
-
-            // Switch session ID so the message flow picks it up
-            sessionIdFlow.value = session.id
-            _uiState.update {
-                it.copy(
-                    sessionId = session.id,
-                    currentSkill = skill ?: it.currentSkill,
-                    currentStreamingMessage = "",
-                    isStreaming = false
-                )
-            }
-        }
-    }
-
     fun clearSession() {
         viewModelScope.launch {
             val sessionId = _uiState.value.sessionId
             chatRepository.clearSession(sessionId)
             _uiState.update {
                 it.copy(
-                    messages = emptyList(),
-                    currentStreamingMessage = "",
-                    isStreaming = false
-                )
-            }
-        }
-    }
-
-    fun newSession() {
-        viewModelScope.launch {
-            saveCurrentSession()
-            val newId = chatRepository.createNewSession()
-            sessionIdFlow.value = newId
-            _uiState.update {
-                it.copy(
-                    sessionId = newId,
                     messages = emptyList(),
                     currentStreamingMessage = "",
                     isStreaming = false

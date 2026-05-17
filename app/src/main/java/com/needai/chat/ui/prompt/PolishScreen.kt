@@ -23,6 +23,7 @@ import com.needai.chat.ui.voice.components.SUPPORTED_CREATION_MODELS
 import com.needai.chat.ui.theme.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
@@ -45,32 +46,34 @@ fun PolishScreen(
     Scaffold(
         containerColor = Color.Transparent,
         topBar = {
+            val hasPolishedContent = if (selectedTab == 0) uiState.polishedPrompt.isNotBlank()
+            else uiState.voicePolishedPrompt.isNotBlank()
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 4.dp),
+                    .padding(horizontal = 16.dp, vertical = 0.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column {
-                    Text("角色优化", fontWeight = FontWeight.Bold)
-                    if (uiState.currentModelName.isNotBlank()) {
-                        Text(
-                            text = uiState.currentModelName,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                        )
-                    }
-                }
-                Row {
-                    val hasPolishedContent = if (selectedTab == 0) uiState.polishedPrompt.isNotBlank()
-                    else uiState.voicePolishedPrompt.isNotBlank()
+                BrandGradientText(
+                    text = "提示词优化",
+                    fontSize = 22.sp
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                     if (hasPolishedContent) {
-                        IconButton(onClick = {
-                            if (selectedTab == 0) viewModel.clearPolishedPrompt()
-                            else viewModel.clearVoicePolishedPrompt()
-                        }) {
-                            Icon(Icons.Default.Delete, contentDescription = "清空")
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(CircleShape)
+                                .background(GlassWhite)
+                                .border(0.5.dp, Color.White.copy(alpha = 0.5f), CircleShape)
+                                .clickable {
+                                    if (selectedTab == 0) viewModel.clearPolishedPrompt()
+                                    else viewModel.clearVoicePolishedPrompt()
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.Default.Delete, contentDescription = "清空", tint = BrandPink, modifier = Modifier.size(18.dp))
                         }
                     }
                 }
@@ -135,7 +138,12 @@ fun PolishScreen(
             ) {
                 if (selectedTab == 0) {
                     // === Role Prompt Polish ===
-                    Card(modifier = Modifier.fillMaxWidth()) {
+                    Card(
+                        modifier = Modifier.fillMaxWidth()
+                            .border(0.5.dp, Color.White.copy(alpha = 0.5f), RoundedCornerShape(16.dp)),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(containerColor = GlassWhite)
+                    ) {
                         Column(modifier = Modifier.padding(16.dp)) {
                             Text(
                                 text = "描述角色设定",
@@ -199,7 +207,12 @@ fun PolishScreen(
                     }
 
                     if (uiState.polishedPrompt.isNotBlank()) {
-                        Card(modifier = Modifier.fillMaxWidth()) {
+                        Card(
+                            modifier = Modifier.fillMaxWidth()
+                                .border(0.5.dp, Color.White.copy(alpha = 0.5f), RoundedCornerShape(16.dp)),
+                            shape = RoundedCornerShape(16.dp),
+                            colors = CardDefaults.cardColors(containerColor = GlassWhite)
+                        ) {
                             Column(modifier = Modifier.padding(16.dp)) {
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
@@ -255,7 +268,12 @@ fun PolishScreen(
                     }
                 } else {
                     // === Voice Polish ===
-                    Card(modifier = Modifier.fillMaxWidth()) {
+                    Card(
+                        modifier = Modifier.fillMaxWidth()
+                            .border(0.5.dp, Color.White.copy(alpha = 0.5f), RoundedCornerShape(16.dp)),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(containerColor = GlassWhite)
+                    ) {
                         Column(modifier = Modifier.padding(16.dp)) {
                             Text(
                                 text = "描述音色",
@@ -267,7 +285,7 @@ fun PolishScreen(
                                 value = uiState.voiceInputText,
                                 onValueChange = viewModel::setVoiceInputText,
                                 placeholder = {
-                                    Text("温柔的女声，30岁左右，适合朗读情感故事")
+                                    Text("温柔的女声，22岁左右，适合朗读情感故事")
                                 },
                                 minLines = 3,
                                 maxLines = 5,
@@ -319,7 +337,12 @@ fun PolishScreen(
                     }
 
                     if (uiState.voicePolishedPrompt.isNotBlank()) {
-                        Card(modifier = Modifier.fillMaxWidth()) {
+                        Card(
+                            modifier = Modifier.fillMaxWidth()
+                                .border(0.5.dp, Color.White.copy(alpha = 0.5f), RoundedCornerShape(16.dp)),
+                            shape = RoundedCornerShape(16.dp),
+                            colors = CardDefaults.cardColors(containerColor = GlassWhite)
+                        ) {
                             Column(modifier = Modifier.padding(16.dp)) {
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),

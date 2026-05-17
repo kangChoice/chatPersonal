@@ -39,10 +39,8 @@ import androidx.navigation.NavController
 import com.needai.chat.domain.model.ChatSession
 import com.needai.chat.domain.model.Skill
 import com.needai.chat.ui.chat.components.ChatInputBar
-import com.needai.chat.ui.chat.components.HistorySessionSheet
 import com.needai.chat.ui.chat.components.MessageBubble
 import com.needai.chat.ui.chat.components.SkillCarousel
-import com.needai.chat.ui.chat.components.SkillSelectorSheet
 import com.needai.chat.ui.chat.components.StreamingBubble
 import com.needai.chat.ui.chat.state.ChatUiState
 import com.needai.chat.data.local.datastore.SettingsDataStore
@@ -73,7 +71,6 @@ fun ChatScreen(
     onChatDetailChange: (Boolean) -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    var showSkillSelector by remember { mutableStateOf(false) }
     var showCarousel by remember { mutableStateOf(true) }
     LaunchedEffect(showCarousel) {
         onChatDetailChange(!showCarousel)
@@ -81,14 +78,11 @@ fun ChatScreen(
     }
     var carouselSelectedIndex by remember { mutableIntStateOf(0) }
     var showMenu by remember { mutableStateOf(false) }
-    var showHistorySession by remember { mutableStateOf(false) }
     var pendingSkill by remember { mutableStateOf<Skill?>(null) }
-    var showExportDialog by remember { mutableStateOf(false) }
     val listState = rememberLazyListState()
     val snackbarHostState = remember { SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()
     val context = LocalContext.current
-    var pendingExportSessionId by remember { mutableStateOf<String?>(null) }
     var showModelTip by remember { mutableStateOf(false) }
     var sessionToDelete by remember { mutableStateOf<ChatSession?>(null) }
     var speakingMessageId by remember { mutableStateOf<Long?>(null) }
@@ -141,16 +135,6 @@ fun ChatScreen(
         ActivityResultContracts.CreateDocument("text/markdown")
     ) { uri ->
         if (uri != null) viewModel.exportCurrentSessionToFile(context, uri)
-    }
-    val exportHistoryLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.CreateDocument("text/markdown")
-    ) { uri ->
-        if (uri != null) {
-            pendingExportSessionId?.let { sessionId ->
-                viewModel.exportSessionToFile(context, sessionId, uri)
-                pendingExportSessionId = null
-            }
-        }
     }
     val importSessionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocument()
@@ -250,16 +234,12 @@ fun ChatScreen(
     }
 
     // ===== 系统返回手势 =====
-    val hasDialog = showExportDialog || pendingSkill != null || sessionToDelete != null ||
-        showMenu || showSkillSelector || showHistorySession
+    val hasDialog = pendingSkill != null || sessionToDelete != null || showMenu
     BackHandler(enabled = hasDialog || !showCarousel) {
         when {
-            showExportDialog -> showExportDialog = false
             pendingSkill != null -> pendingSkill = null
             sessionToDelete != null -> sessionToDelete = null
             showMenu -> showMenu = false
-            showSkillSelector -> showSkillSelector = false
-            showHistorySession -> showHistorySession = false
             !showCarousel -> showCarousel = true
         }
     }
@@ -374,7 +354,14 @@ fun ChatScreen(
                     ) {
                         DropdownMenuItem(
                             text = { Text("导出会话") },
-                            onClick = { showMenu = false; showExportDialog = true }
+                            onClick = {
+                                showMenu = false
+                                if (uiState.messages.isNotEmpty()) {
+                                    exportCurrentLauncher.launch("chat_${SimpleDateFormat("yyyyMMdd_HHmm", Locale.getDefault()).format(Date())}.md")
+                                } else {
+                                    coroutineScope.launch { snackbarHostState.showSnackbar("当前没有消息可导出") }
+                                }
+                            }
                         )
                         DropdownMenuItem(
                             text = { Text("导入会话") },
@@ -400,7 +387,7 @@ fun ChatScreen(
                         Text(
                             skill.greeting,
                             fontSize = 14.sp,
-                            color = Color.White.copy(alpha = 0.7f)
+                            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
                         )
                     }
                 } else {
@@ -485,24 +472,6 @@ fun ChatScreen(
             confirmButton = { Button(onClick = { showModelTip = false }) { Text("知道了") } }
         )
     }
-    if (showSkillSelector) {
-        SkillSelectorSheet(
-            skills = uiState.availableSkills,
-            currentSkillId = uiState.currentSkill.id,
-            voiceAliases = voiceAliases,
-            onSkillSelected = { s -> if (s.id != uiState.currentSkill.id) pendingSkill = s },
-            onDismiss = { showSkillSelector = false }
-        )
-    }
-    if (showHistorySession) {
-        HistorySessionSheet(
-            sessions = uiState.historySessions,
-            currentSessionId = uiState.sessionId,
-            onSessionSelected = { viewModel.switchToHistorySession(it) },
-            onDeleteSession = { sessionToDelete = it },
-            onDismiss = { showHistorySession = false }
-        )
-    }
     if (pendingSkill != null) {
         AlertDialog(
             onDismissRequest = { pendingSkill = null },
@@ -525,57 +494,6 @@ fun ChatScreen(
             dismissButton = { TextButton(onClick = { sessionToDelete = null }) { Text("取消") } }
         )
     }
-    if (showExportDialog) {
-        AlertDialog(
-            onDismissRequest = { showExportDialog = false },
-            title = { Text("导出会话") },
-            text = {
-                Column {
-                    Text("选择要导出的会话：", modifier = Modifier.padding(bottom = 8.dp))
-                    Surface(
-                        onClick = {
-                            showExportDialog = false
-                            if (uiState.messages.isNotEmpty()) {
-                                exportCurrentLauncher.launch("chat_${SimpleDateFormat("yyyyMMdd_HHmm", Locale.getDefault()).format(Date())}.md")
-                            } else {
-                                viewModel.exportSessionToFile(context, "", android.net.Uri.EMPTY)
-                            }
-                        },
-                        shape = RoundedCornerShape(16.dp),
-                        color = Color.White.copy(alpha = 0.8f),
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
-                    ) {
-                        Column(Modifier.padding(12.dp)) {
-                            Text("当前会话", fontWeight = FontWeight.Medium)
-                            Text("${skill.name} · ${uiState.messages.size}条消息", fontSize = 12.sp, color = TextSecondary)
-                        }
-                    }
-                    uiState.historySessions.forEach { session ->
-                        Surface(
-                            onClick = {
-                                showExportDialog = false
-                                pendingExportSessionId = session.id
-                                exportHistoryLauncher.launch("chat_${session.title.take(20).replace(" ", "_")}.md")
-                            },
-                            shape = RoundedCornerShape(16.dp),
-                            color = Color.White.copy(alpha = 0.8f),
-                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
-                        ) {
-                            Column(Modifier.padding(12.dp)) {
-                                Text(session.title, maxLines = 1, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.Medium)
-                                Text("${session.skillName} · ${session.messageCount}条消息", fontSize = 12.sp, color = TextSecondary)
-                            }
-                        }
-                    }
-                    if (uiState.messages.isEmpty() && uiState.historySessions.isEmpty()) {
-                        Text("没有可导出的会话", color = TextTertiary, modifier = Modifier.padding(vertical = 16.dp))
-                    }
-                }
-            },
-            confirmButton = { TextButton(onClick = { showExportDialog = false }) { Text("取消") } }
-        )
-    }
-
     // Snackbar
     Box(Modifier.fillMaxSize()) {
         SnackbarHost(

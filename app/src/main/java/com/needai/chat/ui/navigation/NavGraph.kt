@@ -54,10 +54,11 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector?
 val bottomNavItems = listOf(Screen.Chat, Screen.MultiChat, Screen.SkillList, Screen.PromptPolish, Screen.Settings)
 
 private val onboardingRoutes = listOf(
-    Screen.Chat.route,          // step 0
-    Screen.PromptPolish.route,  // step 1
-    Screen.SkillList.route,     // step 2
-    Screen.Settings.route       // step 3
+    Screen.Chat.route,          // step 0: 聊天
+    Screen.MultiChat.route,     // step 1: 群聊
+    Screen.SkillList.route,     // step 2: 技能管理
+    Screen.PromptPolish.route,  // step 3: 提示词优化
+    Screen.Settings.route       // step 4: 设置
 )
 
 @OptIn(ExperimentalMaterial3Api::class)

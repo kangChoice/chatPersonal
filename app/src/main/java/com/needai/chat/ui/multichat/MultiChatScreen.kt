@@ -364,7 +364,7 @@ private fun MultiChatSetupPage(
     // ... (unchanged, same as before)
     var promptText by remember(multiPrompt) { mutableStateOf(multiPrompt) }
 
-    Box(modifier = Modifier.fillMaxSize().background(BgPage)) {
+    Box(modifier = Modifier.fillMaxSize().background(Color.Transparent)) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
