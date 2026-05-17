@@ -9,11 +9,11 @@
   "max_tokens": 4096,
   "top_p": 1.0,
   "builtin_chat_model": {
-    "name": "",
+    "name": "体验模型",
     "protocol": "openai",
     "remote_base_url": "https://dashscope.aliyuncs.com/compatible-mode",
     "remote_api_key": "",
-    "remote_model_name": "",
+    "remote_model_name": "qwen-max",
     "temperature": 0.7,
     "max_tokens": 4096,
     "top_p": 1.0

@@ -3,6 +3,7 @@ package com.needai.chat.app
 import android.app.Application
 import androidx.room.Room
 import com.google.gson.Gson
+import com.needai.chat.BuildConfig
 import com.needai.chat.data.local.config.BuiltinChatModel
 import com.needai.chat.data.local.config.ModelConfigFileManager
 import com.needai.chat.data.local.datastore.SettingsDataStore
@@ -44,7 +45,15 @@ class NeedAiApplication : Application() {
     private fun initializeDefaults() {
         applicationScope.launch {
             val cfgManager = ModelConfigFileManager(this@NeedAiApplication, Gson())
-            val (chatModel, ttsConfig) = cfgManager.readBuiltinModels()
+            var (chatModel, ttsConfig) = cfgManager.readBuiltinModels()
+
+            // Assets 中的内置 Key 已清空，优先使用 BuildConfig 注入值（来自 local.properties）
+            if (chatModel != null && chatModel.remoteApiKey.isBlank()) {
+                chatModel = chatModel.copy(remoteApiKey = BuildConfig.BUILTIN_CHAT_API_KEY)
+            }
+            if (ttsConfig != null && ttsConfig.apiKey.isBlank()) {
+                ttsConfig = ttsConfig.copy(apiKey = BuildConfig.BUILTIN_TTS_API_KEY)
+            }
 
             val db = Room.databaseBuilder(
                 this@NeedAiApplication,

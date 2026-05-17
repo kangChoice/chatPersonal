@@ -6,6 +6,22 @@ plugins {
     alias(libs.plugins.kotlin.parcelize)
 }
 
+fun loadLocalProperties(file: File): Map<String, String> {
+    if (!file.exists()) return emptyMap()
+    val props = mutableMapOf<String, String>()
+    file.readLines().forEach { rawLine ->
+        val line = rawLine.trim()
+        if (line.isBlank() || line.startsWith("#") || line.startsWith("!")) return@forEach
+        val sep = if (line.contains("=")) line.indexOf("=") else line.indexOf(":")
+        if (sep > 0) {
+            val key = line.substring(0, sep).trim()
+            val value = line.substring(sep + 1).trim()
+            props[key] = value
+        }
+    }
+    return props
+}
+
 base {
     archivesName.set("NeedAIChat")
 }
@@ -26,6 +42,14 @@ android {
         ndk {
             abiFilters += listOf("arm64-v8a")
         }
+
+        // 从 local.properties（已 gitignore）读取内置 API Key，通过 BuildConfig 注入
+        // 避免在 APK assets 中明文存储密钥
+        val localProps = loadLocalProperties(rootProject.file("local.properties"))
+        buildConfigField("String", "BUILTIN_CHAT_API_KEY",
+            "\"${localProps["builtin.chat.api.key"] ?: ""}\"")
+        buildConfigField("String", "BUILTIN_TTS_API_KEY",
+            "\"${localProps["builtin.tts.api.key"] ?: ""}\"")
     }
 
     buildTypes {
@@ -44,6 +68,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
     packaging {
         resources {

@@ -139,10 +139,24 @@ StatsScreen 有路由有页面，但不在底部导航里。你要导航过去�
 - 当前版本：**v1.3.0**（versionCode=3），minSdk=26，targetSdk=36
 - **全 UI 中文**，别手贱加英文
 - **Release 包？不存在的。** 没有签名配置，没有混淆，没有 CI
-- `NeedAiApplication` 里硬编码了一个过期的阿里云 API Key，**别拿这个去提 Issue 说连不上**
+- 内置 API Key 已从 `assets/model_config.json` 剥离，改用 BuildConfig 注入（见密钥安全章节）。首次启动前在 `local.properties` 中配置有效 Key 才能使用体验模型和 TTS。
 - 首次启动会从 assets 复制 `model_config.json` 并初始化内置技能 + 体验模型配置 + TTS 配置
 - 内置技能（isBuiltin=true）不可编辑不可删除
 - 支持背景图片自定义（`BackgroundConfig`，通过 DataStore 存储）
 - 设备隔离前缀（`DevicePrefixManager`）：基于 Android ID 生成 10 位 Base62 前缀，用于远程音色管理中的设备隔离
 - `TtsManager` 中的 `voiceModelResolver` 回调根据 voiceId 返回对应模型名，系统音色 → `cosyvoice-v3-flash`，自定义音色 → 其 `targetModel`
 - 所有的语音相关日志走 `FileLogger`，文件日志保留 7 天、单文件最大 5MB
+
+## 密钥安全：BuildConfig 注入机制
+
+Assets 中的 `model_config.json` 不再包含内置 API Key（已清空）。构建时通过 Gradle 从 `local.properties` 读取密钥，注入 `BuildConfig` 字段：
+
+```properties
+# local.properties（已 gitignore）
+builtin.chat.api.key=sk-your-chat-api-key-here
+builtin.tts.api.key=sk-your-tts-api-key-here
+```
+
+首次运行 `NeedAiApplication` 时，如果 assets 读取到的 Key 为空，会自动回退到 `BuildConfig.BUILTIN_CHAT_API_KEY` / `BuildConfig.BUILTIN_TTS_API_KEY`。
+
+这个方案仍然不能完全防止密钥从 APK 中被提取（BuildConfig 字段编译在 DEX 中，反编译仍可见），但避免了**直接解压 APK 读取 `assets/model_config.json` 即可获取密钥**的暴露风险。
