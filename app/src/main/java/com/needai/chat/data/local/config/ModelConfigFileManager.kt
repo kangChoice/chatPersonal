@@ -113,7 +113,7 @@ class ModelConfigFileManager @Inject constructor(
 
     fun readBuiltinModels(): Pair<BuiltinChatModel?, BuiltinTtsConfig?> {
         return try {
-            val json = configFile.readText()
+            val json = context.assets.open("model_config.json").bufferedReader().use { it.readText() }
             val root = gson.fromJson(json, Map::class.java) as? Map<*, *> ?: return null to null
             val chatJson = gson.toJson(root["builtin_chat_model"])
             val ttsJson = gson.toJson(root["builtin_tts_config"])

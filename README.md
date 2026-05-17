@@ -35,6 +35,34 @@
 - **批量导出/导入** — 多选技能一键导出，或者从 JSON 文件批量导入，跟兄弟们分享你的调教成果
 - **技能级联删除** — 删技能时会顺便把相关的会话和消息也干掉，不留痕迹
 
+### 🗣️ 语音通话（电话模式）
+
+**v1.3.0 主打功能！** 真正的全双工 AI 语音对话：
+
+- **语音唤醒** — 点击通话按钮，直接跟 AI 说话，不用打字
+- **实时语音识别** — 基于阿里云 DashScope WebSocket ASR，说话实时转文字
+- **AI 语音回复** — LLM 生成回复后通过 CosyVoice TTS 朗读出来，支持 200+ 系统音色
+- **边说边打断** — AI 正在说话时你可以直接说下一句，自动打断当前回复
+- **语音活动检测（VAD）** — Silero DNN 模型精准检测人声，不说话时不浪费算力
+- **回声消除（AEC）** — Android 平台 AcousticEchoCanceler + TTS 参考信号缓冲区
+- **波形动画** — 说话时实时显示录音振幅
+
+### 👥 群聊模式
+
+多个 AI 角色同时参与对话，互相争风吃醋：
+
+- 选择 2-5 个技能角色加入群聊
+- 每条消息自动分配一个角色回复
+- 支持设置群聊氛围提示词（默认："你们都喜欢我，互相反驳对方的话，会争风吃醋"）
+- 每个角色的气泡显示对应头像和名称
+
+### 🎤 音色管理（声音克隆）
+
+- **系统预置音色** — 200+ 阿里云 CosyVoice 官方音色，覆盖多种语言和风格
+- **自定义设计音色** — 通过声音提示词创建专属音色（声音克隆）
+- **音色试听** — 创建前后均可试听效果
+- **设备隔离** — 基于 Android ID 生成唯一前缀，每个设备管理自己的音色库
+
 ### 🤖 多模型支持
 
 - **双协议**：支持 OpenAI 协议和 Anthropic 协议的各种大模型
@@ -81,6 +109,11 @@ API Key 使用 Android Keystore 加密存储（AES/GCM），硬件级加密，�
 - 大数字自动格式化（K/M 单位）
 - **入口已隐藏** — 你找不到它，但它确实存在（不信你翻代码）
 
+### 🖼️ 背景自定义
+
+- 支持设置聊天背景图片
+- 多背景管理，随时切换
+
 ### 🆕 新手指引
 
 第一次用？不知道这些按钮是干嘛的？内置了 4 步引导教程：
@@ -108,6 +141,11 @@ API Key 使用 Android Keystore 加密存储（AES/GCM），硬件级加密，�
 | **Navigation Compose** | 页面导航，不会迷路 |
 | **Android Keystore** | API Key 加密，妈妈再也不用担心我的 key 泄露 |
 | **Gson** | JSON 解析，朴实无华且枯燥 |
+| **NUI SDK (CosyVoice)** | 阿里云语音合成（TTS），200+ 音色随便挑 |
+| **DashScope WebSocket** | 实时语音识别（ASR），边说边转文字 |
+| **Silero VAD (ONNX Runtime)** | 语音活动检测，不说废话不浪费算力 |
+| **AcousticEchoCanceler** | Android 平台回声消除 |
+| **Retrofit** | REST 接口定义（虽然实际没用，主打一个写了等于没写） |
 
 ---
 
@@ -115,36 +153,44 @@ API Key 使用 Android Keystore 加密存储（AES/GCM），硬件级加密，�
 
 ```
 app/src/main/java/com/needai/chat/
-├── app/                    # Application 类（启动初始化 + Hilt 入口）
+├── app/                    # Application 类（启动初始化 + Hilt 入口，种子数据填充）
 ├── data/
 │   ├── export/             # 导出工具（Markdown 会话 / JSON 配置 + 技能）
 │   ├── import/             # 导入工具（解析 Markdown 和 JSON 文件）
 │   ├── local/
 │   │   ├── db/             # Room 数据库（skills/messages/sessions/model_configs）
-│   │   └── datastore/      # DataStore（设置 + 模型配置持久化）
+│   │   ├── datastore/      # DataStore（设置、TTS 配置、音色别名、背景图）
+│   │   └── config/         # model_config.json 管理文件
 │   ├── mapper/             # 实体 ↔ 领域模型映射器
 │   ├── remote/
 │   │   ├── client/         # ModelClient（RemoteModelClient SSE 流式 + LocalModelClient 占位符）
 │   │   ├── dto/            # OpenAI & Anthropic 协议请求/响应 DTO
-│   │   └── api/            # Retrofit 接口（虽然写了但没用，主打一个写了等于没写）
+│   │   ├── api/            # Retrofit 接口（虽然写了但没用，主打一个写了等于没写）
+│   │   ├── tts/            # CosyVoice 语音合成 + 音色管理（PCM 播放、系统音色列表）
+│   │   └── asr/            # 实时语音识别（WebSocket ASR + VAD + AEC + 回声过滤）
 │   └── repository/         # 仓库实现
-├── di/                     # Hilt 依赖注入模块（AppModule / DatabaseModule / NetworkModule）
+├── di/                     # Hilt 依赖注入模块（AppModule / DatabaseModule / NetworkModule / VoiceModule）
 ├── domain/
-│   ├── model/              # 领域模型（Message / ChatSession / Skill / ModelConfig ...）
+│   ├── model/              # 领域模型（Message / ChatSession / Skill / ModelConfig / VoiceInfo / BackgroundConfig ...）
 │   ├── repository/         # 仓库接口（抽象的艺术）
-│   └── usecase/            # 业务用例（发消息、查历史、切换技能...）
+│   └── usecase/            # 业务用例（虽然很长一段时间没人用）
 ├── ui/
-│   ├── chat/               # 聊天页面（核心！核心！核心！）
-│   │   └── components/     # ChatInputBar / MessageBubble / StreamingText / SkillSelectorSheet / HistorySessionSheet
-│   ├── skills/             # 技能管理页面（CRUD + 批量导出 + 导入）
+│   ├── chat/               # 单聊页面（核心！核心！核心！）
+│   │   └── components/     # ChatInputBar / MessageBubble / StreamingText / SkillSelectorSheet / HistorySessionSheet / TtsSpeakButton
+│   ├── multichat/          # 群聊页面（多角色 AI 互怼）
+│   │   └── components/     # MultiChatMessageBubble
+│   ├── skills/             # 技能管理 + 音色管理（合并页面）
+│   ├── voice/              # 音色独立管理页（试听、创建、删除）
+│   │   └── components/     # VoiceCard / CreateVoiceDialog
+│   ├── voicechat/          # 语音通话页面（全双工 AI 对话）
 │   ├── prompt/             # 提示词润色页面（AI 帮你写 prompt）
-│   ├── settings/           # 设置页面（模型配置 + 暗黑模式 + 新手指引）
-│   │   └── components/     # ModelConfigEditDialog / QuickCreateProviderDialog / GenerationParamsDialog
+│   ├── settings/           # 设置页面（模型配置 + TTS 配置 + 暗黑模式 + 新手指引）
+│   │   └── components/     # ModelConfigEditDialog / QuickCreateProviderDialog / GenerationParamsDialog / TtsSettingsSection / VoiceSelectorSheet
 │   ├── stats/              # 统计页面（入口已隐藏，但代码还在）
 │   ├── onboarding/         # 新手指引覆盖层（4 步引导教程）
-│   ├── navigation/         # 导航图 + 底部导航栏
+│   ├── navigation/         # 导航图 + 底部导航栏（5 个 tab）
 │   └── theme/              # 主题配置（Color / Type / Theme）
-└── util/                   # 工具类（Constants / EncryptUtil）
+└── util/                   # 工具类（Constants / EncryptUtil / FileLogger / DevicePrefixManager / TtsManager）
 ```
 
 ---
@@ -172,6 +218,10 @@ app/src/main/java/com/needai/chat/
 
 A：因为内置的 API Key 已经失效了。你需要自己去阿里云申请一个 Key，或者在设置里换成你自己的供应商。
 
+**Q：语音通话功能怎么用？**
+
+A：需要先在设置中配置有效的 TTS API Key（阿里云 CosyVoice），然后从聊天页面或设置中的语音通话入口进入。首次使用需要授予麦克风权限。
+
 **Q：本地模型能用吗？**
 
 A：不能。我们留了接口，但还没实现。如果你实在想用，欢迎提 PR。
@@ -179,6 +229,15 @@ A：不能。我们留了接口，但还没实现。如果你实在想用，欢�
 **Q：统计功能在哪里？**
 
 A：不告诉你。自己找。
+
+---
+
+## 版本历史
+
+- **v1.3.0** — 语音通话（电话模式）、群聊模式、音色管理、打包体积优化
+- **v1.2.x** — 音频输出优化、设备隔离、回声过滤
+- **v1.1.0** — 群聊策略更新、语音播放
+- **v1.0.0** — 初始版本：单聊、技能管理、模型配置、提示词润色
 
 ---
 

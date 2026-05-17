@@ -18,13 +18,13 @@ android {
         applicationId = "com.needai.chat"
         minSdk = 26
         targetSdk = 36
-        versionCode = 2
-        versionName = "1.2.0"
+        versionCode = 3
+        versionName = "1.3.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         ndk {
-            abiFilters += listOf("arm64-v8a", "armeabi-v7a")
+            abiFilters += listOf("arm64-v8a")
         }
     }
 
@@ -53,6 +53,14 @@ android {
 }
 
 dependencies {
+    // VAD — 排除它的旧版 onnxruntime 传递依赖，避免旧 .so 打进 APK
+    implementation(libs.vad.silero) {
+        exclude(group = "com.microsoft.onnxruntime", module = "onnxruntime-android")
+    }
+    // 强制 onnxruntime ≥1.25.0（libonnxruntime4j_jni.so 才有 16 KB LOAD 段对齐）
+    implementation("com.microsoft.onnxruntime:onnxruntime-android") {
+        version { strictly("[1.25.0,)") }
+    }
     // Core
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity.compose)
