@@ -17,7 +17,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.needai.chat.domain.model.Message
@@ -77,16 +76,13 @@ fun MessageBubble(
                             Modifier
                                 .clip(RoundedCornerShape(16.dp, 16.dp, 4.dp, 16.dp))
                                 .background(Brush.linearGradient(listOf(BubbleUserStart, BubbleUserEnd)))
-                                .border(0.5.dp, BubbleUserBorder, RoundedCornerShape(16.dp, 16.dp, 4.dp, 16.dp))
-                                .graphicsLayer { shadowElevation = 4f }
+                                .border(0.5.dp, Color.White.copy(alpha = 0.2f), RoundedCornerShape(16.dp, 16.dp, 4.dp, 16.dp))
                         } else {
                             // .msg-bubble.ai-msg
-                            // 对应 backdrop-filter 用纯色模拟 + 边框
                             Modifier
                                 .clip(RoundedCornerShape(4.dp, 16.dp, 16.dp, 16.dp))
                                 .background(BubbleAiBg)
                                 .border(0.5.dp, BubbleAiBorder, RoundedCornerShape(4.dp, 16.dp, 16.dp, 16.dp))
-                                .graphicsLayer { shadowElevation = 8f }
                         }
                     )
                     .padding(horizontal = 16.dp, vertical = 12.dp)

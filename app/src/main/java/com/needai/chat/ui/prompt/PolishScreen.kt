@@ -26,6 +26,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -87,15 +88,27 @@ fun PolishScreen(
         },
         floatingActionButton = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                SmallFloatingActionButton(
-                    onClick = { coroutineScope.launch { scrollState.animateScrollTo(0) } }
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(RoundedCornerShape(999.dp))
+                        .background(GlassWhite)
+                        .border(0.5.dp, Color.White.copy(alpha = 0.5f), RoundedCornerShape(999.dp))
+                        .clickable { coroutineScope.launch { scrollState.animateScrollTo(0) } },
+                    contentAlignment = Alignment.Center
                 ) {
-                    Icon(Icons.Default.KeyboardArrowUp, contentDescription = "回到顶部")
+                    Icon(Icons.Default.KeyboardArrowUp, contentDescription = "回到顶部", tint = BrandBlue, modifier = Modifier.size(20.dp))
                 }
-                SmallFloatingActionButton(
-                    onClick = { coroutineScope.launch { scrollState.animateScrollTo(scrollState.maxValue) } }
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(RoundedCornerShape(999.dp))
+                        .background(GlassWhite)
+                        .border(0.5.dp, Color.White.copy(alpha = 0.5f), RoundedCornerShape(999.dp))
+                        .clickable { coroutineScope.launch { scrollState.animateScrollTo(scrollState.maxValue) } },
+                    contentAlignment = Alignment.Center
                 ) {
-                    Icon(Icons.Default.KeyboardArrowDown, contentDescription = "到底部")
+                    Icon(Icons.Default.KeyboardArrowDown, contentDescription = "到底部", tint = BrandBlue, modifier = Modifier.size(20.dp))
                 }
             }
         }
@@ -160,7 +173,9 @@ fun PolishScreen(
                                 Button(
                                     onClick = { viewModel.polishPrompt() },
                                     enabled = uiState.inputText.isNotBlank(),
-                                    modifier = Modifier.fillMaxWidth()
+                                    modifier = Modifier.fillMaxWidth(),
+                                    colors = ButtonDefaults.buttonColors(containerColor = BrandBlue),
+                                    shape = RoundedCornerShape(999.dp)
                                 ) {
                                     Text("生成角色提示词")
                                 }
@@ -229,7 +244,9 @@ fun PolishScreen(
                                 Spacer(modifier = Modifier.height(12.dp))
                                 Button(
                                     onClick = { showCreateDialog = true },
-                                    modifier = Modifier.fillMaxWidth()
+                                    modifier = Modifier.fillMaxWidth(),
+                                    colors = ButtonDefaults.buttonColors(containerColor = BrandBlue),
+                                    shape = RoundedCornerShape(999.dp)
                                 ) {
                                     Text("创建角色")
                                 }
@@ -276,7 +293,9 @@ fun PolishScreen(
                                 Button(
                                     onClick = { viewModel.polishVoicePrompt() },
                                     enabled = uiState.voiceInputText.isNotBlank(),
-                                    modifier = Modifier.fillMaxWidth()
+                                    modifier = Modifier.fillMaxWidth(),
+                                    colors = ButtonDefaults.buttonColors(containerColor = BrandBlue),
+                                    shape = RoundedCornerShape(999.dp)
                                 ) {
                                     Text("生成音色描述")
                                 }
@@ -345,15 +364,22 @@ fun PolishScreen(
                             }
                         }
                         // Voice creation form
-                        Card(modifier = Modifier.fillMaxWidth()) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(16.dp))
+                                .background(GlassWhite)
+                                .border(0.5.dp, Color.White.copy(alpha = 0.5f), RoundedCornerShape(16.dp))
+                        ) {
                             Column(
                                 modifier = Modifier.padding(16.dp),
                                 verticalArrangement = Arrangement.spacedBy(12.dp)
                             ) {
                                 Text(
                                     text = "一键创建音色",
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.Bold
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = TextPrimary
                                 )
                                 OutlinedTextField(
                                     value = uiState.voiceAlias,
@@ -361,28 +387,41 @@ fun PolishScreen(
                                     label = { Text("别名 *") },
                                     singleLine = true,
                                     modifier = Modifier.fillMaxWidth(),
-                                    isError = uiState.voiceCreateError != null && uiState.voiceAlias.isBlank()
+                                    isError = uiState.voiceCreateError != null && uiState.voiceAlias.isBlank(),
+                                    colors = OutlinedTextFieldDefaults.colors(
+                                        focusedBorderColor = BrandBlue,
+                                        cursorColor = BrandBlue,
+                                        focusedLabelColor = BrandBlue
+                                    )
                                 )
-                                Text("选择模型", style = MaterialTheme.typography.labelLarge)
+                                Text("选择模型", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = TextPrimary)
                                 SUPPORTED_CREATION_MODELS.forEach { model ->
                                     Row(
                                         modifier = Modifier
                                             .fillMaxWidth()
+                                            .clip(RoundedCornerShape(12.dp))
+                                            .background(
+                                                if (uiState.voiceTargetModel == model) BrandBlue.copy(alpha = 0.06f)
+                                                else Color.Transparent
+                                            )
                                             .clickable { viewModel.setVoiceTargetModel(model) }
-                                            .padding(vertical = 2.dp),
+                                            .padding(vertical = 6.dp, horizontal = 8.dp),
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
                                         RadioButton(
                                             selected = uiState.voiceTargetModel == model,
-                                            onClick = { viewModel.setVoiceTargetModel(model) }
+                                            onClick = { viewModel.setVoiceTargetModel(model) },
+                                            colors = RadioButtonDefaults.colors(
+                                                selectedColor = BrandBlue
+                                            )
                                         )
                                         Spacer(modifier = Modifier.width(8.dp))
                                         Column {
-                                            Text(model, style = MaterialTheme.typography.bodyMedium)
+                                            Text(model, fontSize = 14.sp, color = TextPrimary)
                                             Text(
                                                 text = if (model.contains("flash")) "快速合成，成本较低" else "高音质合成，成本较高",
-                                                style = MaterialTheme.typography.bodySmall,
-                                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                                                fontSize = 12.sp,
+                                                color = TextTertiary
                                             )
                                         }
                                     }
@@ -403,10 +442,16 @@ fun PolishScreen(
                                         }
                                     },
                                     enabled = uiState.voiceAlias.isNotBlank() && !uiState.isCreatingVoice,
-                                    modifier = Modifier.fillMaxWidth()
+                                    modifier = Modifier.fillMaxWidth(),
+                                    colors = ButtonDefaults.buttonColors(containerColor = BrandBlue),
+                                    shape = RoundedCornerShape(999.dp)
                                 ) {
                                     if (uiState.isCreatingVoice) {
-                                        CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                                        CircularProgressIndicator(
+                                            modifier = Modifier.size(18.dp),
+                                            strokeWidth = 2.dp,
+                                            color = Color.White
+                                        )
                                         Spacer(Modifier.width(8.dp))
                                     }
                                     Text("创建音色")

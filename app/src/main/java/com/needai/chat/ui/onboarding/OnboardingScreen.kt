@@ -2,10 +2,12 @@ package com.needai.chat.ui.onboarding
 
 import androidx.compose.animation.*
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -16,6 +18,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.needai.chat.ui.theme.*
 
 data class OnboardingStep(
     val emoji: String,
@@ -27,24 +30,29 @@ data class OnboardingStep(
 private val steps = listOf(
     OnboardingStep(
         emoji = "💬",
-        title = "聊天页面",
-        description = "点击顶部 ✨ 图标可快速切换不同的角色。当前使用的模型名称显示在角色名称下方，随时了解正在与哪个模型对话。",
-        warning = "如果聊天页面右上角显示 ⚠️ 警示符号，说明还没有选择聊天模型，请前往设置页配置。"
+        title = "智能对话",
+        description = "与 AI 角色畅快交流，支持多轮对话上下文理解。点击顶部角色名可快速切换角色，底部输入框支持文字输入与语音输入。AI 回复支持 TTS 语音朗读，长消息自动分段合成。",
+        warning = "首次使用前请前往设置页配置 API Key 和聊天模型，否则⽆法开始对话。"
     ),
     OnboardingStep(
-        emoji = "✏️",
+        emoji = "📝",
         title = "提示词润色",
-        description = "在这里输入角色描述，AI 会根据你的描述自动生成详细的系统提示词。生成后点击「创建角色」按钮，即可一键将新角色保存为角色。"
+        description = "输入角色描述即可让 AI 自动生成专业的系统提示词。支持角色提示词和音色描述两种模式。生成后可直接创建新角色或一键创建自定义音色，极大提升角色创建效率。"
     ),
     OnboardingStep(
         emoji = "🎯",
-        title = "角色管理",
-        description = "所有已创建的角色都会显示在这里。点击右上角 + 按钮可以创建新的角色，也可以对已有角色进行编辑、导出或删除。"
+        title = "角色与音色管理",
+        description = "管理所有自定义角色和音色。角色支持创建、编辑、导出/导入；音色支持创建（声音克隆）、绑定角色、试听和别名管理。已绑定音色的角色在对话中会自动使用该音色朗读。"
     ),
     OnboardingStep(
         emoji = "⚙️",
-        title = "设置与模型配置",
-        description = "在模型配置区域，点击右上角 + 按钮添加新的模型配置（支持 OpenAI、DeepSeek、Anthropic 等多种供应商）。点击任意配置即可将其设为当前使用的模型。"
+        title = "设置与个性化",
+        description = "配置 API Key 和模型（支持 OpenAI、DeepSeek、Anthropic 等主流供应商）、调整 TTS 参数（语速/音调/音量）、设置自定义聊天背景。所有模型配置自由切换，满足不同场景需求。"
+    ),
+    OnboardingStep(
+        emoji = "🎤",
+        title = "语音通话",
+        description = "支持全双工语音对话：语音识别 → AI 思考 → 语音合成一气呵成。实时 VAD 语音检测 + AEC 回声消除，对话过程中可随时打断。需要有效的 TTS API Key 支持。"
     )
 )
 
@@ -60,7 +68,7 @@ fun OnboardingOverlay(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.Black.copy(alpha = 0.5f))
+            .background(Color.Black.copy(alpha = 0.45f))
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
@@ -81,8 +89,8 @@ fun OnboardingOverlay(
                         .size(if (index == step) 10.dp else 8.dp)
                         .clip(CircleShape)
                         .background(
-                            if (index == step) MaterialTheme.colorScheme.primary
-                            else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
+                            if (index == step) BrandBlue
+                            else Color.White.copy(alpha = 0.35f)
                         )
                 )
             }
@@ -100,17 +108,15 @@ fun OnboardingOverlay(
             )
         }
 
-        // Content card
-        Card(
+        // Glass content card
+        Box(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
-                .padding(24.dp),
-            shape = MaterialTheme.shapes.extraLarge,
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surface
-            ),
-            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+                .padding(24.dp)
+                .clip(RoundedCornerShape(24.dp))
+                .background(GlassWhite)
+                .border(0.5.dp, Color.White.copy(alpha = 0.5f), RoundedCornerShape(24.dp))
         ) {
             Column(
                 modifier = Modifier
@@ -127,8 +133,9 @@ fun OnboardingOverlay(
 
                 Text(
                     text = currentStep.title,
-                    style = MaterialTheme.typography.headlineSmall,
+                    fontSize = 20.sp,
                     fontWeight = FontWeight.Bold,
+                    color = TextPrimary,
                     textAlign = TextAlign.Center
                 )
 
@@ -136,25 +143,25 @@ fun OnboardingOverlay(
 
                 Text(
                     text = currentStep.description,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                    fontSize = 14.sp,
+                    color = TextSecondary,
                     textAlign = TextAlign.Start,
-                    lineHeight = MaterialTheme.typography.bodyMedium.lineHeight
+                    lineHeight = 22.sp
                 )
 
                 if (currentStep.warning != null) {
-                    Spacer(modifier = Modifier.height(10.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
                     Surface(
-                        shape = MaterialTheme.shapes.small,
-                        color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.6f)
+                        shape = RoundedCornerShape(12.dp),
+                        color = BrandBlue.copy(alpha = 0.08f)
                     ) {
                         Text(
                             text = currentStep.warning,
-                            modifier = Modifier.padding(10.dp),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onErrorContainer,
+                            modifier = Modifier.padding(12.dp),
+                            fontSize = 13.sp,
+                            color = BrandBlue,
                             fontWeight = FontWeight.Medium,
-                            lineHeight = MaterialTheme.typography.bodySmall.lineHeight
+                            lineHeight = 19.sp
                         )
                     }
                 }
@@ -166,7 +173,11 @@ fun OnboardingOverlay(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(48.dp),
-                    shape = MaterialTheme.shapes.medium
+                    shape = RoundedCornerShape(999.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = BrandBlue,
+                        disabledContainerColor = BrandBlue.copy(alpha = 0.3f)
+                    )
                 ) {
                     Text(
                         text = if (isLastStep) "开始使用" else "下一步",
@@ -179,7 +190,7 @@ fun OnboardingOverlay(
                     TextButton(onClick = onFinish) {
                         Text(
                             "跳过引导",
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                            color = TextTertiary
                         )
                     }
                 }

@@ -6,6 +6,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -219,9 +220,6 @@ fun ChatScreen(
     // ============================================================
     Box(modifier = Modifier.fillMaxSize()) {
 
-        // Layer 0: Fluid glow background (visible in carousel mode)
-        FluidGlowBackground()
-
         // Layer 1: 背景图片 — 对应 .chat-bg img (hide in carousel)
         if (!showCarousel && backgroundBitmap != null) {
             Image(
@@ -233,23 +231,6 @@ fun ChatScreen(
                 contentScale = ContentScale.Crop,
                 alpha = 0.85f
             )
-        }
-
-        // Layer 2: 渐变覆盖 — 对应 .chat-bg-gradient (hide in carousel)
-        if (!showCarousel) {
-            Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(
-                    Brush.verticalGradient(
-                        listOf(
-                            Color.Black.copy(alpha = 0.2f),
-                            Color.Transparent,
-                            Color.White.copy(alpha = 0.85f)
-                        )
-                    )
-                )
-        )
         }
 
         // Layer 3: 内容 — carousel or chat
@@ -284,7 +265,10 @@ fun ChatScreen(
                         .clip(CircleShape)
                         .background(Color.Black.copy(alpha = 0.3f))
                         .border(0.5.dp, Color.White.copy(alpha = 0.2f), CircleShape)
-                        .clickable { showCarousel = true },
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null
+                        ) { showCarousel = true },
                     contentAlignment = Alignment.Center
                 ) {
                     Text("<", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
@@ -299,7 +283,7 @@ fun ChatScreen(
                         color = Color.White,
                         letterSpacing = 0.02.sp
                     )
-                    val subtitleColor = if (uiState.isModelConfigured) BrandMint else StatusRed.copy(alpha = 0.8f)
+                    val subtitleColor = if (uiState.isModelConfigured) Color.White.copy(alpha = 0.7f) else StatusRed.copy(alpha = 0.8f)
                     val subtitleText = if (uiState.isModelConfigured) {
                         "● ${uiState.currentModelName.ifEmpty { "远程模型" }}"
                     } else {
@@ -322,7 +306,10 @@ fun ChatScreen(
                             .clip(CircleShape)
                             .background(Color.Black.copy(alpha = 0.3f))
                             .border(0.5.dp, Color.White.copy(alpha = 0.2f), CircleShape)
-                            .clickable { showMenu = true },
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = null
+                            ) { showMenu = true },
                         contentAlignment = Alignment.Center
                     ) {
                         Text("···", color = Color.White.copy(alpha = 0.8f), fontSize = 14.sp, fontWeight = FontWeight.Bold)

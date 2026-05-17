@@ -24,11 +24,10 @@ val GlassNavBtn = Color.Black.copy(alpha = 0.3f)    // .chat-nav-btn: rgba(0,0,0
 val GlassNavBtnBorder = Color.White.copy(alpha = 0.2f) // .chat-nav-btn border
 
 // ============ 消息气泡（精确对应 HTML） ============
-val BubbleAiBg = Color.Black.copy(alpha = 0.6f)     // .msg-bubble.ai-msg: rgba(0,0,0,0.6)
+val BubbleAiBg = Color.Black.copy(alpha = 0.45f)    // .msg-bubble.ai-msg: 略微提亮减少压抑感
 val BubbleAiBorder = Color.White.copy(alpha = 0.1f) // border: rgba(255,255,255,0.1)
 val BubbleUserStart = BrandMint                     // linear-gradient(135deg, #88E2CE
 val BubbleUserEnd = BrandBlue                       // , #5B9DFF)
-val BubbleUserBorder = Color.White.copy(alpha = 0.3f)
 
 // ============ 光晕圆斑（精确对应 HTML alpha） ============
 val GlowMint = Color(0x4D88E2CE)  // rgba(136,226,206,0.3)

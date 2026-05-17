@@ -3,6 +3,7 @@ package com.needai.chat.ui.chat.components
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -54,7 +55,7 @@ fun ChatInputBar(
                 .height(48.dp)
                 .clip(RoundedCornerShape(999.dp))
                 .background(GlassInput)
-                .border(0.5.dp, Color.White, RoundedCornerShape(999.dp))
+                .border(0.5.dp, Color.White.copy(alpha = 0.5f), RoundedCornerShape(999.dp))
         ) {
             Row(
                 modifier = Modifier
@@ -101,7 +102,11 @@ fun ChatInputBar(
                         .size(32.dp)
                         .clip(CircleShape)
                         .background(sendBrush)
-                        .clickable(enabled = isStreaming || inputText.isNotBlank()) {
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                            enabled = isStreaming || inputText.isNotBlank()
+                        ) {
                             if (isStreaming) onStop() else onSend()
                         },
                     contentAlignment = Alignment.Center

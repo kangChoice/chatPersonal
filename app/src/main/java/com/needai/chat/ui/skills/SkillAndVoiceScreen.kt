@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -31,6 +32,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
@@ -642,8 +645,8 @@ fun SkillAndVoiceScreen(
         if (skillToDelete != null) {
             AlertDialog(
                 onDismissRequest = { skillToDelete = null },
-                icon = { Icon(Icons.Default.Delete, contentDescription = null) },
-                title = { Text("删除角色") },
+                icon = { Icon(Icons.Default.Delete, contentDescription = null, tint = BrandPink) },
+                title = { Text("删除角色", fontWeight = FontWeight.Bold, color = TextPrimary) },
                 text = {
                     Text("确定要删除「${skillToDelete!!.name}」吗？删除后，该角色对应的所有历史会话记录也将一并删除，此操作不可撤销。")
                 },
@@ -677,118 +680,156 @@ fun SkillAndVoiceScreen(
 
         if (editingAliasVoice != null) {
             val voice = editingAliasVoice!!
-            AlertDialog(
+            Dialog(
                 onDismissRequest = { editingAliasVoice = null },
-                title = { Text("编辑别名") },
-                text = {
-                    Column {
+                properties = DialogProperties(usePlatformDefaultWidth = false)
+            ) {
+                Surface(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
+                    shape = RoundedCornerShape(24.dp),
+                    color = Color.White
+                ) {
+                    Column(modifier = Modifier.fillMaxWidth().padding(24.dp)) {
+                        BrandGradientText(text = "编辑别名", fontSize = 22.sp)
+                        Spacer(Modifier.height(20.dp))
                         Text(
                             text = "为「${voice.displayName.ifEmpty { voice.voiceId }}」设置别名",
                             fontSize = 13.sp,
                             color = TextSecondary
                         )
-                        Spacer(modifier = Modifier.height(12.dp))
+                        Spacer(Modifier.height(12.dp))
                         OutlinedTextField(
                             value = editingAliasText,
                             onValueChange = { editingAliasText = it },
                             label = { Text("别名") },
                             singleLine = true,
-                            modifier = Modifier.fillMaxWidth()
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = BrandBlue,
+                                cursorColor = BrandBlue,
+                                focusedLabelColor = BrandBlue
+                            )
                         )
-                    }
-                },
-                confirmButton = {
-                    Button(onClick = {
-                        coroutineScope.launch {
-                            settingsDataStore.setVoiceAlias(voice.voiceId, editingAliasText)
+                        Spacer(Modifier.height(20.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.End,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            TextButton(onClick = { editingAliasVoice = null }) { Text("取消", color = TextSecondary) }
+                            Spacer(Modifier.width(12.dp))
+                            Button(
+                                onClick = {
+                                    coroutineScope.launch {
+                                        settingsDataStore.setVoiceAlias(voice.voiceId, editingAliasText)
+                                    }
+                                    editingAliasVoice = null
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = BrandBlue),
+                                shape = RoundedCornerShape(999.dp)
+                            ) { Text("保存") }
                         }
-                        editingAliasVoice = null
-                    }) { Text("保存") }
-                },
-                dismissButton = {
-                    TextButton(onClick = { editingAliasVoice = null }) { Text("取消") }
+                    }
                 }
-            )
+            }
         }
 
         if (editingBindingsVoice != null) {
             val voice = editingBindingsVoice!!
             val nonBuiltinSkills = skills.filter { !it.isBuiltin }
-            AlertDialog(
+            Dialog(
                 onDismissRequest = { editingBindingsVoice = null },
-                title = { Text("绑定角色") },
-                text = {
-                    Column {
+                properties = DialogProperties(usePlatformDefaultWidth = false)
+            ) {
+                Surface(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
+                    shape = RoundedCornerShape(24.dp),
+                    color = Color.White
+                ) {
+                    Column(modifier = Modifier.fillMaxWidth().padding(24.dp)) {
+                        BrandGradientText(text = "绑定角色", fontSize = 22.sp)
+                        Spacer(Modifier.height(20.dp))
                         Text(
                             text = "为「${(voiceAliases[voice.voiceId] ?: "").ifEmpty { voice.displayName.ifEmpty { voice.voiceId } }}」选择绑定的角色",
                             fontSize = 13.sp,
                             color = TextSecondary
                         )
-                        Spacer(modifier = Modifier.height(12.dp))
+                        Spacer(Modifier.height(12.dp))
                         if (nonBuiltinSkills.isEmpty()) {
-                            Text(
-                                text = "暂无自定义角色",
-                                color = TextTertiary
-                            )
+                            Text(text = "暂无自定义角色", color = TextTertiary)
                         } else {
-                            nonBuiltinSkills.forEach { skill ->
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .clickable {
-                                            selectedBindingSkillIds = if (skill.id in selectedBindingSkillIds) {
-                                                selectedBindingSkillIds - skill.id
-                                            } else {
-                                                selectedBindingSkillIds + skill.id
+                            Column(
+                                modifier = Modifier.heightIn(max = 320.dp).verticalScroll(rememberScrollState()),
+                                verticalArrangement = Arrangement.spacedBy(2.dp)
+                            ) {
+                                nonBuiltinSkills.forEach { skill ->
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clip(RoundedCornerShape(12.dp))
+                                            .background(
+                                                if (skill.id in selectedBindingSkillIds) BrandBlue.copy(alpha = 0.06f)
+                                                else Color.Transparent
+                                            )
+                                            .clickable {
+                                                selectedBindingSkillIds = if (skill.id in selectedBindingSkillIds) {
+                                                    selectedBindingSkillIds - skill.id
+                                                } else {
+                                                    selectedBindingSkillIds + skill.id
+                                                }
                                             }
-                                        }
-                                        .padding(vertical = 4.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Checkbox(
-                                        checked = skill.id in selectedBindingSkillIds,
-                                        onCheckedChange = { checked ->
-                                            selectedBindingSkillIds = if (checked) {
-                                                selectedBindingSkillIds + skill.id
-                                            } else {
-                                                selectedBindingSkillIds - skill.id
-                                            }
-                                        },
-                                        colors = CheckboxDefaults.colors(
-                                            checkedColor = BrandBlue
+                                            .padding(vertical = 4.dp, horizontal = 4.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Checkbox(
+                                            checked = skill.id in selectedBindingSkillIds,
+                                            onCheckedChange = { checked ->
+                                                selectedBindingSkillIds = if (checked) {
+                                                    selectedBindingSkillIds + skill.id
+                                                } else {
+                                                    selectedBindingSkillIds - skill.id
+                                                }
+                                            },
+                                            colors = CheckboxDefaults.colors(checkedColor = BrandBlue)
                                         )
-                                    )
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text(
-                                        text = "${skill.avatar} ${skill.name}",
-                                        fontSize = 14.sp,
-                                        color = TextPrimary
-                                    )
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text(
+                                            text = "${skill.avatar} ${skill.name}",
+                                            fontSize = 14.sp,
+                                            color = TextPrimary
+                                        )
+                                    }
                                 }
                             }
                         }
+                        Spacer(Modifier.height(20.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.End,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            TextButton(onClick = { editingBindingsVoice = null }) { Text("取消", color = TextSecondary) }
+                            Spacer(Modifier.width(12.dp))
+                            Button(
+                                onClick = {
+                                    skillViewModel.updateSkillsVoiceId(voice.voiceId, selectedBindingSkillIds)
+                                    editingBindingsVoice = null
+                                },
+                                enabled = nonBuiltinSkills.isNotEmpty(),
+                                colors = ButtonDefaults.buttonColors(containerColor = BrandBlue),
+                                shape = RoundedCornerShape(999.dp)
+                            ) { Text("保存") }
+                        }
                     }
-                },
-                confirmButton = {
-                    Button(
-                        onClick = {
-                            skillViewModel.updateSkillsVoiceId(voice.voiceId, selectedBindingSkillIds)
-                            editingBindingsVoice = null
-                        },
-                        enabled = nonBuiltinSkills.isNotEmpty()
-                    ) { Text("保存") }
-                },
-                dismissButton = {
-                    TextButton(onClick = { editingBindingsVoice = null }) { Text("取消") }
                 }
-            )
+            }
         }
 
         if (deleteVoice != null) {
             AlertDialog(
                 onDismissRequest = { deleteVoice = null },
-                icon = { Icon(Icons.Default.Delete, contentDescription = null) },
-                title = { Text("删除音色") },
+                icon = { Icon(Icons.Default.Delete, contentDescription = null, tint = BrandPink) },
+                title = { Text("删除音色", fontWeight = FontWeight.Bold, color = TextPrimary) },
                 text = {
                     val boundSkills = voiceSkillBindings[deleteVoice!!.voiceId] ?: emptyList()
                     Column {
@@ -826,8 +867,8 @@ fun SkillAndVoiceScreen(
         if (showDeleteAllDialog) {
             AlertDialog(
                 onDismissRequest = { showDeleteAllDialog = false },
-                icon = { Icon(Icons.Default.Delete, contentDescription = null) },
-                title = { Text("删除全部音色") },
+                icon = { Icon(Icons.Default.Delete, contentDescription = null, tint = BrandPink) },
+                title = { Text("删除全部音色", fontWeight = FontWeight.Bold, color = TextPrimary) },
                 text = {
                     Column {
                         Text("确定要删除所有远程音色吗？此操作不可撤销，已删除的音色无法恢复。系统内置音色不受影响。")

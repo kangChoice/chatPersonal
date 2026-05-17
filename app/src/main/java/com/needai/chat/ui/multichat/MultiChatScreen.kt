@@ -115,17 +115,41 @@ fun MultiChatScreen(
                         }
                     }
                     Row {
-                        IconButton(onClick = { viewModel.togglePromptEditor() }) {
-                            Icon(Icons.Default.Edit, contentDescription = "提示词配置", tint = BrandBlue)
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(CircleShape)
+                                .background(GlassWhite)
+                                .border(0.5.dp, Color.White.copy(alpha = 0.5f), CircleShape)
+                                .clickable { viewModel.togglePromptEditor() },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.Default.Edit, contentDescription = "提示词配置", tint = BrandBlue, modifier = Modifier.size(18.dp))
                         }
-                        Box {
-                            IconButton(onClick = { viewModel.toggleSkillSelector() }) {
-                                Icon(Icons.Default.AutoAwesome, contentDescription = "选择角色", tint = BrandPink)
-                            }
+                        Spacer(Modifier.width(8.dp))
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(CircleShape)
+                                .background(GlassWhite)
+                                .border(0.5.dp, Color.White.copy(alpha = 0.5f), CircleShape)
+                                .clickable { viewModel.toggleSkillSelector() },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.Default.AutoAwesome, contentDescription = "选择角色", tint = BrandPink, modifier = Modifier.size(18.dp))
                         }
+                        Spacer(Modifier.width(8.dp))
                         Box {
-                            IconButton(onClick = { showMenu = true }) {
-                                Icon(Icons.Default.Add, contentDescription = "更多", tint = BrandBlue)
+                            Box(
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .clip(CircleShape)
+                                    .background(GlassWhite)
+                                    .border(0.5.dp, Color.White.copy(alpha = 0.5f), CircleShape)
+                                    .clickable { showMenu = true },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(Icons.Default.Add, contentDescription = "更多", tint = BrandBlue, modifier = Modifier.size(18.dp))
                             }
                             DropdownMenu(
                                 expanded = showMenu,

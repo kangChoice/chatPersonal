@@ -2,6 +2,8 @@ package com.needai.chat.ui.skills
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -17,6 +19,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.painterResource
@@ -24,6 +27,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import com.needai.chat.ui.theme.*
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
@@ -32,7 +38,6 @@ import com.needai.chat.data.export.ExportUtils
 import com.needai.chat.domain.model.Skill
 import com.needai.chat.ui.navigation.Screen
 import com.needai.chat.ui.skills.components.SkillCard
-import com.needai.chat.ui.theme.*
 import androidx.compose.ui.graphics.Color
 import kotlinx.coroutines.launch
 
@@ -332,122 +337,187 @@ fun SkillEditDialog(
     var temperature by remember { mutableStateOf(initialSkill?.temperature?.toString() ?: "0.7") }
     var showSystemPromptDialog by remember { mutableStateOf(false) }
 
-    AlertDialog(
+    Dialog(
         onDismissRequest = onDismiss,
-        title = { Text(if (isEdit) "编辑角色" else "创建角色") },
-        text = {
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp),
+            shape = RoundedCornerShape(24.dp),
+            color = Color.White
+        ) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(max = 480.dp)
-                    .verticalScroll(rememberScrollState())
-                    .padding(vertical = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                    .padding(24.dp)
             ) {
-                OutlinedTextField(
-                    value = name,
-                    onValueChange = { name = it },
-                    label = { Text("名称") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
+                // Brand gradient title
+                BrandGradientText(
+                    text = if (isEdit) "编辑角色" else "创建角色",
+                    fontSize = 22.sp
                 )
-                OutlinedTextField(
-                    value = avatar,
-                    onValueChange = { avatar = it },
-                    label = { Text("头像 (Emoji)") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                OutlinedTextField(
-                    value = description,
-                    onValueChange = { description = it },
-                    label = { Text("描述") },
-                    maxLines = 3,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                OutlinedTextField(
-                    value = greeting,
-                    onValueChange = { greeting = it },
-                    label = { Text("问候语") },
-                    maxLines = 2,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                // System prompt card - click to open full-screen editor
-                Card(
+                Spacer(Modifier.height(20.dp))
+
+                // Scrollable form
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable { showSystemPromptDialog = true },
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-                    )
+                        .heightIn(max = 420.dp)
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(14.dp)
                 ) {
-                    Row(
+                    OutlinedTextField(
+                        value = name,
+                        onValueChange = { name = it },
+                        label = { Text("名称") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = BrandBlue,
+                            cursorColor = BrandBlue,
+                            focusedLabelColor = BrandBlue
+                        )
+                    )
+                    OutlinedTextField(
+                        value = avatar,
+                        onValueChange = { avatar = it },
+                        label = { Text("头像 (Emoji)") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = BrandBlue,
+                            cursorColor = BrandBlue,
+                            focusedLabelColor = BrandBlue
+                        )
+                    )
+                    OutlinedTextField(
+                        value = description,
+                        onValueChange = { description = it },
+                        label = { Text("描述") },
+                        maxLines = 3,
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = BrandBlue,
+                            cursorColor = BrandBlue,
+                            focusedLabelColor = BrandBlue
+                        )
+                    )
+                    OutlinedTextField(
+                        value = greeting,
+                        onValueChange = { greeting = it },
+                        label = { Text("问候语") },
+                        maxLines = 2,
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = BrandBlue,
+                            cursorColor = BrandBlue,
+                            focusedLabelColor = BrandBlue
+                        )
+                    )
+
+                    // System prompt card with glass style
+                    Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(12.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.Top
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(GlassWhite)
+                            .border(0.5.dp, Color.White.copy(alpha = 0.5f), RoundedCornerShape(12.dp))
+                            .clickable { showSystemPromptDialog = true }
                     ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "系统提示词 (System Prompt)",
-                                style = MaterialTheme.typography.labelLarge,
-                                fontWeight = FontWeight.Medium
-                            )
-                            Spacer(modifier = Modifier.height(2.dp))
-                            Text(
-                                text = systemPrompt.ifEmpty { "点击编辑系统提示词..." },
-                                style = MaterialTheme.typography.bodySmall,
-                                color = if (systemPrompt.isEmpty())
-                                    MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
-                                else
-                                    MaterialTheme.colorScheme.onSurface,
-                                maxLines = 3,
-                                overflow = TextOverflow.Ellipsis
-                            )
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(14.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.Top
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "系统提示词",
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = TextPrimary
+                                )
+                                Spacer(Modifier.height(4.dp))
+                                Text(
+                                    text = systemPrompt.ifEmpty { "点击编辑系统提示词..." },
+                                    fontSize = 12.sp,
+                                    color = if (systemPrompt.isEmpty()) TextTertiary else TextSecondary,
+                                    maxLines = 3,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                            Box(
+                                modifier = Modifier
+                                    .size(28.dp)
+                                    .clip(RoundedCornerShape(999.dp))
+                                    .background(BrandBlue.copy(alpha = 0.1f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    Icons.Default.Edit,
+                                    contentDescription = "编辑",
+                                    tint = BrandBlue,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
                         }
-                        Icon(
-                            Icons.Default.Edit,
-                            contentDescription = "编辑",
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(18.dp)
+                    }
+
+                    OutlinedTextField(
+                        value = temperature,
+                        onValueChange = { temperature = it },
+                        label = { Text("温度 (0.0 - 2.0)") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        isError = temperature.isNotEmpty() && temperature.toDoubleOrNull() == null,
+                        supportingText = {
+                            if (temperature.isNotEmpty() && temperature.toDoubleOrNull() == null) {
+                                Text("请输入有效数字")
+                            }
+                        },
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = BrandBlue,
+                            cursorColor = BrandBlue,
+                            focusedLabelColor = BrandBlue
                         )
+                    )
+                }
+
+                Spacer(Modifier.height(20.dp))
+
+                // Action buttons
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    TextButton(onClick = onDismiss) {
+                        Text("取消", color = TextSecondary)
+                    }
+                    Spacer(Modifier.width(12.dp))
+                    Button(
+                        onClick = {
+                            if (name.isNotBlank() && systemPrompt.isNotBlank()) {
+                                val temp = (temperature.toDoubleOrNull() ?: 0.7).coerceIn(0.0, 2.0)
+                                onSave(name, description, systemPrompt, avatar, greeting, temp)
+                            }
+                        },
+                        enabled = name.isNotBlank() && systemPrompt.isNotBlank(),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = BrandBlue,
+                            disabledContainerColor = BrandBlue.copy(alpha = 0.3f)
+                        ),
+                        shape = RoundedCornerShape(999.dp)
+                    ) {
+                        Text(if (isEdit) "保存" else "创建")
                     }
                 }
-                OutlinedTextField(
-                    value = temperature,
-                    onValueChange = { temperature = it },
-                    label = { Text("温度 (0.0 - 2.0)") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                    isError = temperature.isNotEmpty() && temperature.toDoubleOrNull() == null,
-                    supportingText = {
-                        if (temperature.isNotEmpty() && temperature.toDoubleOrNull() == null) {
-                            Text("请输入有效数字")
-                        }
-                    }
-                )
-            }
-        },
-        confirmButton = {
-            Button(
-                onClick = {
-                    if (name.isNotBlank() && systemPrompt.isNotBlank()) {
-                        val temp = (temperature.toDoubleOrNull() ?: 0.7).coerceIn(0.0, 2.0)
-                        onSave(name, description, systemPrompt, avatar, greeting, temp)
-                    }
-                },
-                enabled = name.isNotBlank() && systemPrompt.isNotBlank()
-            ) {
-                Text(if (isEdit) "保存" else "创建")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("取消")
             }
         }
-    )
+    }
 
     if (showSystemPromptDialog) {
         SystemPromptEditDialog(
