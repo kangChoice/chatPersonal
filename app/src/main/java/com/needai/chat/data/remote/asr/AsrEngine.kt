@@ -7,6 +7,7 @@ import com.google.gson.JsonObject
 import com.google.gson.JsonParser
 import com.needai.chat.util.FileLogger
 import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.*
 import okhttp3.*
 import okio.ByteString
 import java.util.UUID
@@ -47,7 +48,6 @@ class AsrEngine(private val apiKey: String, private val deviceId: String = "need
         object Initializing : AsrState()
         object Ready : AsrState()
         object Listening : AsrState()
-        object SentenceEnd : AsrState()
         object Stopping : AsrState()
         object Released : AsrState()
     }
@@ -57,6 +57,10 @@ class AsrEngine(private val apiKey: String, private val deviceId: String = "need
     private var scope: CoroutineScope? = null
     private var audioJob: Job? = null
     private var isInitialized = AtomicBoolean(false)
+
+    // 音量振幅（用于 UI 波形显示）
+    private val _amplitude = MutableStateFlow(0)
+    val amplitude: StateFlow<Int> = _amplitude.asStateFlow()
 
     // OkHttp WebSocket
     private var okHttpClient: OkHttpClient? = null
@@ -157,8 +161,7 @@ class AsrEngine(private val apiKey: String, private val deviceId: String = "need
 
     /**
      * 开始识别：发送 run-task，启动录音，流式上传音频。
-     * 可从 Ready（首次）或 SentenceEnd（恢复监听）状态调用。
-     * 恢复监听前先发 finish-task 关闭前一轮 task，避免服务器拒绝 run-task。
+     * 持续监听模式下 ASR 启动后一直运行直到 stop()/release()。
      */
     suspend fun start(): Result<Unit> = withContext(Dispatchers.IO) {
         if (!isInitialized.get() || webSocket == null) {
@@ -169,14 +172,7 @@ class AsrEngine(private val apiKey: String, private val deviceId: String = "need
         }
 
         try {
-            // 0. 如果是从句子结束恢复监听，先关闭上一轮 task
-            if (state == AsrState.SentenceEnd) {
-                val finishCmd = buildFinishTaskCommand()
-                webSocket!!.send(finishCmd)
-                FileLogger.d(TAG, "resume: 已发送 finish-task, taskId=$currentTaskId")
-            }
-
-            // 1. 发送 run-task（新 task_id）
+            // 1. 发送 run-task
             currentTaskId = UUID.randomUUID().toString()
             val runTaskCmd = buildRunTaskCommand()
             val sent = webSocket!!.send(runTaskCmd)
@@ -211,7 +207,7 @@ class AsrEngine(private val apiKey: String, private val deviceId: String = "need
     suspend fun stop(): Result<Unit> = withContext(Dispatchers.IO) {
         if (!isInitialized.get()) return@withContext Result.success(Unit)
 
-        val wasListening = state == AsrState.Listening || state == AsrState.SentenceEnd
+        val wasListening = state == AsrState.Listening
         state = AsrState.Stopping
         callback?.onStateChanged(state)
 
@@ -313,6 +309,11 @@ class AsrEngine(private val apiKey: String, private val deviceId: String = "need
                 if (read > 0) {
                     val data = if (read < buffer.size) buffer.copyOf(read) else buffer
                     webSocket?.send(ByteString.of(*data))
+
+                    // 计算近似峰值振幅（取每帧高字节的最大值）
+                    val amplitude = data.filterIndexed { i, _ -> i % 2 == 1 }
+                        .maxOfOrNull { kotlin.math.abs(it.toInt()) } ?: 0
+                    _amplitude.value = (amplitude * 4).coerceIn(0, 255)
                     frameCount++
                     if (frameCount % 50 == 0) { // 每 5 秒
                         FileLogger.d(TAG, "音频流式上传中: 已发送 ${frameCount * 3200 / 32000}s 音频")
@@ -384,11 +385,7 @@ class AsrEngine(private val apiKey: String, private val deviceId: String = "need
 
             if (isSentenceEnd) {
                 FileLogger.i(TAG, "句子结束: $text")
-                audioJob?.cancel()
-                audioJob = null
-                stopAudioRecord()
-                state = AsrState.SentenceEnd
-                callback?.onStateChanged(state)
+                // 持续监听模式：不停止录音/音频流，让 ASR 服务器保持识别
                 callback?.onSentenceEnd(text)
             } else {
                 FileLogger.d(TAG, "中间结果: $text")
@@ -415,13 +412,7 @@ class AsrEngine(private val apiKey: String, private val deviceId: String = "need
 
             if (isSentenceEnd) {
                 FileLogger.i(TAG, "句子结束: $text")
-                // 停止录音和音频上传（finish-task 由 stop() 统一发送）
-                audioJob?.cancel()
-                audioJob = null
-                stopAudioRecord()
-                // 更新状态并回调
-                state = AsrState.SentenceEnd
-                callback?.onStateChanged(state)
+                // 持续监听模式：不停止录音/音频流
                 callback?.onSentenceEnd(text)
             } else {
                 FileLogger.d(TAG, "中间结果: $text")

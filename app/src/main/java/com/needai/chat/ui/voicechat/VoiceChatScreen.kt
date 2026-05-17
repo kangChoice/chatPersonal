@@ -4,11 +4,13 @@ import android.Manifest
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
@@ -67,6 +69,17 @@ fun VoiceChatScreen(
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
                     }
+                },
+                actions = {
+                    if (uiState.isCallActive) {
+                        IconButton(onClick = { viewModel.toggleCall() }) {
+                            Icon(
+                                Icons.Default.Phone,
+                                contentDescription = "结束通话",
+                                tint = Color(0xFFE53935)
+                            )
+                        }
+                    }
                 }
             )
         }
@@ -78,11 +91,9 @@ fun VoiceChatScreen(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             if (uiState.isCallActive) {
-                // ===== 通话中 =====
-                CallActiveContent(uiState, viewModel, listState, permissionLauncher, context)
+                CallActiveContent(uiState, listState, viewModel)
             } else {
-                // ===== 非通话：角色选择 =====
-                SkillSelectionContent(uiState, viewModel)
+                SkillSelectionContent(uiState, viewModel, permissionLauncher)
             }
 
             // 错误提示（带步骤标识）
@@ -136,18 +147,10 @@ fun VoiceChatScreen(
 @Composable
 private fun SkillSelectionContent(
     uiState: VoiceChatUiState,
-    viewModel: VoiceChatViewModel
+    viewModel: VoiceChatViewModel,
+    permissionLauncher: androidx.activity.result.ActivityResultLauncher<String>
 ) {
     val context = LocalContext.current
-    val permissionLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { granted ->
-        if (granted) {
-            viewModel.toggleCall()
-        } else {
-            viewModel.updateError("需要麦克风权限才能通话")
-        }
-    }
 
     Column(
         modifier = Modifier
@@ -184,7 +187,6 @@ private fun SkillSelectionContent(
                 )
             }
         } else {
-            // 角色网格
             LazyColumn(
                 modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -333,11 +335,11 @@ private fun SelectedSkillInfoCard(uiState: VoiceChatUiState) {
 @Composable
 private fun CallActiveContent(
     uiState: VoiceChatUiState,
-    viewModel: VoiceChatViewModel,
     listState: androidx.compose.foundation.lazy.LazyListState,
-    permissionLauncher: androidx.activity.result.ActivityResultLauncher<String>,
-    context: android.content.Context
+    amplitudeProvider: VoiceChatViewModel
 ) {
+    val amplitude by amplitudeProvider.voiceAmplitude.collectAsState()
+
     Column(
         modifier = Modifier.fillMaxSize(),
         horizontalAlignment = Alignment.CenterHorizontally
@@ -409,33 +411,66 @@ private fun CallActiveContent(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // 结束通话按钮
-        Button(
-            onClick = {
-                viewModel.toggleCall()
-            },
-            modifier = Modifier
-                .size(120.dp)
-                .clip(CircleShape),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = Color(0xFFE53935)
-            ),
-            contentPadding = PaddingValues(0.dp)
-        ) {
-            Icon(
-                imageVector = Icons.Default.Phone,
-                contentDescription = "结束通话",
-                modifier = Modifier.size(48.dp),
-                tint = Color.White
+        // 语音波形（用户说话时跳动，静音时静态）
+        VoiceWaveform(
+            amplitude = amplitude,
+            isSpeaking = uiState.isSpeaking || uiState.partialText.isNotBlank(),
+            modifier = Modifier.padding(bottom = 24.dp)
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+    }
+}
+
+/**
+ * 语音波形动画组件。
+ * 说话时 7 条竖状条跟随振幅跳动，静音时保持静态低高度。
+ */
+@Composable
+private fun VoiceWaveform(
+    amplitude: Int,
+    isSpeaking: Boolean,
+    modifier: Modifier = Modifier
+) {
+    val barCount = 7
+
+    // 平滑振幅，避免动画过于突兀
+    val smoothAmplitude by animateFloatAsState(
+        targetValue = if (isSpeaking) amplitude.toFloat() / 255f else 0f,
+        animationSpec = tween(durationMillis = 120),
+        label = "amp"
+    )
+
+    // 各条高度因子，产生不均匀的跳动效果
+    val heightFactors = remember { floatArrayOf(0.4f, 0.7f, 1.0f, 0.8f, 0.6f, 0.9f, 0.5f) }
+
+    Row(
+        modifier = modifier,
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        for (index in 0 until barCount) {
+            val barHeight by animateFloatAsState(
+                targetValue = if (smoothAmplitude > 0.02f) {
+                    (smoothAmplitude * heightFactors[index]).coerceAtLeast(0.15f)
+                } else 0.12f,
+                animationSpec = tween(durationMillis = 100 + index * 20),
+                label = "bar$index"
+            )
+
+            Box(
+                modifier = Modifier
+                    .width(4.dp)
+                    .height((barHeight * 48).dp.coerceIn(4.dp, 48.dp))
+                    .clip(RoundedCornerShape(2.dp))
+                    .background(
+                        if (isSpeaking)
+                            MaterialTheme.colorScheme.primary
+                        else
+                            MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f)
+                    )
             )
         }
-
-        Text(
-            text = "点击结束",
-            modifier = Modifier.padding(top = 12.dp, bottom = 32.dp),
-            fontSize = 14.sp,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
     }
 }
 

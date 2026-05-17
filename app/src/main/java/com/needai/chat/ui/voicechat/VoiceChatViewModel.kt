@@ -18,6 +18,7 @@ import com.needai.chat.util.FileLogger
 import com.needai.chat.util.ITtsManager
 import com.needai.chat.util.TtsManagerImpl
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -36,7 +37,11 @@ data class VoiceChatUiState(
     val allSkills: List<Skill> = emptyList(),
     val selectedSkillId: String? = null,
     val currentVoiceDisplayName: String = "",
-    val currentModelDisplayName: String = ""
+    val currentModelDisplayName: String = "",
+    /** 用户正在说话（ASR 有中间结果） */
+    val isSpeaking: Boolean = false,
+    /** 正在播放 TTS */
+    val isTtsPlaying: Boolean = false
 )
 
 data class ChatEntry(
@@ -56,6 +61,10 @@ class VoiceChatViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(VoiceChatUiState())
     val uiState: StateFlow<VoiceChatUiState> = _uiState.asStateFlow()
 
+    /** ASR 实时音量振幅 0-255，用于 UI 波形显示 */
+    private val _voiceAmplitude = MutableStateFlow(0)
+    val voiceAmplitude: StateFlow<Int> = _voiceAmplitude.asStateFlow()
+
     private var voiceChatManager: VoiceChatManager? = null
     private var currentConfig: ModelConfig? = null
     private var ttsManager: ITtsManager? = null
@@ -65,6 +74,16 @@ class VoiceChatViewModel @Inject constructor(
     // TTS 队列追踪
     private var pendingTtsCount = 0
     private var ttsStreamDone = false
+
+    // 回声抑制：冷却期 + 内容匹配
+    private var lastTtsEndMs = 0L
+    private val recentTtsTexts = mutableListOf<String>()
+    private companion object {
+        private const val ECHO_COOLDOWN_MS = 800L
+        private const val MAX_TTS_CACHE = 3
+        private const val TAG = "VoiceChat"
+        private val PUNCT_REGEX = Regex("[\\s，。！？、；：,.!?;：、]")
+    }
 
     init {
         viewModelScope.launch {
@@ -141,7 +160,6 @@ class VoiceChatViewModel @Inject constructor(
             return
         }
 
-        // 尝试从系统音色中查找
         val systemVoice = SystemVoiceProvider.findSystemVoice(voiceId)
         if (systemVoice != null) {
             _uiState.update {
@@ -153,7 +171,6 @@ class VoiceChatViewModel @Inject constructor(
             return
         }
 
-        // 从自定义音色中查找
         val customVoice = allVoices.find { it.voiceId == voiceId }
         if (customVoice != null) {
             _uiState.update {
@@ -165,7 +182,6 @@ class VoiceChatViewModel @Inject constructor(
             return
         }
 
-        // 未找到，显示 voiceId
         val resolvedModel = SystemVoiceProvider.getModelForVoice(voiceId) ?: "cosyvoice-v3-flash"
         _uiState.update {
             it.copy(
@@ -178,6 +194,7 @@ class VoiceChatViewModel @Inject constructor(
     private fun setupVoiceChatCallbacks() {
         val manager = voiceChatManager ?: return
 
+        // 收集 ASR 状态
         viewModelScope.launch {
             manager.state.collect { state ->
                 when (state) {
@@ -185,12 +202,12 @@ class VoiceChatViewModel @Inject constructor(
                         _uiState.update { it.copy(status = "连接中...") }
                     }
                     is VoiceChatManager.State.Listening -> {
-                        _uiState.update { it.copy(status = "聆听中...") }
-                    }
-                    is VoiceChatManager.State.Processing -> {
-                    }
-                    is VoiceChatManager.State.Speaking -> {
-                        _uiState.update { it.copy(status = "播放中...") }
+                        _uiState.update {
+                            it.copy(
+                                status = if (it.isTtsPlaying) "播放中..." else "聆听中...",
+                                isSpeaking = it.isSpeaking
+                            )
+                        }
                     }
                     is VoiceChatManager.State.Error -> {
                         _uiState.update { it.copy(error = state.msg, errorStep = "ASR", status = "ASR失败") }
@@ -203,24 +220,76 @@ class VoiceChatViewModel @Inject constructor(
             }
         }
 
-        manager.setOnText { text ->
-            _uiState.update {
-                it.copy(
-                    lastUserText = text,
-                    partialText = "",
-                    conversationHistory = it.conversationHistory + ChatEntry("user", text)
-                )
+        // 收集音量振幅（用于波形显示）
+        viewModelScope.launch {
+            manager.amplitude.collect { amp ->
+                _voiceAmplitude.value = amp
             }
-            sendToLLM(text)
         }
 
+        // ASR 中间结果 → 用户正在说话
         manager.setOnPartial { text ->
-            _uiState.update { it.copy(partialText = text) }
+            _uiState.update {
+                it.copy(partialText = text, isSpeaking = text.isNotBlank())
+            }
+        }
+
+        // ASR 完整句子 → 回声过滤/打断/LLM
+        manager.setOnText { text ->
+            // TTS 刚结束的冷却期内，先检查是否回声
+            val ttsRecentlyActive = pendingTtsCount > 0 ||
+                System.currentTimeMillis() - lastTtsEndMs < ECHO_COOLDOWN_MS
+
+            if (ttsRecentlyActive && isLikelyEcho(text)) {
+                FileLogger.d(TAG, "回声内容匹配，忽略 ASR: ${text.take(30)}")
+                return@setOnText
+            }
+            handleUserText(text)
         }
 
         manager.setOnError { msg ->
             setError("ASR", msg)
         }
+    }
+
+    /**
+     * 处理用户输入的文本（来自 ASR）。
+     * - 回声冷却期内忽略（TTS 刚结束的残留音频）
+     * - 如果在播放或 LLM 流式输出中，执行打断
+     */
+    private fun handleUserText(text: String) {
+        // 回声冷却期检查
+        if (System.currentTimeMillis() - lastTtsEndMs < ECHO_COOLDOWN_MS) {
+            FileLogger.d(TAG, "忽略 ASR 结果（回声冷却期内）: $text")
+            return
+        }
+
+        val isBusy = pendingTtsCount > 0 || streamingJob?.isActive == true
+
+        if (isBusy) {
+            FileLogger.i(TAG, "打断当前输出，处理新输入: ${text.take(30)}")
+            // 停 TTS（先出声音，用户立刻感知到打断）
+            ttsManager?.stop()
+            // 取消 LLM 流
+            streamingJob?.cancel()
+            streamingJob = null
+            // 清空 TTS 缓存
+            ttsSentenceBuffer.clear()
+            pendingTtsCount = 0
+            ttsStreamDone = false
+            _uiState.update { it.copy(assistantText = "", isTtsPlaying = false) }
+        }
+
+        _uiState.update {
+            it.copy(
+                lastUserText = text,
+                partialText = "",
+                isSpeaking = false,
+                conversationHistory = it.conversationHistory + ChatEntry("user", text)
+            )
+        }
+
+        sendToLLM(text)
     }
 
     fun toggleCall() {
@@ -261,7 +330,9 @@ class VoiceChatViewModel @Inject constructor(
                 assistantText = "",
                 status = "连接中...",
                 skillName = selectedSkill?.name ?: "语音助手",
-                skillAvatar = selectedSkill?.avatar ?: "🎙️"
+                skillAvatar = selectedSkill?.avatar ?: "🎙️",
+                isSpeaking = false,
+                isTtsPlaying = false
             )
         }
 
@@ -272,14 +343,23 @@ class VoiceChatViewModel @Inject constructor(
         voiceChatManager?.start()
     }
 
+    /**
+     * 挂断操作：先停 TTS（立即静音）→ 取消 LLM → 最后停 ASR
+     */
     private fun stopCall() {
-        voiceChatManager?.stop()
-        streamingJob?.cancel()
-        streamingJob = null
+        // 1. 立即停止 TTS 播放
         ttsManager?.stop()
         ttsSentenceBuffer.clear()
         pendingTtsCount = 0
         ttsStreamDone = false
+
+        // 2. 取消 LLM 流
+        streamingJob?.cancel()
+        streamingJob = null
+
+        // 3. 停 ASR
+        voiceChatManager?.stop()
+
         _uiState.update {
             it.copy(
                 isCallActive = false,
@@ -287,7 +367,9 @@ class VoiceChatViewModel @Inject constructor(
                 partialText = "",
                 lastUserText = "",
                 assistantText = "",
-                error = null
+                error = null,
+                isSpeaking = false,
+                isTtsPlaying = false
             )
         }
     }
@@ -302,7 +384,6 @@ class VoiceChatViewModel @Inject constructor(
     private fun sendToLLM(userText: String) {
         val config = currentConfig ?: run {
             setError("LLM", "未选择模型配置")
-            voiceChatManager?.resumeListening()
             return
         }
         val skill = getSelectedSkill() ?: Skill(
@@ -333,7 +414,6 @@ class VoiceChatViewModel @Inject constructor(
                             if (text.startsWith("[错误]")) {
                                 val errorMsg = text.removePrefix("[错误]")
                                 setError("LLM", errorMsg)
-                                voiceChatManager?.resumeListening()
                                 return@collect
                             }
                             fullText.append(text)
@@ -346,10 +426,11 @@ class VoiceChatViewModel @Inject constructor(
                             appendTtsText(text)
                         }
                         is StreamEvent.Done -> {
-                            FileLogger.i("VoiceChat", "LLM 完成: ${fullText.length} 字符")
+                            FileLogger.i(TAG, "LLM 完成: ${fullText.length} 字符")
                             _uiState.update {
                                 it.copy(
                                     status = "播放中...",
+                                    isTtsPlaying = true,
                                     conversationHistory = it.conversationHistory + ChatEntry("assistant", fullText.toString())
                                 )
                             }
@@ -357,10 +438,29 @@ class VoiceChatViewModel @Inject constructor(
                         }
                     }
                 }
+            } catch (e: CancellationException) {
+                // 被打断（用户说了新的话），不报错
+                FileLogger.d(TAG, "LLM 流被取消（用户打断）")
             } catch (e: Exception) {
-                FileLogger.e("VoiceChat", "LLM 异常", e)
+                FileLogger.e(TAG, "LLM 异常", e)
                 setError("LLM", e.localizedMessage ?: "LLM 请求失败")
-                voiceChatManager?.resumeListening()
+            }
+        }
+    }
+
+    /**
+     * 检查 ASR 结果是否可能是 TTS 回声。
+     * 归一化后与最近 TTS 输出做子串匹配，高度重叠则判定为回声。
+     */
+    private fun isLikelyEcho(asrText: String): Boolean {
+        if (asrText.length < 3) return false
+        val asrNorm = asrText.replace(PUNCT_REGEX, "")
+        if (asrNorm.length < 3) return false
+
+        synchronized(recentTtsTexts) {
+            return recentTtsTexts.any { tts ->
+                val ttsNorm = tts.replace(PUNCT_REGEX, "")
+                ttsNorm.length >= 3 && (ttsNorm.contains(asrNorm) || asrNorm.contains(ttsNorm))
             }
         }
     }
@@ -387,6 +487,15 @@ class VoiceChatViewModel @Inject constructor(
         val skill = getSelectedSkill()
         val voiceId = skill?.voiceId ?: ""
         pendingTtsCount++
+        _uiState.update { it.copy(isTtsPlaying = true) }
+
+        // 记录最近 TTS 输出，用于回声内容匹配
+        synchronized(recentTtsTexts) {
+            recentTtsTexts.add(sentence)
+            if (recentTtsTexts.size > MAX_TTS_CACHE) {
+                recentTtsTexts.removeAt(0)
+            }
+        }
         val mgr = ttsManager
         if (mgr is TtsManagerImpl) {
             mgr.speakQueued(sentence, voiceId = voiceId, onDone = {
@@ -411,8 +520,8 @@ class VoiceChatViewModel @Inject constructor(
     private fun checkTtsDone() {
         if (ttsStreamDone && pendingTtsCount <= 0) {
             ttsStreamDone = false
-            voiceChatManager?.resumeListening()
-            _uiState.update { it.copy(status = "聆听中...") }
+            lastTtsEndMs = System.currentTimeMillis()
+            _uiState.update { it.copy(status = "聆听中...", isTtsPlaying = false) }
         }
     }
 
@@ -421,9 +530,5 @@ class VoiceChatViewModel @Inject constructor(
         voiceChatManager?.stop()
         streamingJob?.cancel()
         ttsManager?.shutdown()
-    }
-
-    companion object {
-        private const val TAG = "VoiceChat"
     }
 }

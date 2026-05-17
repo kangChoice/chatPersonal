@@ -5,33 +5,39 @@ import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
 
 /**
- * 语音对话管理器，编排 ASR → 回调给外部 → 外部处理 LLM+TTS → 继续循环。
+ * 语音对话管理器，编排 ASR → 回调给外部做 LLM+TTS。
+ *
+ * 持续监听模式：ASR 启动后一直运行，句子结束不停录音。
+ * 外部通过 setOnText 接收完整句子，自行处理打断逻辑。
  *
  * 使用方式：
  * ```
  * val manager = VoiceChatManager(apiKey)
  * manager.setOnText { text ->
- *     // text 是用户说的一句完整的话，送给 LLM
+ *     // text 是用户说的一句完整的话
+ *     // 如果 TTS 正在播放，自行决定是否打断
  * }
- * manager.start()  // 开始监听
+ * manager.start()
  * // ...
- * manager.stop()   // 结束
+ * manager.stop()
  * ```
  */
 class VoiceChatManager(private val apiKey: String) {
 
     sealed class State {
         object Idle : State()
-        object Connecting : State()          // ASR 初始化中
-        object Listening : State()           // 等待/正在听用户说话
-        object Processing : State()          // 用户说完了，外部处理中（LLM+TTS）
-        object Speaking : State()            // TTS 播放中（可选，由外部设置）
+        object Connecting : State()
+        object Listening : State()
         object Stopped : State()
         data class Error(val msg: String) : State()
     }
 
     private val _state = MutableStateFlow<State>(State.Idle)
     val state: StateFlow<State> = _state.asStateFlow()
+
+    /** ASR 实时音量振幅 0-255，用于 UI 波形显示 */
+    private val _asrAmplitude = MutableStateFlow(0)
+    val amplitude: StateFlow<Int> = _asrAmplitude.asStateFlow()
 
     private var asrEngine: AsrEngine? = null
     private var scope: CoroutineScope? = null
@@ -46,7 +52,7 @@ class VoiceChatManager(private val apiKey: String) {
     fun setOnError(callback: (msg: String) -> Unit) { onErrorCallback = callback }
 
     /**
-     * 开始语音对话。初始化 ASR → 开始监听。
+     * 开始语音对话。初始化 ASR → 开始持续监听。
      */
     fun start() {
         if (running) return
@@ -60,7 +66,6 @@ class VoiceChatManager(private val apiKey: String) {
      */
     fun stop() {
         running = false
-        // 使用 runBlocking 确保 stop/release 在 scope 取消前完成
         if (isAsrInitialized) {
             kotlinx.coroutines.runBlocking {
                 try {
@@ -75,14 +80,8 @@ class VoiceChatManager(private val apiKey: String) {
         }
         scope?.cancel()
         scope = null
+        _asrAmplitude.value = 0
         _state.value = State.Stopped
-    }
-
-    /**
-     * 标记外部正在播放 TTS。用来更新状态显示。
-     */
-    fun setSpeaking(speaking: Boolean) {
-        _state.value = if (speaking) State.Speaking else State.Listening
     }
 
     private fun initAndStartListening() {
@@ -110,7 +109,14 @@ class VoiceChatManager(private val apiKey: String) {
                 val startResult = asrEngine!!.start()
                 if (startResult.isSuccess) {
                     _state.value = State.Listening
-                    FileLogger.i(TAG, "开始监听")
+                    FileLogger.i(TAG, "开始持续监听（ASR 不间断）")
+
+                    // 持续收集振幅数据
+                    launch {
+                        asrEngine?.amplitude?.collect { amp ->
+                            _asrAmplitude.value = amp
+                        }
+                    }
                 } else {
                     FileLogger.e(TAG, "ASR start 失败: ${startResult.exceptionOrNull()?.message}")
                     _state.value = State.Error(startResult.exceptionOrNull()?.message ?: "ASR start 失败")
@@ -125,21 +131,11 @@ class VoiceChatManager(private val apiKey: String) {
     }
 
     /**
-     * 用户说完了，外部已经处理完 LLM+TTS，继续下一轮监听。
+     * 持续监听模式下无需手动恢复 ASR，此方法保留为无操作以兼容旧调用方。
      */
+    @Deprecated("持续监听模式下 ASR 不会停止，无需调用 resumeListening")
     fun resumeListening() {
-        if (!running) return
-        _state.value = State.Listening
-        scope?.launch {
-            try {
-                val startResult = asrEngine!!.start()
-                if (!startResult.isSuccess) {
-                    FileLogger.w(TAG, "继续监听失败: ${startResult.exceptionOrNull()?.message}")
-                }
-            } catch (e: Throwable) {
-                FileLogger.e(TAG, "继续监听异常", e)
-            }
-        }
+        // no-op
     }
 
     private val asrCallback = object : AsrEngine.Callback {
@@ -148,8 +144,7 @@ class VoiceChatManager(private val apiKey: String) {
         }
 
         override fun onSentenceEnd(text: String) {
-            FileLogger.i(TAG, "用户说完: $text")
-            _state.value = State.Processing
+            FileLogger.i(TAG, "用户说话: $text")
             onTextCallback?.invoke(text)
         }
 
@@ -160,7 +155,7 @@ class VoiceChatManager(private val apiKey: String) {
         }
 
         override fun onStateChanged(state: AsrEngine.AsrState) {
-            // 不需要额外处理，VoiceChatManager 维护自己的 state
+            // VoiceChatManager 维护自己的 state
         }
     }
 
