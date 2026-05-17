@@ -104,6 +104,9 @@ dependencies {
     implementation(files("libs/nuisdk-release.aar"))
     implementation("com.alibaba:fastjson:1.2.83")
 
+    // VAD
+    implementation(libs.vad.silero)
+
     // Testing
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)

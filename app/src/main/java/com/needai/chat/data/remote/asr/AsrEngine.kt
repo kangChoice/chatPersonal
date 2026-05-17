@@ -1,5 +1,6 @@
 package com.needai.chat.data.remote.asr
 
+import android.content.Context
 import android.media.AudioFormat
 import android.media.AudioRecord
 import android.media.MediaRecorder
@@ -30,7 +31,11 @@ import java.util.concurrent.atomic.AtomicBoolean
  * engine.release()
  * ```
  */
-class AsrEngine(private val apiKey: String, private val deviceId: String = "needai_asr_${UUID.randomUUID().toString().take(8)}") {
+class AsrEngine(
+    private val context: Context,
+    private val apiKey: String,
+    private val deviceId: String = "needai_asr_${UUID.randomUUID().toString().take(8)}"
+) {
 
     interface Callback {
         /** 中间识别结果（用户正在说话时） */
@@ -61,6 +66,10 @@ class AsrEngine(private val apiKey: String, private val deviceId: String = "need
     // 音量振幅（用于 UI 波形显示）
     private val _amplitude = MutableStateFlow(0)
     val amplitude: StateFlow<Int> = _amplitude.asStateFlow()
+
+    private val audioProcessor = AudioProcessor(context)
+    private val _isSpeaking = MutableStateFlow(false)
+    val isSpeaking: StateFlow<Boolean> = _isSpeaking.asStateFlow()
 
     // OkHttp WebSocket
     private var okHttpClient: OkHttpClient? = null
@@ -235,6 +244,7 @@ class AsrEngine(private val apiKey: String, private val deviceId: String = "need
      */
     suspend fun release(): Result<Unit> = withContext(Dispatchers.IO) {
         try {
+            audioProcessor.release()
             audioJob?.cancel()
             audioJob = null
             scope?.cancel()
@@ -268,14 +278,16 @@ class AsrEngine(private val apiKey: String, private val deviceId: String = "need
     private fun startAudioRecord() {
         if (audioRecord != null) return
         try {
-            audioRecord = AudioRecord(
-                MediaRecorder.AudioSource.MIC,
+            val record = AudioRecord(
+                MediaRecorder.AudioSource.VOICE_COMMUNICATION,
                 sampleRate,
                 AudioFormat.CHANNEL_IN_MONO,
                 AudioFormat.ENCODING_PCM_16BIT,
                 audioBufferSize
             )
-            audioRecord?.startRecording()
+            audioRecord = record
+            audioProcessor.init(record.audioSessionId)
+            record.startRecording()
             FileLogger.d(TAG, "AudioRecord 已启动")
         } catch (e: Throwable) {
             FileLogger.e(TAG, "启动 AudioRecord 失败", e)
@@ -310,10 +322,20 @@ class AsrEngine(private val apiKey: String, private val deviceId: String = "need
                     val data = if (read < buffer.size) buffer.copyOf(read) else buffer
                     webSocket?.send(ByteString.of(*data))
 
-                    // 计算近似峰值振幅（取每帧高字节的最大值）
-                    val amplitude = data.filterIndexed { i, _ -> i % 2 == 1 }
-                        .maxOfOrNull { kotlin.math.abs(it.toInt()) } ?: 0
-                    _amplitude.value = (amplitude * 4).coerceIn(0, 255)
+                    // VAD: 按 1024 字节（512 样本 @ 16kHz 16bit）逐帧检测人声
+                    var offset = 0
+                    while (offset + 1024 <= data.size) {
+                        audioProcessor.detectVoice(data.copyOfRange(offset, offset + 1024))
+                        offset += 1024
+                    }
+                    _isSpeaking.value = audioProcessor.isSpeaking
+
+                    // 振幅：仅在有 VAD 人声时更新，否则保持 0 让波形静态
+                    val amp = if (audioProcessor.isSpeaking) {
+                        data.filterIndexed { i, _ -> i % 2 == 1 }
+                            .maxOfOrNull { kotlin.math.abs(it.toInt()) } ?: 0
+                    } else 0
+                    _amplitude.value = (amp * 4).coerceIn(0, 255)
                     frameCount++
                     if (frameCount % 50 == 0) { // 每 5 秒
                         FileLogger.d(TAG, "音频流式上传中: 已发送 ${frameCount * 3200 / 32000}s 音频")

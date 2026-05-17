@@ -414,7 +414,7 @@ private fun CallActiveContent(
         // 语音波形（用户说话时跳动，静音时静态）
         VoiceWaveform(
             amplitude = amplitude,
-            isSpeaking = uiState.isSpeaking || uiState.partialText.isNotBlank(),
+            isSpeaking = uiState.isSpeaking,
             modifier = Modifier.padding(bottom = 24.dp)
         )
 

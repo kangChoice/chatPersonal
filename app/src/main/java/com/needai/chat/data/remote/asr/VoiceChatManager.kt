@@ -1,5 +1,6 @@
 package com.needai.chat.data.remote.asr
 
+import android.content.Context
 import com.needai.chat.util.FileLogger
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
@@ -22,7 +23,7 @@ import kotlinx.coroutines.flow.*
  * manager.stop()
  * ```
  */
-class VoiceChatManager(private val apiKey: String) {
+class VoiceChatManager(private val context: Context, private val apiKey: String) {
 
     sealed class State {
         object Idle : State()
@@ -38,6 +39,10 @@ class VoiceChatManager(private val apiKey: String) {
     /** ASR 实时音量振幅 0-255，用于 UI 波形显示 */
     private val _asrAmplitude = MutableStateFlow(0)
     val amplitude: StateFlow<Int> = _asrAmplitude.asStateFlow()
+
+    /** VAD 用户是否正在说话 */
+    private val _isSpeaking = MutableStateFlow(false)
+    val isSpeaking: StateFlow<Boolean> = _isSpeaking.asStateFlow()
 
     private var asrEngine: AsrEngine? = null
     private var scope: CoroutineScope? = null
@@ -92,7 +97,7 @@ class VoiceChatManager(private val apiKey: String) {
                 _state.value = State.Connecting
 
                 if (!isAsrInitialized) {
-                    asrEngine = AsrEngine(apiKey)
+                    asrEngine = AsrEngine(context, apiKey)
                     asrEngine?.setCallback(asrCallback)
 
                     val result = asrEngine!!.initialize()
@@ -115,6 +120,13 @@ class VoiceChatManager(private val apiKey: String) {
                     launch {
                         asrEngine?.amplitude?.collect { amp ->
                             _asrAmplitude.value = amp
+                        }
+                    }
+
+                    // 持续收集 VAD 说话状态
+                    launch {
+                        asrEngine?.isSpeaking?.collect { speaking ->
+                            _isSpeaking.value = speaking
                         }
                     }
                 } else {

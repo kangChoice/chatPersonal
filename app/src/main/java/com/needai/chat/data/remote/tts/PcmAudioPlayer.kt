@@ -4,9 +4,12 @@ import android.media.AudioAttributes
 import android.media.AudioFormat
 import android.media.AudioTrack
 import android.util.Log
+import com.needai.chat.data.remote.asr.TtsReferenceBuffer
 
 class PcmAudioPlayer(
-    private val sampleRate: Int = 24000
+    private val sampleRate: Int = 24000,
+    /** TTS 参考信号缓冲区（供 AEC 使用） */
+    val ttsReference: TtsReferenceBuffer = TtsReferenceBuffer()
 ) {
     private var audioTrack: AudioTrack? = null
     private var isPlaying = false
@@ -31,7 +34,7 @@ class PcmAudioPlayer(
         audioTrack = AudioTrack.Builder()
             .setAudioAttributes(
                 AudioAttributes.Builder()
-                    .setUsage(AudioAttributes.USAGE_MEDIA)
+                    .setUsage(AudioAttributes.USAGE_VOICE_COMMUNICATION)
                     .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
                     .build()
             )
@@ -64,6 +67,8 @@ class PcmAudioPlayer(
     fun write(data: ByteArray) {
         ensureTrack()
         if (audioTrack == null) return
+        // 捕获 TTS 参考信号（用于 AEC 回声消除）
+        ttsReference.write(data)
         try {
             audioTrack!!.write(data, 0, data.size)
         } catch (e: Exception) {
