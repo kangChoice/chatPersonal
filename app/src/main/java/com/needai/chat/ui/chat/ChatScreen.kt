@@ -290,7 +290,6 @@ fun ChatScreen(
                 onSelectedIndexChanged = { carouselSelectedIndex = it },
                 onSkillSelected = { skill ->
                     viewModel.switchSkill(skill)
-                    viewModel.newSession()
                     showCarousel = false
                 },
                 voiceNameMap = voiceAliases
@@ -374,24 +373,12 @@ fun ChatScreen(
                         onDismissRequest = { showMenu = false }
                     ) {
                         DropdownMenuItem(
-                            text = { Text("切换角色") },
-                            onClick = { showMenu = false; showSkillSelector = true }
-                        )
-                        DropdownMenuItem(
-                            text = { Text("历史会话") },
-                            onClick = { showMenu = false; showHistorySession = true }
-                        )
-                        DropdownMenuItem(
                             text = { Text("导出会话") },
                             onClick = { showMenu = false; showExportDialog = true }
                         )
                         DropdownMenuItem(
                             text = { Text("导入会话") },
                             onClick = { showMenu = false; importSessionLauncher.launch(arrayOf("text/*", "*/*")) }
-                        )
-                        DropdownMenuItem(
-                            text = { Text("新建对话") },
-                            onClick = { viewModel.newSession(); showMenu = false }
                         )
                         DropdownMenuItem(
                             text = { Text("清空上下文") },

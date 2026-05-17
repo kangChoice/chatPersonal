@@ -147,6 +147,20 @@ class ChatViewModel @Inject constructor(
             )
             chatRepository.insertMessage(userMessage)
 
+            // 立即持久化会话记录，确保角色-会话关联不被应用退出丢失
+            sessionRepository.saveSession(
+                ChatSession(
+                    id = sessionId,
+                    skillId = currentSkill.id,
+                    skillName = currentSkill.name,
+                    skillAvatar = currentSkill.avatar,
+                    title = text.take(50).replace("\n", " "),
+                    messageCount = 1,
+                    createdAt = timestamp,
+                    updatedAt = timestamp
+                )
+            )
+
             // Start streaming
             _uiState.update { it.copy(isStreaming = true, currentStreamingMessage = "") }
 
@@ -273,13 +287,21 @@ class ChatViewModel @Inject constructor(
         viewModelScope.launch {
             saveCurrentSession()
             skillRepository.setSelectedSkillId(skill.id)
-            val newId = chatRepository.createNewSession()
-            sessionIdFlow.value = newId
+
+            // 优先加载该角色的最近一次会话，保留历史记录
+            val existingSessions = sessionRepository.getSessionsBySkillId(skill.id)
+            val latestSession = existingSessions.maxByOrNull { it.updatedAt }
+            val targetSessionId = if (latestSession != null) {
+                latestSession.id
+            } else {
+                chatRepository.createNewSession()
+            }
+
+            sessionIdFlow.value = targetSessionId
             _uiState.update {
                 it.copy(
                     currentSkill = skill,
-                    sessionId = newId,
-                    messages = emptyList(),
+                    sessionId = targetSessionId,
                     currentStreamingMessage = "",
                     isStreaming = false
                 )

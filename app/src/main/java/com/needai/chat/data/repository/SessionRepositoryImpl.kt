@@ -63,6 +63,10 @@ class SessionRepositoryImpl @Inject constructor(
         return toDomainSession(entity)
     }
 
+    override suspend fun getSessionsBySkillId(skillId: String): List<ChatSession> {
+        return sessionDao.getSessionsBySkillId(skillId).map { toDomainSession(it) }
+    }
+
     override suspend fun saveSession(session: ChatSession) {
         sessionDao.upsertSession(SessionMapper.toEntity(session))
     }

@@ -23,6 +23,10 @@ class FakeSessionRepository : SessionRepository {
         return _sessions.value.find { it.id == id }
     }
 
+    override suspend fun getSessionsBySkillId(skillId: String): List<ChatSession> {
+        return _sessions.value.filter { it.skillId == skillId }
+    }
+
     override suspend fun saveSession(session: ChatSession) {
         val existing = _sessions.value.indexOfFirst { it.id == session.id }
         if (existing >= 0) {
