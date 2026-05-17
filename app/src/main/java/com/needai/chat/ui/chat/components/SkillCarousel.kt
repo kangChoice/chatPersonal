@@ -1,8 +1,10 @@
 package com.needai.chat.ui.chat.components
 
+import android.graphics.BitmapFactory
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -19,14 +21,18 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.needai.chat.domain.model.Skill
 import com.needai.chat.ui.theme.*
+import com.needai.chat.util.AvatarUtils
+import java.io.File
 
 @Composable
 fun SkillCarousel(
@@ -38,11 +44,12 @@ fun SkillCarousel(
     modifier: Modifier = Modifier
 ) {
     if (skills.isEmpty()) return
+    val context = LocalContext.current
 
     Column(
         modifier = modifier.fillMaxSize()
     ) {
-        // ============ Header (identical to index.html .home-header) ============
+        // ============ Header ============
         Spacer(Modifier.height(32.dp))
         Row(
             modifier = Modifier
@@ -87,13 +94,25 @@ fun SkillCarousel(
                 )
 
                 val overlayColors = listOf(
-                    listOf(BrandMint.copy(alpha = 0.6f), BrandMint.copy(alpha = 0.1f)),
-                    listOf(BrandBlue.copy(alpha = 0.6f), BrandBlue.copy(alpha = 0.1f)),
-                    listOf(BrandPink.copy(alpha = 0.6f), BrandPink.copy(alpha = 0.1f))
+                    listOf(BrandMint.copy(alpha = 0.5f), BrandMint.copy(alpha = 0.05f)),
+                    listOf(BrandBlue.copy(alpha = 0.5f), BrandBlue.copy(alpha = 0.05f)),
+                    listOf(BrandPink.copy(alpha = 0.5f), BrandPink.copy(alpha = 0.05f))
                 )
                 val overlayBrush = Brush.verticalGradient(
                     overlayColors[index % overlayColors.size]
                 )
+
+                // 加载头像
+                val avatarBitmap = remember(skill.avatarPath, skill.id) {
+                    val path = if (skill.avatarPath.isNotBlank()) {
+                        val f = File(skill.avatarPath)
+                        if (f.exists()) skill.avatarPath
+                        else AvatarUtils.getDefaultAvatarPath(context)
+                    } else {
+                        AvatarUtils.getDefaultAvatarPath(context)
+                    }
+                    try { BitmapFactory.decodeFile(path) } catch (_: Exception) { null }
+                }
 
                 Box(
                     modifier = Modifier
@@ -111,6 +130,19 @@ fun SkillCarousel(
                             }
                         }
                 ) {
+                    // 头像背景图
+                    if (avatarBitmap != null) {
+                        Image(
+                            bitmap = avatarBitmap.asImageBitmap(),
+                            contentDescription = null,
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .clip(RoundedCornerShape(32.dp)),
+                            contentScale = ContentScale.Crop,
+                            alpha = 1.0f
+                        )
+                    }
+
                     // Card background gradient
                     Box(
                         modifier = Modifier
@@ -118,8 +150,8 @@ fun SkillCarousel(
                             .background(
                                 Brush.linearGradient(
                                     listOf(
-                                        Color.White.copy(alpha = 0.12f),
-                                        Color.White.copy(alpha = 0.04f)
+                                        Color.White.copy(alpha = 0.05f),
+                                        Color.White.copy(alpha = 0.0f)
                                     )
                                 ),
                                 RoundedCornerShape(32.dp)
@@ -131,7 +163,7 @@ fun SkillCarousel(
                             )
                     )
 
-                    // Colored overlay (matching .card-overlay)
+                    // Colored overlay
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
@@ -150,7 +182,6 @@ fun SkillCarousel(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.Bottom
                         ) {
-                            // Left: skill name + voice tag
                             Column {
                                 Text(
                                     text = skill.name,
@@ -159,7 +190,6 @@ fun SkillCarousel(
                                     color = Color.White
                                 )
                                 Spacer(Modifier.height(6.dp))
-                                // Voice name tag
                                 Box(
                                     modifier = Modifier
                                         .background(

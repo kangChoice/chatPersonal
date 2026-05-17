@@ -17,6 +17,8 @@ class FakeSkillRepository : SkillRepository {
 
     override fun getAllSkills(): Flow<List<Skill>> = _skills
 
+    override fun selectedSkillIdFlow(): Flow<String> = _selectedSkillId
+
     override suspend fun getSkillById(id: String): Skill? {
         return _skills.value.find { it.id == id }
     }
@@ -37,5 +39,23 @@ class FakeSkillRepository : SkillRepository {
 
     override suspend fun setSelectedSkillId(id: String) {
         _selectedSkillId.value = id
+    }
+
+    override suspend fun getSkillsByVoiceId(voiceId: String): List<Skill> {
+        return _skills.value.filter { it.voiceId == voiceId }
+    }
+
+    override suspend fun updateSkillsVoiceId(voiceId: String, selectedSkillIds: Set<String>) {
+        _skills.value = _skills.value.map { skill ->
+            if (skill.id in selectedSkillIds) skill.copy(voiceId = voiceId)
+            else if (skill.voiceId == voiceId && skill.id !in selectedSkillIds) skill.copy(voiceId = "")
+            else skill
+        }
+    }
+
+    override suspend fun clearVoiceIdForSkillIds(skillIds: Set<String>) {
+        _skills.value = _skills.value.map { skill ->
+            if (skill.id in skillIds) skill.copy(voiceId = "") else skill
+        }
     }
 }

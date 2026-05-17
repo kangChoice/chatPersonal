@@ -1,12 +1,15 @@
 package com.needai.chat.ui.skills
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.needai.chat.domain.model.Skill
 import com.needai.chat.domain.model.VoiceInfo
 import com.needai.chat.domain.repository.SkillRepository
 import com.needai.chat.domain.repository.VoiceRepository
+import com.needai.chat.util.AvatarUtils
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -14,7 +17,8 @@ import javax.inject.Inject
 @HiltViewModel
 class SkillViewModel @Inject constructor(
     private val skillRepository: SkillRepository,
-    private val voiceRepository: VoiceRepository
+    private val voiceRepository: VoiceRepository,
+    @ApplicationContext private val appContext: Context? = null
 ) : ViewModel() {
 
     private val _skills = MutableStateFlow<List<Skill>>(emptyList())
@@ -42,7 +46,7 @@ class SkillViewModel @Inject constructor(
         }
     }
 
-    fun createSkill(name: String, description: String, systemPrompt: String, avatar: String, greeting: String, temperature: Double, voiceId: String = "", onResult: ((Boolean, String) -> Unit)? = null) {
+    fun createSkill(name: String, description: String, systemPrompt: String, avatar: String, greeting: String, temperature: Double, voiceId: String = "", avatarPath: String = "", onResult: ((Boolean, String) -> Unit)? = null) {
         val skill = Skill(
             id = java.util.UUID.randomUUID().toString(),
             name = name,
@@ -53,7 +57,8 @@ class SkillViewModel @Inject constructor(
             temperature = temperature,
             tags = listOf("custom"),
             isBuiltin = false,
-            voiceId = voiceId
+            voiceId = voiceId,
+            avatarPath = avatarPath
         )
         viewModelScope.launch {
             skillRepository.insertSkill(skill)
@@ -69,6 +74,11 @@ class SkillViewModel @Inject constructor(
 
     fun deleteSkill(id: String) {
         viewModelScope.launch {
+            // 获取删除前的 skill 信息，以便清理头像文件
+            val skill = skillRepository.getSkillById(id)
+            if (skill != null) {
+                appContext?.let { AvatarUtils.deleteAvatar(it, skill.id, skill.isBuiltin) }
+            }
             skillRepository.deleteSkill(id)
         }
     }

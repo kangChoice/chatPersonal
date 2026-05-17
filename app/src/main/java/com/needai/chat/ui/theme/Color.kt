@@ -38,7 +38,15 @@ val GlowBlue = Color(0x265B9DFF)  // rgba(91,157,255,0.15)
 val StatusGreen = BrandMint
 val StatusRed = Color(0xFFEF5350)
 
-// ============ Dark theme（保留骨架） ============
+// ============ Dark theme 语义色 ============
 val DarkBg = Color(0xFF121212)
 val DarkSurface = Color(0xFF1E1E1E)
-val DarkText = Color(0xFFE6E1E5)
+val DarkCard = Color(0xFF2A2A2A)
+val DarkTextPrimary = Color(0xFFE6E1E5)
+val DarkTextSecondary = Color(0xFFB0ABB0)
+val DarkTextTertiary = Color(0xFF8A858A)
+val DarkDivider = Color(0x33FFFFFF)
+val DarkGlassWhite = Color.White.copy(alpha = 0.12f)
+val DarkGlassInput = Color.White.copy(alpha = 0.10f)
+val DarkBubbleAiBg = Color.White.copy(alpha = 0.12f)
+val DarkBubbleAiBorder = Color.White.copy(alpha = 0.08f)

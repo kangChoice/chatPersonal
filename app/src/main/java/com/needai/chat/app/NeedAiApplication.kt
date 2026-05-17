@@ -10,6 +10,7 @@ import com.needai.chat.data.local.datastore.SettingsDataStore
 import com.needai.chat.data.local.db.AppDatabase
 import com.needai.chat.data.local.db.entity.ModelConfigEntity
 import com.needai.chat.data.local.db.entity.SkillEntity
+import com.needai.chat.util.AvatarUtils
 import com.needai.chat.util.FileLogger
 import dagger.hilt.android.HiltAndroidApp
 import kotlinx.coroutines.CoroutineScope
@@ -59,7 +60,7 @@ class NeedAiApplication : Application() {
                 this@NeedAiApplication,
                 AppDatabase::class.java,
                 "needai_chat.db"
-            ).build()
+            ).fallbackToDestructiveMigration().build()
 
             if (db.skillDao().getCount() == 0) {
                 val now = System.currentTimeMillis()
@@ -102,6 +103,9 @@ class NeedAiApplication : Application() {
             }
 
             db.close()
+
+            // 初始化默认角色头像
+            AvatarUtils.initDefaultAvatar(this@NeedAiApplication)
 
             // 内置 TTS API Key 初始化
             if (ttsConfig != null && ttsConfig.apiKey.isNotBlank()) {

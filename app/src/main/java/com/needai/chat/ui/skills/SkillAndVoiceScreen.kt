@@ -69,7 +69,6 @@ fun SkillAndVoiceScreen(
     // Skill 状态
     // ======================================================================
     val skills by skillViewModel.skills.collectAsStateWithLifecycle()
-    var showSkillCreateDialog by remember { mutableStateOf(false) }
     var skillToDelete by remember { mutableStateOf<Skill?>(null) }
     var skillToExport by remember { mutableStateOf<Skill?>(null) }
     var isSelectionMode by remember { mutableStateOf(false) }
@@ -225,7 +224,7 @@ fun SkillAndVoiceScreen(
                                         .clip(CircleShape)
                                         .background(GlassWhite)
                                         .border(0.5.dp, Color.White.copy(alpha = 0.5f), CircleShape)
-                                        .clickable { showSkillCreateDialog = true },
+                                        .clickable { navController.navigate(Screen.skillEdit("new")) },
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Text("+", color = BrandBlue, fontSize = 18.sp, fontWeight = FontWeight.Light)
@@ -630,18 +629,6 @@ fun SkillAndVoiceScreen(
         }
 
         // Dialogs – Skill
-        if (showSkillCreateDialog) {
-            SkillEditDialog(
-                onDismiss = { showSkillCreateDialog = false },
-                onSave = { name, desc, prompt, avatar, greeting, temp ->
-                    skillViewModel.createSkill(name, desc, prompt, avatar, greeting, temp) { success, msg ->
-                        coroutineScope.launch { snackbarHostState.showSnackbar(msg) }
-                    }
-                    showSkillCreateDialog = false
-                }
-            )
-        }
-
         if (skillToDelete != null) {
             AlertDialog(
                 onDismissRequest = { skillToDelete = null },

@@ -13,7 +13,7 @@ import com.needai.chat.data.local.db.entity.SkillEntity
 
 @Database(
     entities = [SkillEntity::class, MessageEntity::class, SessionEntity::class, ModelConfigEntity::class],
-    version = 6,
+    version = 7,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {

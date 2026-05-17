@@ -1,6 +1,7 @@
 package com.needai.chat.ui.skills
 
 import com.needai.chat.data.repository.FakeSkillRepository
+import com.needai.chat.data.repository.FakeVoiceRepository
 import com.needai.chat.domain.model.Skill
 import com.needai.chat.ui.chat.TestDispatcherRule
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -18,6 +19,7 @@ class SkillViewModelTest {
     val mainDispatcherRule = TestDispatcherRule()
 
     private val fakeRepository = FakeSkillRepository()
+    private val fakeVoiceRepository = FakeVoiceRepository()
     private lateinit var viewModel: SkillViewModel
 
     private val builtinSkill = Skill(
@@ -33,7 +35,7 @@ class SkillViewModelTest {
     @Before
     fun setup() {
         fakeRepository.setSkills(listOf(builtinSkill))
-        viewModel = SkillViewModel(fakeRepository)
+        viewModel = SkillViewModel(fakeRepository, fakeVoiceRepository)
     }
 
     @Test

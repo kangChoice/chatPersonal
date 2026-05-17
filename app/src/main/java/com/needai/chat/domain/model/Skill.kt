@@ -10,5 +10,6 @@ data class Skill(
     val temperature: Double = 0.7,
     val tags: List<String> = emptyList(),
     val isBuiltin: Boolean = false,
-    val voiceId: String = ""
+    val voiceId: String = "",
+    val avatarPath: String = ""
 )
