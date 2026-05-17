@@ -30,6 +30,7 @@ data class VoiceChatUiState(
     val assistantText: String = "",
     val conversationHistory: List<ChatEntry> = emptyList(),
     val error: String? = null,
+    val errorStep: String? = null,
     val skillName: String = "语音助手",
     val skillAvatar: String = "🎙️",
     val allSkills: List<Skill> = emptyList(),
@@ -192,7 +193,7 @@ class VoiceChatViewModel @Inject constructor(
                         _uiState.update { it.copy(status = "播放中...") }
                     }
                     is VoiceChatManager.State.Error -> {
-                        _uiState.update { it.copy(error = state.msg, status = "连接失败") }
+                        _uiState.update { it.copy(error = state.msg, errorStep = "ASR", status = "ASR失败") }
                     }
                     is VoiceChatManager.State.Stopped -> {
                         _uiState.update { it.copy(status = "已结束") }
@@ -218,7 +219,7 @@ class VoiceChatViewModel @Inject constructor(
         }
 
         manager.setOnError { msg ->
-            _uiState.update { it.copy(error = msg, status = "连接失败") }
+            setError("ASR", msg)
         }
     }
 
@@ -231,7 +232,7 @@ class VoiceChatViewModel @Inject constructor(
     }
 
     fun updateError(msg: String) {
-        _uiState.update { it.copy(error = msg) }
+        _uiState.update { it.copy(error = msg, errorStep = "权限") }
     }
 
     private fun getSelectedSkill(): Skill? {
@@ -245,7 +246,7 @@ class VoiceChatViewModel @Inject constructor(
 
     private fun startCall() {
         if (voiceChatManager == null) {
-            _uiState.update { it.copy(error = "TTS API Key 未配置") }
+            setError("TTS", "API Key 未配置")
             return
         }
 
@@ -293,9 +294,14 @@ class VoiceChatViewModel @Inject constructor(
 
     private var streamingJob: kotlinx.coroutines.Job? = null
 
+    private fun setError(step: String, message: String) {
+        FileLogger.e(TAG, "[$step] $message")
+        _uiState.update { it.copy(error = message, errorStep = step, status = "${step}失败") }
+    }
+
     private fun sendToLLM(userText: String) {
         val config = currentConfig ?: run {
-            _uiState.update { it.copy(error = "未选择模型配置") }
+            setError("LLM", "未选择模型配置")
             voiceChatManager?.resumeListening()
             return
         }
@@ -326,8 +332,7 @@ class VoiceChatViewModel @Inject constructor(
                             val text = event.text
                             if (text.startsWith("[错误]")) {
                                 val errorMsg = text.removePrefix("[错误]")
-                                FileLogger.e("VoiceChat", "LLM 错误: $errorMsg")
-                                _uiState.update { it.copy(error = errorMsg) }
+                                setError("LLM", errorMsg)
                                 voiceChatManager?.resumeListening()
                                 return@collect
                             }
@@ -354,7 +359,7 @@ class VoiceChatViewModel @Inject constructor(
                 }
             } catch (e: Exception) {
                 FileLogger.e("VoiceChat", "LLM 异常", e)
-                _uiState.update { it.copy(error = e.localizedMessage ?: "LLM 请求失败") }
+                setError("LLM", e.localizedMessage ?: "LLM 请求失败")
                 voiceChatManager?.resumeListening()
             }
         }
@@ -416,5 +421,9 @@ class VoiceChatViewModel @Inject constructor(
         voiceChatManager?.stop()
         streamingJob?.cancel()
         ttsManager?.shutdown()
+    }
+
+    companion object {
+        private const val TAG = "VoiceChat"
     }
 }

@@ -158,7 +158,7 @@ class AsrEngine(private val apiKey: String, private val deviceId: String = "need
     /**
      * 开始识别：发送 run-task，启动录音，流式上传音频。
      * 可从 Ready（首次）或 SentenceEnd（恢复监听）状态调用。
-     * 服务器对每个 run-task 独立处理，前一个 task 会自动超时结束。
+     * 恢复监听前先发 finish-task 关闭前一轮 task，避免服务器拒绝 run-task。
      */
     suspend fun start(): Result<Unit> = withContext(Dispatchers.IO) {
         if (!isInitialized.get() || webSocket == null) {
@@ -169,6 +169,13 @@ class AsrEngine(private val apiKey: String, private val deviceId: String = "need
         }
 
         try {
+            // 0. 如果是从句子结束恢复监听，先关闭上一轮 task
+            if (state == AsrState.SentenceEnd) {
+                val finishCmd = buildFinishTaskCommand()
+                webSocket!!.send(finishCmd)
+                FileLogger.d(TAG, "resume: 已发送 finish-task, taskId=$currentTaskId")
+            }
+
             // 1. 发送 run-task（新 task_id）
             currentTaskId = UUID.randomUUID().toString()
             val runTaskCmd = buildRunTaskCommand()
@@ -209,9 +216,9 @@ class AsrEngine(private val apiKey: String, private val deviceId: String = "need
         callback?.onStateChanged(state)
 
         try {
-            stopAudioRecord()
             audioJob?.cancel()
             audioJob = null
+            stopAudioRecord()
 
             if (webSocket != null && wasListening) {
                 val finishCmd = buildFinishTaskCommand()
@@ -232,19 +239,14 @@ class AsrEngine(private val apiKey: String, private val deviceId: String = "need
      */
     suspend fun release(): Result<Unit> = withContext(Dispatchers.IO) {
         try {
-            stopAudioRecord()
             audioJob?.cancel()
             audioJob = null
             scope?.cancel()
             scope = null
+            stopAudioRecord()
 
-            // 发送 finish-task（如果还在运行）
-            if (webSocket != null && isInitialized.get()) {
-                try {
-                    val finishCmd = buildFinishTaskCommand()
-                    webSocket!!.send(finishCmd)
-                } catch (_: Throwable) { }
-
+            // 关闭 WebSocket（stop() 已负责发送 finish-task，此处不再重复发送）
+            if (webSocket != null) {
                 try {
                     webSocket!!.close(1000, "client release")
                 } catch (_: Throwable) { }
@@ -382,9 +384,9 @@ class AsrEngine(private val apiKey: String, private val deviceId: String = "need
 
             if (isSentenceEnd) {
                 FileLogger.i(TAG, "句子结束: $text")
-                stopAudioRecord()
                 audioJob?.cancel()
                 audioJob = null
+                stopAudioRecord()
                 state = AsrState.SentenceEnd
                 callback?.onStateChanged(state)
                 callback?.onSentenceEnd(text)
@@ -413,13 +415,10 @@ class AsrEngine(private val apiKey: String, private val deviceId: String = "need
 
             if (isSentenceEnd) {
                 FileLogger.i(TAG, "句子结束: $text")
-                // 停止录音和音频上传
-                stopAudioRecord()
+                // 停止录音和音频上传（finish-task 由 stop() 统一发送）
                 audioJob?.cancel()
                 audioJob = null
-                // 发送 finish-task 结束当前 task
-                val finishCmd = buildFinishTaskCommand()
-                webSocket?.send(finishCmd)
+                stopAudioRecord()
                 // 更新状态并回调
                 state = AsrState.SentenceEnd
                 callback?.onStateChanged(state)

@@ -55,6 +55,10 @@ class TtsManagerImpl(
     private val activeStreamCollectors = mutableMapOf<Int, Job>()
     private var nextStreamId = 0
 
+    // ---------- 持久化 CosyVoiceClient（避免跨轮次释放 NativeNui 单例） ----------
+    private var persistentClient: CosyVoiceClient? = null
+    private var persistentClientVoiceId: String = ""
+
     // ---------- 队列（非打断追加朗读） ----------
     private val speakQueue = mutableListOf<SpeakRequest>()
     private var queueJob: Job? = null
@@ -210,28 +214,38 @@ class TtsManagerImpl(
         }
         if (queueJob?.isActive != true) {
             queueJob = scope.launch(Dispatchers.IO) {
-                var sharedClient: CosyVoiceClient? = null
-                var sharedVoiceId = ""
                 try {
                     while (isActive) {
                         val req = synchronized(queueLock) {
                             if (speakQueue.isEmpty()) null else speakQueue.removeFirst()
                         } ?: break
 
-                        // 首个 item 创建 client，后续复用
-                        if (sharedClient == null) {
-                            sharedVoiceId = req.voiceId
-                            val params = resolveParams(sharedVoiceId)
-                            sharedClient = CosyVoiceClient(apiKey, params)
-                        }
-
-                        synthesizeUsingClient(req.text, sharedClient!!)
+                        ensurePersistentClient(req.voiceId)
+                        synthesizeUsingClient(req.text, persistentClient!!)
                         withContext(Dispatchers.Main) { req.onDone?.invoke() }
                     }
                 } finally {
-                    sharedClient?.release()
+                    // 不 cancel/release persistentClient。
+                    // 合成完成后 NativeNui C++ 单例可能已处于 418 损坏状态，
+                    // 调用 cancel() 会触发 pthread_mutex_lock on destroyed mutex → SIGABRT。
+                    // release 仅在 shutdown() 中执行。
                 }
             }
+        }
+    }
+
+    /**
+     * 确保 persistentClient 存在且与目标 voiceId 匹配。
+     * 只在 voiceId 变化时重建（避免破坏 NativeNui 单例）。
+     */
+    private fun ensurePersistentClient(voiceId: String) {
+        if (persistentClient == null || persistentClientVoiceId != voiceId) {
+            // 不 cancel 旧 client。旧 client 可能处于 418 损坏状态，
+            // cancel() 会触发 NativeNui C++ mutex 操作 → SIGABRT。
+            // 让旧对象自然 GC，新对象复用底层 C++ 单例（虽然损坏但至少不崩）。
+            val params = resolveParams(voiceId)
+            persistentClient = CosyVoiceClient(apiKey, params)
+            persistentClientVoiceId = voiceId
         }
     }
 
@@ -243,16 +257,19 @@ class TtsManagerImpl(
         val chunks = chunkText(text)
         for (chunk in chunks) {
             if (!currentCoroutineContext().isActive) break
+            var hadError = false
             client.synthesize(chunk).collect { audio ->
                 if (audio.error != null) {
                     android.util.Log.e(TAG, "队列合成失败: ${audio.error}")
                     FileLogger.e(TAG, "队列合成失败，分块文本: ${chunk.take(30)}，错误: ${audio.error}")
+                    hadError = true
                     return@collect
                 }
                 if (audio.data.isNotEmpty()) {
                     player.write(audio.data)
                 }
             }
+            if (hadError) break // 遇到 418 后 NativeNui 内部状态已损坏，继续合成会触发 SIGABRT
         }
     }
 
@@ -362,6 +379,10 @@ class TtsManagerImpl(
         queueJob?.cancel()
         queueJob = null
         synchronized(queueLock) { speakQueue.clear() }
+        // persistentClient 只取消不 release，保持 NativeNui 单例状态
+        persistentClient?.let {
+            try { it.cancel() } catch (_: Exception) {}
+        }
 
         // 取消所有流式 session
         synchronized(activeStreamCollectors) {
@@ -384,6 +405,11 @@ class TtsManagerImpl(
 
     override fun shutdown() {
         stop()
+        persistentClient?.let {
+            try { it.cancel(); it.release() } catch (_: Exception) {}
+        }
+        persistentClient = null
+        persistentClientVoiceId = ""
         scope.cancel()
     }
 
