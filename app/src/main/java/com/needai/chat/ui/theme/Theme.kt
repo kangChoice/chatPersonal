@@ -1,52 +1,55 @@
 package com.needai.chat.ui.theme
 
 import android.app.Activity
-import android.os.Build
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
 private val LightColorScheme = lightColorScheme(
-    primary = PrimaryLight,
-    onPrimary = OnPrimaryLight,
-    primaryContainer = PrimaryContainerLight,
-    onPrimaryContainer = OnPrimaryContainerLight,
-    secondary = SecondaryLight,
-    onSecondary = OnSecondaryLight,
-    secondaryContainer = SecondaryContainerLight,
-    onSecondaryContainer = OnSecondaryContainerLight,
-    background = BackgroundLight,
-    onBackground = OnBackgroundLight,
-    surface = SurfaceLight,
-    onSurface = OnSurfaceLight,
-    error = ErrorLight,
-    onError = OnErrorLight
+    primary = BrandBlue,
+    onPrimary = Color.White,
+    primaryContainer = BrandMint.copy(alpha = 0.3f),
+    onPrimaryContainer = TextPrimary,
+    secondary = BrandPink,
+    onSecondary = Color.White,
+    secondaryContainer = BrandPink.copy(alpha = 0.2f),
+    onSecondaryContainer = TextPrimary,
+    tertiary = BrandMint,
+    background = BgPage,
+    onBackground = TextPrimary,
+    surface = BgCard,
+    onSurface = TextPrimary,
+    surfaceVariant = GlassWhite,
+    onSurfaceVariant = TextSecondary,
+    outline = DividerColor,
+    outlineVariant = DividerColor,
+    error = StatusRed,
+    onError = Color.White
 )
 
+// 一期仅保留浅色主题骨架
 private val DarkColorScheme = darkColorScheme(
-    primary = PrimaryDark,
-    onPrimary = OnPrimaryDark,
-    primaryContainer = PrimaryContainerDark,
-    onPrimaryContainer = OnPrimaryContainerDark,
-    secondary = SecondaryDark,
-    onSecondary = OnSecondaryDark,
-    secondaryContainer = SecondaryContainerDark,
-    onSecondaryContainer = OnSecondaryContainerDark,
-    background = BackgroundDark,
-    onBackground = OnBackgroundDark,
-    surface = SurfaceDark,
-    onSurface = OnSurfaceDark,
-    error = ErrorDark,
-    onError = OnErrorDark
+    primary = BrandBlue,
+    onPrimary = Color.White,
+    primaryContainer = BrandBlue.copy(alpha = 0.2f),
+    onPrimaryContainer = Color.White,
+    secondary = BrandPink,
+    onSecondary = Color.White,
+    background = DarkBg,
+    onBackground = DarkText,
+    surface = DarkSurface,
+    onSurface = DarkText,
+    error = StatusRed,
+    onError = Color.White
 )
 
 @Composable
 fun NeedAiTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
+    darkTheme: Boolean = false,
     content: @Composable () -> Unit
 ) {
     val colorScheme = if (darkTheme) DarkColorScheme else LightColorScheme
@@ -55,8 +58,8 @@ fun NeedAiTheme(
     if (!view.isInEditMode) {
         SideEffect {
             val window = (view.context as Activity).window
-            window.statusBarColor = colorScheme.primary.toArgb()
-            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !darkTheme
+            window.statusBarColor = Color.Transparent.toArgb()
+            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = true
         }
     }
 

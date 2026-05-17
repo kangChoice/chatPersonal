@@ -10,7 +10,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.MoreVert
@@ -33,6 +33,8 @@ import com.needai.chat.ui.voice.components.CreateVoiceDialog
 import com.needai.chat.ui.voice.components.VoiceCard
 import com.needai.chat.util.ITtsManager
 import com.needai.chat.util.TtsManagerImpl
+import com.needai.chat.ui.theme.*
+import androidx.compose.ui.graphics.Color
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -92,15 +94,22 @@ fun VoiceListScreen(
         onDispose { ttsManager?.shutdown() }
     }
 
+    Box(modifier = Modifier.fillMaxSize()) {
+        FluidGlowBackground()
+
     Scaffold(
+        containerColor = Color.Transparent,
         topBar = {
             TopAppBar(
                 title = { Text("音色管理", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "返回")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
                     }
                 },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color.Transparent
+                ),
                 actions = {
                     IconButton(onClick = { viewModel.refreshVoices() },
                         enabled = !uiState.isLoading
@@ -243,6 +252,7 @@ fun VoiceListScreen(
                 }
             }
         }
+    }
     }
 
     // Create custom voice via Voice Design API

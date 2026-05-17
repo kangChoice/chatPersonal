@@ -1,10 +1,10 @@
 package com.needai.chat.ui.chat.components
 
 import androidx.compose.animation.core.*
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.sp
 
 @Composable
@@ -32,8 +32,9 @@ fun StreamingText(
 
     Text(
         text = displayText,
-        style = MaterialTheme.typography.bodyLarge.copy(fontSize = fontSize.sp),
-        color = MaterialTheme.colorScheme.onSurface,
+        fontSize = fontSize.sp,
+        color = Color.White.copy(alpha = 0.9f),
+        lineHeight = (fontSize * 1.6f).sp,
         modifier = modifier
     )
 }

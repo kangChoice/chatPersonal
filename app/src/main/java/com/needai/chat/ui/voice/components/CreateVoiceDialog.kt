@@ -78,7 +78,7 @@ fun CreateVoiceDialog(
                     minLines = 2,
                     maxLines = 4,
                     modifier = Modifier.fillMaxWidth(),
-                    supportingText = { Text("例如：温柔的女声，略带微笑，适合朗读故事") }
+                    supportingText = { Text("例如：温柔的女声，22岁，略带微笑，适合朗读故事") }
                 )
 
                 // Debug info

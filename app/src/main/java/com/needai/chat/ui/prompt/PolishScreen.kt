@@ -20,6 +20,12 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.needai.chat.domain.model.Skill
 import com.needai.chat.ui.skills.SkillEditDialog
 import com.needai.chat.ui.voice.components.SUPPORTED_CREATION_MODELS
+import com.needai.chat.ui.theme.*
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -34,22 +40,28 @@ fun PolishScreen(
     val scrollState = rememberScrollState()
     val coroutineScope = rememberCoroutineScope()
 
+    Box(modifier = Modifier.fillMaxSize()) {
     Scaffold(
+        containerColor = Color.Transparent,
         topBar = {
-            TopAppBar(
-                title = {
-                    Column {
-                        Text("角色优化", fontWeight = FontWeight.Bold)
-                        if (uiState.currentModelName.isNotBlank()) {
-                            Text(
-                                text = uiState.currentModelName,
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                            )
-                        }
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Text("角色优化", fontWeight = FontWeight.Bold)
+                    if (uiState.currentModelName.isNotBlank()) {
+                        Text(
+                            text = uiState.currentModelName,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                        )
                     }
-                },
-                actions = {
+                }
+                Row {
                     val hasPolishedContent = if (selectedTab == 0) uiState.polishedPrompt.isNotBlank()
                     else uiState.voicePolishedPrompt.isNotBlank()
                     if (hasPolishedContent) {
@@ -61,15 +73,15 @@ fun PolishScreen(
                         }
                     }
                 }
-            )
+            }
         },
         snackbarHost = {
             SnackbarHost(snackbarHostState) { data ->
                 Snackbar(
                     snackbarData = data,
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                    shape = MaterialTheme.shapes.medium
+                    containerColor = Color.Black.copy(alpha = 0.7f),
+                    contentColor = Color.White,
+                    shape = RoundedCornerShape(999.dp)
                 )
             }
         },
@@ -429,4 +441,5 @@ fun PolishScreen(
             }
         )
     }
+}
 }

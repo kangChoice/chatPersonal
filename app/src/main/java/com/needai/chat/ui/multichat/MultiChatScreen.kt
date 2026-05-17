@@ -1,10 +1,14 @@
 package com.needai.chat.ui.multichat
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AutoAwesome
@@ -14,6 +18,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -31,8 +37,8 @@ import com.needai.chat.domain.model.Skill
 import com.needai.chat.ui.chat.components.ChatInputBar
 import com.needai.chat.ui.chat.components.HistorySessionSheet
 import com.needai.chat.ui.multichat.components.MultiChatMessageBubble
+import com.needai.chat.ui.theme.*
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MultiChatScreen(
     viewModel: MultiChatViewModel = hiltViewModel()
@@ -87,70 +93,70 @@ fun MultiChatScreen(
         }
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = {
+    Box(modifier = Modifier.fillMaxSize()) {
+        Scaffold(
+            containerColor = Color.Transparent,
+            topBar = {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                     Column {
                         Text("多人聊天", fontWeight = FontWeight.Bold)
                         if (uiState.selectedSkills.isNotEmpty()) {
                             Text(
                                 text = "已选 ${uiState.selectedSkills.size} 个角色",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                                fontSize = 11.sp,
+                                color = TextSecondary
                             )
                         }
                     }
-                },
-                actions = {
-                    IconButton(onClick = { viewModel.togglePromptEditor() }) {
-                        Icon(Icons.Default.Edit, contentDescription = "提示词配置")
-                    }
-                    BadgedBox(
-                        badge = {
-                            if (uiState.selectedSkills.isNotEmpty()) {
-                                Badge { Text("${uiState.selectedSkills.size}") }
+                    Row {
+                        IconButton(onClick = { viewModel.togglePromptEditor() }) {
+                            Icon(Icons.Default.Edit, contentDescription = "提示词配置", tint = BrandBlue)
+                        }
+                        Box {
+                            IconButton(onClick = { viewModel.toggleSkillSelector() }) {
+                                Icon(Icons.Default.AutoAwesome, contentDescription = "选择角色", tint = BrandPink)
                             }
                         }
-                    ) {
-                        IconButton(onClick = { viewModel.toggleSkillSelector() }) {
-                            Icon(Icons.Default.AutoAwesome, contentDescription = "选择角色")
-                        }
-                    }
-                    Box {
-                        IconButton(onClick = { showMenu = true }) {
-                            Icon(Icons.Default.Add, contentDescription = "更多")
-                        }
-                        DropdownMenu(
-                            expanded = showMenu,
-                            onDismissRequest = { showMenu = false }
-                        ) {
-                            DropdownMenuItem(
-                                text = { Text("新建群聊") },
-                                onClick = {
-                                    viewModel.newSession()
-                                    showMenu = false
-                                }
-                            )
-                            DropdownMenuItem(
-                                text = { Text("历史会话") },
-                                onClick = {
-                                    showMenu = false
-                                    showHistorySession = true
-                                }
-                            )
-                            DropdownMenuItem(
-                                text = { Text("清空对话") },
-                                onClick = {
-                                    viewModel.clearMessages()
-                                    showMenu = false
-                                }
-                            )
+                        Box {
+                            IconButton(onClick = { showMenu = true }) {
+                                Icon(Icons.Default.Add, contentDescription = "更多", tint = BrandBlue)
+                            }
+                            DropdownMenu(
+                                expanded = showMenu,
+                                onDismissRequest = { showMenu = false }
+                            ) {
+                                DropdownMenuItem(
+                                    text = { Text("新建群聊") },
+                                    onClick = {
+                                        viewModel.newSession()
+                                        showMenu = false
+                                    }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("历史会话") },
+                                    onClick = {
+                                        showMenu = false
+                                        showHistorySession = true
+                                    }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("清空对话") },
+                                    onClick = {
+                                        viewModel.clearMessages()
+                                        showMenu = false
+                                    }
+                                )
+                            }
                         }
                     }
                 }
-            )
-        },
+            },
         bottomBar = {
             ChatInputBar(
                 inputText = uiState.inputText,
@@ -160,7 +166,16 @@ fun MultiChatScreen(
                 onStop = viewModel::stopGeneration
             )
         },
-        snackbarHost = { SnackbarHost(snackbarHostState) }
+        snackbarHost = {
+            SnackbarHost(snackbarHostState) { data ->
+                Snackbar(
+                    snackbarData = data,
+                    containerColor = Color.Black.copy(alpha = 0.7f),
+                    contentColor = Color.White,
+                    shape = RoundedCornerShape(999.dp)
+                )
+            }
+        }
     ) { innerPadding ->
         Column(
             modifier = Modifier
@@ -272,6 +287,7 @@ fun MultiChatScreen(
             }
         }
     }
+}
 
     if (uiState.showSkillSelector) {
         SkillSelectorDialog(

@@ -34,6 +34,7 @@ import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.needai.chat.domain.model.Skill
+import com.needai.chat.ui.theme.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -61,7 +62,11 @@ fun VoiceChatScreen(
         }
     }
 
+    Box(modifier = Modifier.fillMaxSize()) {
+        FluidGlowBackground()
+
     Scaffold(
+        containerColor = Color.Transparent,
         topBar = {
             TopAppBar(
                 title = { Text("语音通话") },
@@ -70,6 +75,9 @@ fun VoiceChatScreen(
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
                     }
                 },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color.Transparent
+                ),
                 actions = {
                     if (uiState.isCallActive) {
                         IconButton(onClick = { viewModel.toggleCall() }) {
@@ -141,6 +149,7 @@ fun VoiceChatScreen(
                 }
             }
         }
+    }
     }
 }
 

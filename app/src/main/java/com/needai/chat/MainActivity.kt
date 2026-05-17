@@ -25,6 +25,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        window.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(0xFFF9F9FB.toInt()))
         setContent {
             val isDarkMode by settingsDataStore.isDarkMode.collectAsState(initial = false)
             NeedAiTheme(darkTheme = isDarkMode) {

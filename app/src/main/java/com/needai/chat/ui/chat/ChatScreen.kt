@@ -3,13 +3,16 @@ package com.needai.chat.ui.chat
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.Warning
@@ -17,12 +20,17 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
@@ -31,6 +39,7 @@ import com.needai.chat.domain.model.Skill
 import com.needai.chat.ui.chat.components.ChatInputBar
 import com.needai.chat.ui.chat.components.HistorySessionSheet
 import com.needai.chat.ui.chat.components.MessageBubble
+import com.needai.chat.ui.chat.components.SkillCarousel
 import com.needai.chat.ui.chat.components.SkillSelectorSheet
 import com.needai.chat.ui.chat.components.StreamingBubble
 import com.needai.chat.ui.chat.state.ChatUiState
@@ -40,11 +49,20 @@ import com.needai.chat.data.remote.tts.SystemVoiceProvider
 import com.needai.chat.util.ITtsManager
 import com.needai.chat.util.TtsManagerImpl
 import com.needai.chat.ui.navigation.Screen
+import com.needai.chat.ui.theme.*
 import java.text.SimpleDateFormat
 import java.util.*
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
+/**
+ * 精确对应 index.html 的 .chat-page 结构
+ *
+ * 布局:
+ *   Layer 1: 全屏模糊背景图片（从当前技能头像/自定义背景取）
+ *   Layer 2: 渐变覆盖层 linear-gradient(to bottom, rgba(0,0,0,0.2), transparent 50%, rgba(255,255,255,0.9))
+ *   Layer 3: Column { chat-nav, chat-msgs(weight=1), chat-input-section }
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatScreen(
@@ -53,6 +71,8 @@ fun ChatScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var showSkillSelector by remember { mutableStateOf(false) }
+    var showCarousel by remember { mutableStateOf(true) }
+    var carouselSelectedIndex by remember { mutableIntStateOf(0) }
     var showMenu by remember { mutableStateOf(false) }
     var showHistorySession by remember { mutableStateOf(false) }
     var pendingSkill by remember { mutableStateOf<Skill?>(null) }
@@ -89,6 +109,8 @@ fun ChatScreen(
         }
     }
 
+    val skill = uiState.currentSkill
+
     var ttsManager by remember { mutableStateOf<ITtsManager?>(null) }
     LaunchedEffect(ttsApiKey, ttsVoice, ttsVolume, ttsRate, ttsPitch) {
         ttsManager?.shutdown()
@@ -107,16 +129,12 @@ fun ChatScreen(
         onDispose { ttsManager?.shutdown() }
     }
 
-    // Launcher for exporting current session
+    // Export launchers
     val exportCurrentLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("text/markdown")
     ) { uri ->
-        if (uri != null) {
-            viewModel.exportCurrentSessionToFile(context, uri)
-        }
+        if (uri != null) viewModel.exportCurrentSessionToFile(context, uri)
     }
-
-    // Launcher for exporting a history session
     val exportHistoryLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("text/markdown")
     ) { uri ->
@@ -127,207 +145,288 @@ fun ChatScreen(
             }
         }
     }
-
     val importSessionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocument()
     ) { uri ->
         if (uri != null) {
-            viewModel.importSession(context, uri) { success, msg ->
-                coroutineScope.launch {
-                    snackbarHostState.showSnackbar(msg)
-                }
+            viewModel.importSession(context, uri) { _, msg ->
+                coroutineScope.launch { snackbarHostState.showSnackbar(msg) }
             }
         }
     }
 
-    // Show error/success as snackbar
     LaunchedEffect(uiState.error) {
         uiState.error?.let {
             snackbarHostState.showSnackbar(it)
             viewModel.dismissError()
         }
     }
-
-    // Auto-scroll to bottom when new messages arrive
     LaunchedEffect(uiState.messages.size, uiState.currentStreamingMessage) {
         if (uiState.messages.isNotEmpty()) {
             listState.animateScrollToItem(uiState.messages.size)
         }
     }
 
-    // Auto-read TTS: 基于 speakQueued 多句积累 + 按句推送
-    // 积累 1-2 个完整句子再入队，减少 item 切换频率，利用 AudioTrack 2s 缓冲区
-    // 消化合成延迟，同时断句点落在句子边界而非词语中间
+    // Auto-read TTS（保持不变）
     LaunchedEffect(uiState.isStreaming) {
         if (!uiState.isStreaming) return@LaunchedEffect
         if (!ttsAutoRead || ttsManager == null) return@LaunchedEffect
-
         val tts = ttsManager as? com.needai.chat.util.TtsManagerImpl ?: return@LaunchedEffect
         val voiceId = if (uiState.currentSkill.voiceId.isNotBlank()) uiState.currentSkill.voiceId else ttsVoice
         speakingMessageId = -1L
-
-        // 等第一个 token
-        while (uiState.isStreaming && uiState.currentStreamingMessage.isEmpty()) {
-            delay(100)
-        }
+        while (uiState.isStreaming && uiState.currentStreamingMessage.isEmpty()) delay(100)
         if (!uiState.isStreaming) return@LaunchedEffect
-
         autoSpeaking = true
         coroutineScope.launch { snackbarHostState.showSnackbar("TTS: 自动朗读") }
-
         var lastProcessedText = ""
         var sentenceBuffer = StringBuilder()
-
         try {
-            // 首次：立即发送首段文本
             val firstText = uiState.currentStreamingMessage
-            if (firstText.isNotEmpty()) {
-                tts.speakQueued(firstText, voiceId)
-                lastProcessedText = firstText
-            }
-
-            // 每 200ms 检查增量，积累 1-2 句后再入队
+            if (firstText.isNotEmpty()) { tts.speakQueued(firstText, voiceId); lastProcessedText = firstText }
             while (uiState.isStreaming && autoSpeaking) {
                 delay(200)
                 val currentText = uiState.currentStreamingMessage
                 if (currentText.length <= lastProcessedText.length) continue
-
                 val newPart = currentText.substring(lastProcessedText.length)
                 sentenceBuffer.append(newPart)
                 lastProcessedText = currentText
-
                 val buf = sentenceBuffer.toString()
-
-                // 找句尾标点
                 val lastSentenceEnd = buf.indexOfLast { it in "。！？" }
                 val lastComma = buf.indexOfLast { it in "；，" }
-
-                // 只在以下条件满足时推送：
-                // 1) 有句号且积累超过 15 字（避免刚积累一个字就推送）
-                // 2) 无句号但超过 30 字，尝试在逗号处断
-                // 3) 超过 40 字无任何标点，强行断
                 val flushAt = when {
                     lastSentenceEnd >= 15 -> lastSentenceEnd + 1
                     buf.length >= 30 && lastComma >= buf.length / 2 -> lastComma + 1
                     buf.length >= 40 -> buf.length
                     else -> 0
                 }
-
                 if (flushAt > 0) {
                     val toSend = buf.substring(0, flushAt)
                     val rest = buf.substring(flushAt)
-                    if (toSend.isNotBlank()) {
-                        tts.speakQueued(toSend, voiceId)
-                    }
+                    if (toSend.isNotBlank()) tts.speakQueued(toSend, voiceId)
                     sentenceBuffer = StringBuilder(rest)
                 }
             }
         } finally {
-            // 剩余文本
-            if (sentenceBuffer.isNotEmpty()) {
-                tts.speakQueued(sentenceBuffer.toString(), voiceId)
-            }
+            if (sentenceBuffer.isNotEmpty()) tts.speakQueued(sentenceBuffer.toString(), voiceId)
             val finalText = uiState.currentStreamingMessage
-            if (finalText.length > lastProcessedText.length) {
-                tts.speakQueued(finalText.substring(lastProcessedText.length), voiceId)
-            }
-            speakingMessageId = null
-            autoSpeaking = false
+            if (finalText.length > lastProcessedText.length) tts.speakQueued(finalText.substring(lastProcessedText.length), voiceId)
+            speakingMessageId = null; autoSpeaking = false
         }
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = {
-                    Column {
-                        Text(
-                            text = uiState.currentSkill.avatar + " " + uiState.currentSkill.name,
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold
+    // ============================================================
+    // LAYOUT — 精确对应 index.html 的 .chat-page 结构
+    // ============================================================
+    Box(modifier = Modifier.fillMaxSize()) {
+
+        // Layer 0: Fluid glow background (visible in carousel mode)
+        FluidGlowBackground()
+
+        // Layer 1: 背景图片 — 对应 .chat-bg img (hide in carousel)
+        if (!showCarousel && backgroundBitmap != null) {
+            Image(
+                bitmap = backgroundBitmap.asImageBitmap(),
+                contentDescription = null,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .blur(16.dp),
+                contentScale = ContentScale.Crop,
+                alpha = 0.85f
+            )
+        }
+
+        // Layer 2: 渐变覆盖 — 对应 .chat-bg-gradient (hide in carousel)
+        if (!showCarousel) {
+            Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.verticalGradient(
+                        listOf(
+                            Color.Black.copy(alpha = 0.2f),
+                            Color.Transparent,
+                            Color.White.copy(alpha = 0.85f)
                         )
-                        Text(
-                            text = uiState.currentModelName.ifEmpty {
-                                if (uiState.currentModel == com.needai.chat.domain.model.ModelType.REMOTE) "远程模型" else "本地模型"
-                            },
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                        )
-                    }
+                    )
+                )
+        )
+        }
+
+        // Layer 3: 内容 — carousel or chat
+        if (showCarousel) {
+            SkillCarousel(
+                skills = uiState.availableSkills,
+                selectedIndex = carouselSelectedIndex,
+                onSelectedIndexChanged = { carouselSelectedIndex = it },
+                onSkillSelected = { skill ->
+                    viewModel.switchSkill(skill)
+                    viewModel.newSession()
+                    showCarousel = false
                 },
-                actions = {
-                    if (!uiState.isModelConfigured) {
-                        Box {
-                            IconButton(onClick = { showModelTip = true }) {
-                                Icon(
-                                    Icons.Default.Warning,
-                                    contentDescription = "未配置模型",
-                                    tint = MaterialTheme.colorScheme.error
-                                )
-                            }
-                            DropdownMenu(
-                                expanded = showModelTip,
-                                onDismissRequest = { showModelTip = false }
-                            ) {
-                                DropdownMenuItem(
-                                    text = { Text("当前未配置或选择模型！") },
-                                    onClick = { showModelTip = false }
-                                )
-                            }
-                        }
+                voiceNameMap = voiceAliases
+            )
+        } else {
+        Column(modifier = Modifier.fillMaxSize()) {
+
+            // ========== .chat-nav ==========
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .statusBarsPadding()
+                    .padding(horizontal = 24.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Back → 历史会话入口 / carousel
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(CircleShape)
+                        .background(Color.Black.copy(alpha = 0.3f))
+                        .border(0.5.dp, Color.White.copy(alpha = 0.2f), CircleShape)
+                        .clickable { showCarousel = true },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("<", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                }
+
+                // .chat-nav-title
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = skill.name,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White,
+                        letterSpacing = 0.02.sp
+                    )
+                    val subtitleColor = if (uiState.isModelConfigured) BrandMint else StatusRed.copy(alpha = 0.8f)
+                    val subtitleText = if (uiState.isModelConfigured) {
+                        "● ${uiState.currentModelName.ifEmpty { "远程模型" }}"
+                    } else {
+                        "● 未配置模型"
                     }
-                    IconButton(onClick = { showSkillSelector = true }) {
-                        Icon(Icons.Default.AutoAwesome, contentDescription = "切换角色")
+                    Text(
+                        text = subtitleText,
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = subtitleColor,
+                        letterSpacing = 1.08.sp
+                    )
+                }
+
+                // Right → 菜单
+                Box {
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .background(Color.Black.copy(alpha = 0.3f))
+                            .border(0.5.dp, Color.White.copy(alpha = 0.2f), CircleShape)
+                            .clickable { showMenu = true },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("···", color = Color.White.copy(alpha = 0.8f), fontSize = 14.sp, fontWeight = FontWeight.Bold)
                     }
-                    Box {
-                        IconButton(onClick = { showMenu = true }) {
-                            Icon(Icons.Default.Add, contentDescription = "更多")
+                    DropdownMenu(
+                        expanded = showMenu,
+                        onDismissRequest = { showMenu = false }
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("切换角色") },
+                            onClick = { showMenu = false; showSkillSelector = true }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("历史会话") },
+                            onClick = { showMenu = false; showHistorySession = true }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("导出会话") },
+                            onClick = { showMenu = false; showExportDialog = true }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("导入会话") },
+                            onClick = { showMenu = false; importSessionLauncher.launch(arrayOf("text/*", "*/*")) }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("新建对话") },
+                            onClick = { viewModel.newSession(); showMenu = false }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("清空上下文") },
+                            onClick = { viewModel.clearSession(); showMenu = false }
+                        )
+                    }
+                }
+            }
+
+            // ========== .chat-msgs (flex: 1, justify-content: flex-end) ==========
+            Box(modifier = Modifier.weight(1f)) {
+                if (uiState.messages.isEmpty() && !uiState.isStreaming) {
+                    // 空状态 — 居中显示问候语
+                    Column(
+                        modifier = Modifier.fillMaxSize().padding(32.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Text(
+                            skill.greeting,
+                            fontSize = 14.sp,
+                            color = Color.White.copy(alpha = 0.7f)
+                        )
+                    }
+                } else {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        state = listState,
+                        contentPadding = PaddingValues(top = 8.dp, bottom = 16.dp)
+                    ) {
+                        // Messages
+                        items(
+                            items = uiState.messages.filter { it.role != com.needai.chat.domain.model.MessageRole.SYSTEM },
+                            key = { it.id }
+                        ) { message ->
+                            MessageBubble(
+                                message = message,
+                                onSpeak = {
+                                    val mgr = ttsManager
+                                    if (mgr != null) {
+                                        if (speakingMessageId == message.id) {
+                                            mgr.stop(); speakingMessageId = null
+                                            coroutineScope.launch { snackbarHostState.showSnackbar("TTS: 停止朗读") }
+                                        } else {
+                                            val voiceId = if (uiState.currentSkill.voiceId.isNotBlank()) uiState.currentSkill.voiceId else ttsVoice
+                                            coroutineScope.launch { snackbarHostState.showSnackbar("TTS: 朗读") }
+                                            mgr.speak(message.content, voiceId) { speakingMessageId = null }
+                                            speakingMessageId = message.id
+                                        }
+                                    }
+                                },
+                                isSpeaking = speakingMessageId == message.id
+                            )
                         }
-                        DropdownMenu(
-                            expanded = showMenu,
-                            onDismissRequest = { showMenu = false }
-                        ) {
-                            DropdownMenuItem(
-                                text = { Text("历史会话") },
-                                onClick = {
-                                    showMenu = false
-                                    showHistorySession = true
+
+                        // Streaming
+                        if (uiState.isStreaming && uiState.currentStreamingMessage.isNotEmpty()) {
+                            item {
+                                StreamingBubble(
+                                    content = uiState.currentStreamingMessage,
+                                    isStreaming = true
+                                )
+                                if (autoSpeaking && ttsAutoRead) {
+                                    IconButton(
+                                        onClick = { ttsManager?.stop(); autoSpeaking = false },
+                                        modifier = Modifier.size(36.dp)
+                                    ) {
+                                        Icon(Icons.Default.Stop, "暂停朗读", tint = StatusRed, modifier = Modifier.size(24.dp))
+                                    }
                                 }
-                            )
-                            DropdownMenuItem(
-                                text = { Text("导出会话") },
-                                onClick = {
-                                    showMenu = false
-                                    showExportDialog = true
-                                }
-                            )
-                            DropdownMenuItem(
-                                text = { Text("导入会话") },
-                                onClick = {
-                                    showMenu = false
-                                    importSessionLauncher.launch(arrayOf("text/*", "*/*"))
-                                }
-                            )
-                            DropdownMenuItem(
-                                text = { Text("新建对话") },
-                                onClick = {
-                                    viewModel.newSession()
-                                    showMenu = false
-                                }
-                            )
-                            DropdownMenuItem(
-                                text = { Text("清空上下文") },
-                                onClick = {
-                                    viewModel.clearSession()
-                                    showMenu = false
-                                }
-                            )
+                            }
                         }
                     }
                 }
-            )
-        },
-        bottomBar = {
+            }
+
+            // ========== .chat-input-section ==========
             ChatInputBar(
                 inputText = uiState.inputText,
                 isStreaming = uiState.isStreaming,
@@ -335,311 +434,125 @@ fun ChatScreen(
                 onSend = viewModel::sendMessage,
                 onStop = viewModel::stopStreaming
             )
-        },
-        snackbarHost = {
-            Box(Modifier.fillMaxSize()) {
-                SnackbarHost(
-                    hostState = snackbarHostState,
-                    modifier = Modifier.align(Alignment.TopCenter)
-                ) { data ->
-                    Snackbar(
-                        snackbarData = data,
-                        containerColor = MaterialTheme.colorScheme.primaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                        shape = MaterialTheme.shapes.medium
-                    )
-                }
-            }
         }
-    ) { innerPadding ->
-        Box(modifier = Modifier.fillMaxSize()) {
-            if (backgroundBitmap != null) {
-                Image(
-                    bitmap = backgroundBitmap.asImageBitmap(),
-                    contentDescription = null,
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(innerPadding),
-                    contentScale = ContentScale.Crop,
-                    alpha = 0.3f
-                )
-            }
-            if (uiState.messages.isEmpty() && !uiState.isStreaming) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding)
-                    .padding(32.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
-            ) {
-                Text(
-                    text = uiState.currentSkill.avatar,
-                    style = MaterialTheme.typography.displayLarge
-                )
-                Spacer(modifier = Modifier.height(16.dp))
-                Text(
-                    text = uiState.currentSkill.greeting,
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                )
-            }
-        } else {
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding),
-                state = listState,
-                contentPadding = PaddingValues(vertical = 8.dp)
-            ) {
-                items(
-                    items = uiState.messages.filter { it.role != com.needai.chat.domain.model.MessageRole.SYSTEM },
-                    key = { it.id }
-                ) { message ->
-                    MessageBubble(
-                        message = message,
-                        onSpeak = {
-                            val mgr = ttsManager
-                            if (mgr != null) {
-                                if (speakingMessageId == message.id) {
-                                    mgr.stop()
-                                    speakingMessageId = null
-                                    coroutineScope.launch {
-                                        snackbarHostState.showSnackbar("TTS: 停止朗读")
-                                    }
-                                } else {
-                                    val voiceId = if (uiState.currentSkill.voiceId.isNotBlank()) uiState.currentSkill.voiceId else ttsVoice
-                                    coroutineScope.launch {
-                                        snackbarHostState.showSnackbar("TTS: 朗读 (voice=$voiceId)")
-                                    }
-                                    mgr.speak(message.content, voiceId) {
-                                        speakingMessageId = null
-                                        coroutineScope.launch {
-                                            snackbarHostState.showSnackbar("TTS: 朗读结束")
-                                        }
-                                    }
-                                    speakingMessageId = message.id
-                                }
-                            }
-                        },
-                        isSpeaking = speakingMessageId == message.id
-                    )
-                }
-
-                if (uiState.isStreaming && uiState.currentStreamingMessage.isNotEmpty()) {
-                    item {
-                        Row(
-                            modifier = Modifier.fillMaxWidth().padding(end = 8.dp),
-                            horizontalArrangement = Arrangement.End,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            StreamingBubble(
-                                content = uiState.currentStreamingMessage,
-                                isStreaming = true,
-                                modifier = Modifier.weight(1f)
-                            )
-                            if (autoSpeaking && ttsAutoRead) {
-                                IconButton(
-                                    onClick = {
-                                        ttsManager?.stop()
-                                        autoSpeaking = false
-                                        coroutineScope.launch {
-                                            snackbarHostState.showSnackbar("TTS: 已暂停")
-                                        }
-                                    },
-                                    modifier = Modifier.size(36.dp)
-                                ) {
-                                    Icon(
-                                        Icons.Default.Stop,
-                                        contentDescription = "暂停朗读",
-                                        tint = MaterialTheme.colorScheme.error,
-                                        modifier = Modifier.size(24.dp)
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-            }
         }
-        } // Box end
     }
 
-    // Skill selector bottom sheet
+    // ============================================================
+    // Dialogs & Sheets
+    // ============================================================
+    if (showModelTip) {
+        AlertDialog(
+            onDismissRequest = { showModelTip = false },
+            icon = { Icon(Icons.Default.Warning, contentDescription = null, tint = BrandPink) },
+            title = { Text("未配置模型") },
+            text = { Text("当前未配置或选择模型，请在设置中配置有效的 API Key 和模型。") },
+            confirmButton = { Button(onClick = { showModelTip = false }) { Text("知道了") } }
+        )
+    }
     if (showSkillSelector) {
         SkillSelectorSheet(
             skills = uiState.availableSkills,
             currentSkillId = uiState.currentSkill.id,
             voiceAliases = voiceAliases,
-            onSkillSelected = { skill ->
-                if (skill.id != uiState.currentSkill.id) {
-                    pendingSkill = skill
-                }
-            },
+            onSkillSelected = { s -> if (s.id != uiState.currentSkill.id) pendingSkill = s },
             onDismiss = { showSkillSelector = false }
         )
     }
-
-    // History session sheet
     if (showHistorySession) {
         HistorySessionSheet(
             sessions = uiState.historySessions,
             currentSessionId = uiState.sessionId,
-            onSessionSelected = { session ->
-                viewModel.switchToHistorySession(session)
-            },
-            onDeleteSession = { session ->
-                sessionToDelete = session
-            },
+            onSessionSelected = { viewModel.switchToHistorySession(it) },
+            onDeleteSession = { sessionToDelete = it },
             onDismiss = { showHistorySession = false }
         )
     }
-
-    // Confirm skill switch
     if (pendingSkill != null) {
         AlertDialog(
             onDismissRequest = { pendingSkill = null },
             title = { Text("切换角色") },
-            text = {
-                Text("切换到「${pendingSkill!!.name}」将开启新的对话，确定要切换吗？")
-            },
-            confirmButton = {
-                Button(onClick = {
-                    viewModel.switchSkill(pendingSkill!!)
-                    pendingSkill = null
-                }) {
-                    Text("确定")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { pendingSkill = null }) {
-                    Text("取消")
-                }
-            }
+            text = { Text("切换到「${pendingSkill!!.name}」将开启新的对话，确定要切换吗？") },
+            confirmButton = { Button(onClick = { viewModel.switchSkill(pendingSkill!!); pendingSkill = null }) { Text("确定") } },
+            dismissButton = { TextButton(onClick = { pendingSkill = null }) { Text("取消") } }
         )
     }
-
-    // Delete session confirmation dialog
     if (sessionToDelete != null) {
         AlertDialog(
             onDismissRequest = { sessionToDelete = null },
-            icon = { Icon(Icons.Default.Delete, contentDescription = null) },
+            icon = { Icon(Icons.Default.Delete, contentDescription = null, tint = BrandPink) },
             title = { Text("删除会话") },
-            text = {
-                Text("确定要删除会话「${sessionToDelete!!.title}」吗？此操作不可撤销。")
-            },
+            text = { Text("确定要删除会话「${sessionToDelete!!.title}」吗？此操作不可撤销。") },
             confirmButton = {
-                Button(
-                    onClick = {
-                        viewModel.deleteSession(sessionToDelete!!.id)
-                        sessionToDelete = null
-                    },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.error
-                    )
-                ) {
-                    Text("删除")
-                }
+                Button(onClick = { viewModel.deleteSession(sessionToDelete!!.id); sessionToDelete = null },
+                    colors = ButtonDefaults.buttonColors(containerColor = StatusRed)) { Text("删除") }
             },
-            dismissButton = {
-                TextButton(onClick = { sessionToDelete = null }) {
-                    Text("取消")
-                }
-            }
+            dismissButton = { TextButton(onClick = { sessionToDelete = null }) { Text("取消") } }
         )
     }
-
-    // Export session dialog
     if (showExportDialog) {
         AlertDialog(
             onDismissRequest = { showExportDialog = false },
             title = { Text("导出会话") },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text(
-                        "选择要导出的会话：",
-                        style = MaterialTheme.typography.bodyMedium,
-                        modifier = Modifier.padding(bottom = 8.dp)
-                    )
-
-                    // Current session option
+                Column {
+                    Text("选择要导出的会话：", modifier = Modifier.padding(bottom = 8.dp))
                     Surface(
                         onClick = {
                             showExportDialog = false
                             if (uiState.messages.isNotEmpty()) {
-                                val fileName = "chat_${SimpleDateFormat("yyyyMMdd_HHmm", Locale.getDefault()).format(Date())}.md"
-                                exportCurrentLauncher.launch(fileName)
+                                exportCurrentLauncher.launch("chat_${SimpleDateFormat("yyyyMMdd_HHmm", Locale.getDefault()).format(Date())}.md")
                             } else {
                                 viewModel.exportSessionToFile(context, "", android.net.Uri.EMPTY)
                             }
                         },
-                        shape = MaterialTheme.shapes.medium,
-                        color = MaterialTheme.colorScheme.surfaceVariant,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 4.dp)
+                        shape = RoundedCornerShape(16.dp),
+                        color = Color.White.copy(alpha = 0.8f),
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
                     ) {
-                        Column(modifier = Modifier.padding(12.dp)) {
-                            Text(
-                                text = "当前会话",
-                                style = MaterialTheme.typography.bodyMedium,
-                                fontWeight = FontWeight.Medium
-                            )
-                            Text(
-                                text = "${uiState.currentSkill.name} · ${uiState.messages.size}条消息",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
-                            )
+                        Column(Modifier.padding(12.dp)) {
+                            Text("当前会话", fontWeight = FontWeight.Medium)
+                            Text("${skill.name} · ${uiState.messages.size}条消息", fontSize = 12.sp, color = TextSecondary)
                         }
                     }
-
-                    // History sessions
                     uiState.historySessions.forEach { session ->
                         Surface(
                             onClick = {
                                 showExportDialog = false
                                 pendingExportSessionId = session.id
-                                val fileName = "chat_${session.title.take(20).replace(" ", "_")}_${SimpleDateFormat("yyyyMMdd", Locale.getDefault()).format(Date())}.md"
-                                exportHistoryLauncher.launch(fileName)
+                                exportHistoryLauncher.launch("chat_${session.title.take(20).replace(" ", "_")}.md")
                             },
-                            shape = MaterialTheme.shapes.medium,
-                            color = MaterialTheme.colorScheme.surface,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 4.dp)
+                            shape = RoundedCornerShape(16.dp),
+                            color = Color.White.copy(alpha = 0.8f),
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
                         ) {
-                            Column(modifier = Modifier.padding(12.dp)) {
-                                Text(
-                                    text = session.title,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    fontWeight = FontWeight.Medium,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                                Text(
-                                    text = "${session.skillName} · ${session.messageCount}条消息",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
-                                )
+                            Column(Modifier.padding(12.dp)) {
+                                Text(session.title, maxLines = 1, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.Medium)
+                                Text("${session.skillName} · ${session.messageCount}条消息", fontSize = 12.sp, color = TextSecondary)
                             }
                         }
                     }
-
                     if (uiState.messages.isEmpty() && uiState.historySessions.isEmpty()) {
-                        Text(
-                            text = "没有可导出的会话",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
-                            modifier = Modifier.padding(vertical = 16.dp)
-                        )
+                        Text("没有可导出的会话", color = TextTertiary, modifier = Modifier.padding(vertical = 16.dp))
                     }
                 }
             },
-            confirmButton = {
-                TextButton(onClick = { showExportDialog = false }) {
-                    Text("取消")
-                }
-            }
+            confirmButton = { TextButton(onClick = { showExportDialog = false }) { Text("取消") } }
         )
+    }
+
+    // Snackbar
+    Box(Modifier.fillMaxSize()) {
+        SnackbarHost(
+            hostState = snackbarHostState,
+            modifier = Modifier.align(Alignment.TopCenter).padding(top = 64.dp)
+        ) { data ->
+            Snackbar(
+                snackbarData = data,
+                containerColor = Color.Black.copy(alpha = 0.7f),
+                contentColor = Color.White,
+                shape = RoundedCornerShape(999.dp)
+            )
+        }
     }
 }

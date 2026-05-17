@@ -4,6 +4,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -31,6 +32,8 @@ import com.needai.chat.data.export.ExportUtils
 import com.needai.chat.domain.model.Skill
 import com.needai.chat.ui.navigation.Screen
 import com.needai.chat.ui.skills.components.SkillCard
+import com.needai.chat.ui.theme.*
+import androidx.compose.ui.graphics.Color
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -105,14 +108,18 @@ fun SkillListScreen(
 
     val uriHandler = LocalUriHandler.current
 
+    Box(modifier = Modifier.fillMaxSize()) {
+        FluidGlowBackground()
+
     Scaffold(
+        containerColor = Color.Transparent,
         snackbarHost = {
             SnackbarHost(snackbarHostState) { data ->
                 Snackbar(
                     snackbarData = data,
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                    shape = MaterialTheme.shapes.medium
+                    containerColor = Color.Black.copy(alpha = 0.7f),
+                    contentColor = Color.White,
+                    shape = RoundedCornerShape(999.dp)
                 )
             }
         },
@@ -263,6 +270,7 @@ fun SkillListScreen(
                 }
             }
         }
+    }
     }
 
     if (showCreateDialog) {

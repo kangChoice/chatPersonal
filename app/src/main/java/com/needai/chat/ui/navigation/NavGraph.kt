@@ -1,5 +1,6 @@
 package com.needai.chat.ui.navigation
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
@@ -9,14 +10,9 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Forum
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
@@ -34,6 +30,9 @@ import com.needai.chat.ui.prompt.PolishScreen
 import com.needai.chat.ui.stats.StatsScreen
 import com.needai.chat.ui.voice.VoiceListScreen
 import com.needai.chat.ui.voicechat.VoiceChatScreen
+import com.needai.chat.ui.theme.BgPage
+import com.needai.chat.ui.theme.JellyTabBar
+import com.needai.chat.ui.theme.JellyTabItem
 
 sealed class Screen(val route: String, val title: String, val icon: ImageVector? = null) {
     data object Chat : Screen("chat", "聊天", Icons.Default.Chat)
@@ -70,6 +69,13 @@ fun MainScreen() {
         currentDestination?.hierarchy?.any { it.route == screen.route } == true
     }
 
+    // Current selected tab index
+    val selectedTabIndex = remember(currentDestination) {
+        bottomNavItems.indexOfFirst { screen ->
+            currentDestination?.hierarchy?.any { it.route == screen.route } == true
+        }.coerceAtLeast(0)
+    }
+
     // Onboarding state
     var showOnboarding by remember { mutableStateOf(false) }
     var onboardingStep by remember { mutableIntStateOf(-1) }
@@ -88,28 +94,34 @@ fun MainScreen() {
         }
     }
 
-    Box(modifier = Modifier.fillMaxSize()) {
+    Box(modifier = Modifier.fillMaxSize().background(BgPage)) {
+        // 根级动态波动底色，确保页面切换时始终显示
+        com.needai.chat.ui.theme.FluidGlowBackground()
         Scaffold(
+            containerColor = Color.Transparent,
             bottomBar = {
                 if (showBottomBar) {
-                    NavigationBar {
-                        bottomNavItems.forEach { screen ->
-                            NavigationBarItem(
-                                icon = { Icon(screen.icon!!, contentDescription = screen.title) },
-                                label = { Text(screen.title) },
-                                selected = currentDestination?.hierarchy?.any { it.route == screen.route } == true,
-                                onClick = {
-                                    navController.navigate(screen.route) {
-                                        popUpTo(navController.graph.findStartDestination().id) {
-                                            saveState = true
-                                        }
-                                        launchSingleTop = true
-                                        restoreState = true
-                                    }
-                                }
+                    JellyTabBar(
+                        tabs = bottomNavItems.map { screen ->
+                            JellyTabItem(
+                                title = screen.title,
+                                icon = screen.icon!!,
+                                route = screen.route
                             )
-                        }
-                    }
+                        },
+                        selectedIndex = selectedTabIndex,
+                        onTabSelected = { index ->
+                            val screen = bottomNavItems[index]
+                            navController.navigate(screen.route) {
+                                popUpTo(navController.graph.findStartDestination().id) {
+                                    saveState = true
+                                }
+                                launchSingleTop = true
+                                restoreState = true
+                            }
+                        },
+                        modifier = Modifier.navigationBarsPadding()
+                    )
                 }
             }
         ) { innerPadding ->

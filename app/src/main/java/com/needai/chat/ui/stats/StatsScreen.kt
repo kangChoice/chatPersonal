@@ -15,6 +15,8 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import java.text.SimpleDateFormat
 import java.util.*
+import com.needai.chat.ui.theme.*
+import androidx.compose.ui.graphics.Color
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -25,12 +27,16 @@ fun StatsScreen(
     var showSessionDropdown by remember { mutableStateOf(false) }
     var showConfigDropdown by remember { mutableStateOf(false) }
 
+    Box(modifier = Modifier.fillMaxSize()) {
+        FluidGlowBackground()
+
     Scaffold(
+        containerColor = Color.Transparent,
         topBar = {
             TopAppBar(
                 title = { Text("统计", fontWeight = FontWeight.Bold) },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface
+                    containerColor = Color.Transparent
                 )
             )
         }
@@ -230,6 +236,7 @@ fun StatsScreen(
                 )
             }
         }
+    }
     }
 }
 

@@ -46,6 +46,10 @@ import com.needai.chat.ui.settings.components.QuickCreateProviderDialog
 import com.needai.chat.ui.settings.components.TtsSettingsSection
 import com.needai.chat.util.FileLogger
 import com.needai.chat.ui.navigation.Screen
+import com.needai.chat.ui.theme.*
+import androidx.compose.ui.graphics.Color
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.background
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -121,16 +125,21 @@ fun SettingsScreen(
         }
     }
 
+    Box(modifier = Modifier.fillMaxSize()) {
     Scaffold(
+        containerColor = Color.Transparent,
         topBar = {
-            TopAppBar(
-                title = { Text("设置", fontWeight = FontWeight.Bold) },
-                navigationIcon = {
-                    IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
-                    }
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(onClick = { navController.popBackStack() }) {
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
                 }
-            )
+                Text("设置", fontWeight = FontWeight.Bold)
+            }
         },
         snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { innerPadding ->
@@ -677,6 +686,7 @@ fun SettingsScreen(
                 TextButton(onClick = { bgToDelete = null }) { Text("取消") }
             }
         )
+    }
     }
 }
 

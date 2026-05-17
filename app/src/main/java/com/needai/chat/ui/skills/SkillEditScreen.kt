@@ -5,7 +5,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.VolumeUp
@@ -22,6 +22,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.needai.chat.data.local.datastore.SettingsDataStore
 import com.needai.chat.data.remote.tts.SystemVoiceProvider
 import com.needai.chat.ui.settings.components.VoiceSelectorSheet
+import com.needai.chat.ui.theme.*
+import androidx.compose.ui.graphics.Color
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -52,15 +54,22 @@ fun SkillEditScreen(
     val settingsDataStore = remember { SettingsDataStore(context) }
     val voiceAliases by settingsDataStore.voiceAliases.collectAsState(initial = emptyMap())
 
+    Box(modifier = Modifier.fillMaxSize()) {
+        FluidGlowBackground()
+
     Scaffold(
+        containerColor = Color.Transparent,
         topBar = {
             TopAppBar(
                 title = { Text(if (isNew) "创建角色" else "编辑角色", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "返回")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
                     }
                 },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color.Transparent
+                ),
                 actions = {
                     if (!isNew && !isBuiltin) {
                         IconButton(onClick = { showDeleteConfirm = true }) {
@@ -264,6 +273,7 @@ fun SkillEditScreen(
                 )
             }
         }
+    }
     }
 
     if (showSystemPromptDialog) {

@@ -1,8 +1,12 @@
 package com.needai.chat.ui.voice.components
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.MoreVert
@@ -12,10 +16,15 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.needai.chat.domain.model.Skill
 import com.needai.chat.domain.model.VoiceInfo
+import com.needai.chat.ui.theme.*
 
 @Composable
 fun VoiceCard(
@@ -31,9 +40,9 @@ fun VoiceCard(
     modifier: Modifier = Modifier
 ) {
     val statusColor = when (voice.status) {
-        "OK" -> MaterialTheme.colorScheme.primary
-        "DEPLOYING" -> MaterialTheme.colorScheme.tertiary
-        else -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+        "OK" -> BrandMint
+        "DEPLOYING" -> BrandBlue
+        else -> TextTertiary
     }
     val statusText = when (voice.status) {
         "OK" -> "可用"
@@ -42,87 +51,86 @@ fun VoiceCard(
         else -> voice.status.ifEmpty { "未知" }
     }
 
-    Card(
-        modifier = modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = if (isPlaying) MaterialTheme.colorScheme.primaryContainer
-                            else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-        )
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 4.dp)
+            .clip(RoundedCornerShape(20.dp))
+            .background(if (isPlaying) BrandMint.copy(alpha = 0.1f) else GlassWhite)
+            .border(0.5.dp, Color.White.copy(alpha = 0.5f), RoundedCornerShape(20.dp))
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
+                .padding(14.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(modifier = Modifier.weight(1f)) {
-                // Row 1: Alias/Name
                 Text(
                     text = alias.ifEmpty { voice.displayName.ifEmpty { voice.voiceId } },
-                    style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = if (alias.isNotBlank()) FontWeight.Bold else FontWeight.Medium
+                    fontSize = 15.sp,
+                    fontWeight = if (alias.isNotBlank()) FontWeight.Bold else FontWeight.Medium,
+                    color = TextPrimary
                 )
-                // Row 2: Voice prompt
                 if (voice.voicePrompt.isNotBlank()) {
                     Text(
                         text = voice.voicePrompt,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
-                        maxLines = 2
+                        fontSize = 12.sp,
+                        color = TextSecondary,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
                     )
                     Spacer(modifier = Modifier.height(2.dp))
                 }
-                // Row 3: Model info
                 Text(
                     text = "模型: ${voice.targetModel.ifEmpty { "未知" }}",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                    fontSize = 10.sp,
+                    color = TextTertiary
                 )
                 Spacer(modifier = Modifier.height(2.dp))
-                // Row 4: Status
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         text = "状态: ",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                        fontSize = 12.sp,
+                        color = TextSecondary
                     )
                     Text(
                         text = statusText,
-                        style = MaterialTheme.typography.bodySmall,
+                        fontSize = 12.sp,
                         color = statusColor,
                         fontWeight = FontWeight.Medium
                     )
                 }
-                // Row 5: Bound skills as chips
                 if (boundSkills.isNotEmpty()) {
                     Spacer(modifier = Modifier.height(6.dp))
                     LazyRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                         items(boundSkills.take(5), key = { it.id }) { skill ->
-                            Surface(
-                                shape = MaterialTheme.shapes.small,
-                                color = MaterialTheme.colorScheme.secondaryContainer,
-                                tonalElevation = 1.dp
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(999.dp))
+                                    .background(BrandMint.copy(alpha = 0.15f))
+                                    .padding(horizontal = 8.dp, vertical = 3.dp)
                             ) {
                                 Text(
                                     text = skill.name,
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                    fontSize = 10.sp,
+                                    color = BrandMint,
                                     fontWeight = FontWeight.Medium
                                 )
                             }
                         }
                         if (boundSkills.size > 5) {
                             item {
-                                Surface(
-                                    shape = MaterialTheme.shapes.small,
-                                    color = MaterialTheme.colorScheme.surfaceVariant
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(999.dp))
+                                        .background(GlassWhite)
+                                        .padding(horizontal = 8.dp, vertical = 3.dp)
                                 ) {
                                     Text(
                                         text = "+${boundSkills.size - 5}",
-                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                                        fontSize = 10.sp,
+                                        color = TextTertiary
                                     )
                                 }
                             }
@@ -130,14 +138,23 @@ fun VoiceCard(
                     }
                 }
             }
+
+            // Edit menu
             if (onAliasEdit != null || onEditBindings != null) {
                 var showEditMenu by remember { mutableStateOf(false) }
                 Box {
-                    IconButton(onClick = { showEditMenu = true }) {
+                    Box(
+                        modifier = Modifier
+                            .size(28.dp)
+                            .clip(RoundedCornerShape(999.dp))
+                            .clickable { showEditMenu = true },
+                        contentAlignment = Alignment.Center
+                    ) {
                         Icon(
                             Icons.Default.MoreVert,
                             contentDescription = "编辑",
-                            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                            tint = TextTertiary,
+                            modifier = Modifier.size(16.dp)
                         )
                     }
                     DropdownMenu(
@@ -165,21 +182,39 @@ fun VoiceCard(
                     }
                 }
             }
-            IconButton(onClick = onPlay, enabled = canPlay) {
+
+            // Play button
+            Box(
+                modifier = Modifier
+                    .size(32.dp)
+                    .clip(RoundedCornerShape(999.dp))
+                    .background(if (isPlaying) BrandPink.copy(alpha = 0.2f) else GlassWhite)
+                    .clickable(enabled = canPlay) { onPlay() },
+                contentAlignment = Alignment.Center
+            ) {
                 Icon(
                     if (isPlaying) Icons.Default.Stop else Icons.Default.PlayArrow,
                     contentDescription = if (isPlaying) "停止" else "试听",
-                    tint = if (isPlaying) MaterialTheme.colorScheme.error
-                           else if (canPlay) MaterialTheme.colorScheme.primary
-                           else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
+                    tint = if (isPlaying) BrandPink
+                           else if (canPlay) BrandBlue
+                           else TextTertiary,
+                    modifier = Modifier.size(18.dp)
                 )
             }
-            IconButton(onClick = onDelete) {
+
+            // Delete button
+            Box(
+                modifier = Modifier
+                    .size(32.dp)
+                    .clip(RoundedCornerShape(999.dp))
+                    .clickable { onDelete() },
+                contentAlignment = Alignment.Center
+            ) {
                 Icon(
                     Icons.Default.Delete,
                     contentDescription = "删除",
-                    tint = MaterialTheme.colorScheme.error,
-                    modifier = Modifier.size(20.dp)
+                    tint = BrandPink,
+                    modifier = Modifier.size(18.dp)
                 )
             }
         }
