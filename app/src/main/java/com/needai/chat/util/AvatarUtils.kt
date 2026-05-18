@@ -13,6 +13,8 @@ object AvatarUtils {
     private const val USER_AVATAR_DIR = "user_avatar"
     private const val DEFAULT_AVATAR = "default.png"
     private const val ASSETS_DEFAULT = "skillsBase.png"
+    private const val DEFAULT_USER_AVATAR = "default_user.png"
+    private const val ASSETS_USER_DEFAULT = "normal_user.jpg"
 
     /** 获取角色头像存储目录（用户可见的外部存储） */
     fun getAvatarDir(context: Context): File {
@@ -37,6 +39,23 @@ object AvatarUtils {
     /** 获取指定 skill 的头像文件路径 */
     fun getSkillAvatarPath(context: Context, skillId: String): String {
         return File(getAvatarDir(context), "${skillId}.png").absolutePath
+    }
+
+    /** 获取默认用户本人头像文件路径（首次自动从 assets 复制） */
+    fun getDefaultUserAvatarPath(context: Context): String {
+        val dest = File(getUserAvatarDir(context), DEFAULT_USER_AVATAR)
+        if (!dest.exists()) {
+            try {
+                context.assets.open(ASSETS_USER_DEFAULT).use { input ->
+                    FileOutputStream(dest).use { output ->
+                        input.copyTo(output)
+                    }
+                }
+            } catch (e: Exception) {
+                FileLogger.e("AvatarUtils", "复制默认用户头像失败", e)
+            }
+        }
+        return dest.absolutePath
     }
 
     /** 初始化：从 assets 复制默认头像 */

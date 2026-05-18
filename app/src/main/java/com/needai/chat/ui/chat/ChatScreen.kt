@@ -47,6 +47,7 @@ import com.needai.chat.ui.chat.state.ChatUiState
 import com.needai.chat.data.local.datastore.SettingsDataStore
 import com.needai.chat.data.remote.tts.CosyVoiceParameters
 import com.needai.chat.data.remote.tts.SystemVoiceProvider
+import com.needai.chat.util.AvatarUtils
 import com.needai.chat.util.ITtsManager
 import com.needai.chat.util.TtsManagerImpl
 import com.needai.chat.ui.navigation.Screen
@@ -102,6 +103,7 @@ fun ChatScreen(
     }
     val backgroundList by settingsDataStore.backgrounds.collectAsState(initial = emptyList())
     val selectedBgId by settingsDataStore.selectedBackgroundId.collectAsState(initial = "")
+    val userAvatarVersion by settingsDataStore.userAvatarVersion.collectAsState(initial = 0)
     val selectedBg = remember(backgroundList, selectedBgId) {
         backgroundList.find { it.id == selectedBgId }
     }
@@ -112,6 +114,25 @@ fun ChatScreen(
     }
 
     val skill = uiState.currentSkill
+
+    val skillAvatarBitmap = remember(skill.avatarPath) {
+        val path = skill.avatarPath
+        if (path.isNotBlank()) {
+            val f = java.io.File(path)
+            if (f.exists()) {
+                try { android.graphics.BitmapFactory.decodeFile(path)?.let { it.asImageBitmap() } } catch (_: Exception) { null }
+            } else null
+        } else null
+    }
+    val userAvatarBitmap = remember(userAvatarVersion) {
+        val customFile = java.io.File(AvatarUtils.getUserAvatarPath(context))
+        val path = if (customFile.exists()) customFile.absolutePath
+                   else AvatarUtils.getDefaultUserAvatarPath(context)
+        val f = java.io.File(path)
+        if (f.exists()) {
+            try { android.graphics.BitmapFactory.decodeFile(path)?.let { it.asImageBitmap() } } catch (_: Exception) { null }
+        } else null
+    }
 
     var ttsManager by remember { mutableStateOf<ITtsManager?>(null) }
     LaunchedEffect(ttsApiKey, ttsVoice, ttsVolume, ttsRate, ttsPitch) {
@@ -475,7 +496,9 @@ fun ChatScreen(
                                     coroutineScope.launch { snackbarHostState.showSnackbar("已复制", duration = SnackbarDuration.Short) }
                                 },
                                 isSpeaking = speakingMessageId == message.id,
-                                isAutoSpeaking = autoSpeaking
+                                isAutoSpeaking = autoSpeaking,
+                                skillAvatarBitmap = skillAvatarBitmap,
+                                userAvatarBitmap = userAvatarBitmap
                             )
                         }
 
@@ -484,7 +507,8 @@ fun ChatScreen(
                             item {
                                 StreamingBubble(
                                     content = uiState.currentStreamingMessage,
-                                    isStreaming = true
+                                    isStreaming = true,
+                                    skillAvatarBitmap = skillAvatarBitmap
                                 )
                                 if (autoSpeaking && ttsAutoRead) {
                                     IconButton(
@@ -505,7 +529,12 @@ fun ChatScreen(
                 inputText = uiState.inputText,
                 isStreaming = uiState.isStreaming,
                 onInputChanged = viewModel::onInputChanged,
-                onSend = viewModel::sendMessage,
+                onSend = {
+                    ttsManager?.stop()
+                    autoSpeaking = false
+                    speakingMessageId = null
+                    viewModel.sendMessage()
+                },
                 onStop = viewModel::stopStreaming
             )
         }

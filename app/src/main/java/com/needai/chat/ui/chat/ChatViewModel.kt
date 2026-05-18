@@ -15,6 +15,7 @@ import com.needai.chat.domain.repository.SessionRepository
 import com.needai.chat.domain.repository.SkillRepository
 import com.needai.chat.domain.repository.VoiceRepository
 import com.needai.chat.ui.chat.state.ChatUiState
+import com.needai.chat.util.FileLogger
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -22,8 +23,10 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -48,24 +51,30 @@ class ChatViewModel @Inject constructor(
 
     val showCarousel = MutableStateFlow(true)
 
-    private val sessionIdFlow = MutableStateFlow("")
-
     init {
         loadInitialData()
     }
 
     private fun loadInitialData() {
+        // 按角色 ID 驱动消息加载，角色间天然隔离，不会串数据
         viewModelScope.launch {
-            // Load session
-            val sessionId = chatRepository.getCurrentSessionId()
-            sessionIdFlow.value = sessionId
-            _uiState.update { it.copy(sessionId = sessionId) }
+            skillRepository.selectedSkillIdFlow().distinctUntilChanged().collect { skillId ->
+                val sessions = sessionRepository.getSessionsBySkillId(skillId)
+                val latestSession = sessions.maxByOrNull { it.updatedAt }
+                val sessionId = latestSession?.id ?: chatRepository.createNewSession()
+                val skillName = skillRepository.getSkillById(skillId)?.name ?: skillId
+                FileLogger.d("ChatViewModel", "查询 角色：${skillId} ${skillName} 会话记录 sessionId=${sessionId}")
+                if (sessionId != _uiState.value.sessionId) {
+                    _uiState.update { it.copy(messages = emptyList(), sessionId = sessionId) }
+                }
+            }
         }
 
         viewModelScope.launch {
             // Reactively observe messages for current session
-            sessionIdFlow.flatMapLatest { sid ->
-                chatRepository.getMessages(sid)
+            _uiState.map { it.sessionId }.distinctUntilChanged().flatMapLatest { sid ->
+                if (sid.isBlank()) flowOf(emptyList())
+                else chatRepository.getMessages(sid)
                     .catch { e -> _uiState.update { it.copy(error = "加载消息失败: ${e.localizedMessage}") } }
             }.collect { messages ->
                 _uiState.update { it.copy(messages = messages) }
@@ -357,27 +366,16 @@ class ChatViewModel @Inject constructor(
     }
 
     fun switchSkill(skill: Skill) {
+        // 立即清空旧消息，避免协程异步期间详情页闪烁旧数据
+        _uiState.update {
+            it.copy(messages = emptyList(), currentStreamingMessage = "", isStreaming = false)
+        }
         viewModelScope.launch {
             saveCurrentSession()
             skillRepository.setSelectedSkillId(skill.id)
-
-            // 优先加载该角色的最近一次会话，保留历史记录
-            val existingSessions = sessionRepository.getSessionsBySkillId(skill.id)
-            val latestSession = existingSessions.maxByOrNull { it.updatedAt }
-            val targetSessionId = if (latestSession != null) {
-                latestSession.id
-            } else {
-                chatRepository.createNewSession()
-            }
-
-            sessionIdFlow.value = targetSessionId
+            // 消息加载由 selectedSkillIdFlow 驱动，自动解析 sessionId 并加载消息
             _uiState.update {
-                it.copy(
-                    currentSkill = skill,
-                    sessionId = targetSessionId,
-                    currentStreamingMessage = "",
-                    isStreaming = false
-                )
+                it.copy(currentSkill = skill)
             }
         }
     }
@@ -533,7 +531,6 @@ class ChatViewModel @Inject constructor(
             }
 
             // Switch to imported session (keep current skill)
-            sessionIdFlow.value = sessionId
             _uiState.update {
                 it.copy(
                     sessionId = sessionId,

@@ -1,14 +1,17 @@
 package com.needai.chat.ui.chat.components
 
 import androidx.compose.animation.core.*
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
-import androidx.compose.material.icons.outlined.ContentCopy
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -19,6 +22,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
@@ -40,7 +45,9 @@ fun MessageBubble(
     onSpeak: (() -> Unit)? = null,
     onCopy: (() -> Unit)? = null,
     isSpeaking: Boolean = false,
-    isAutoSpeaking: Boolean = false
+    isAutoSpeaking: Boolean = false,
+    skillAvatarBitmap: ImageBitmap? = null,
+    userAvatarBitmap: ImageBitmap? = null
 ) {
     val isUser = message.role == MessageRole.USER
 
@@ -67,12 +74,26 @@ fun MessageBubble(
             horizontalArrangement = if (isUser) Arrangement.End else Arrangement.Start,
             modifier = Modifier.fillMaxWidth()
         ) {
-            // AI 头像（预留）
+            // AI 头像
             if (!isUser) {
+                if (skillAvatarBitmap != null) {
+                    Box(
+                        modifier = Modifier
+                            .size(28.dp)
+                            .clip(CircleShape)
+                            .background(GlassWhite),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Image(
+                            bitmap = skillAvatarBitmap,
+                            contentDescription = "角色头像",
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop
+                        )
+                    }
+                }
                 Spacer(modifier = Modifier.width(8.dp))
             }
-
-            // 气泡主体
             Box(
                 modifier = Modifier
                     .widthIn(max = 280.dp)
@@ -101,9 +122,32 @@ fun MessageBubble(
                 )
             }
 
-            // 用户侧间距
+            // 用户头像（始终显示占位圆形，有图显示图，无图显示图标）
             if (isUser) {
                 Spacer(modifier = Modifier.width(8.dp))
+                Box(
+                    modifier = Modifier
+                        .size(28.dp)
+                        .clip(CircleShape)
+                        .background(GlassWhite),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (userAvatarBitmap != null) {
+                        Image(
+                            bitmap = userAvatarBitmap,
+                            contentDescription = "用户头像",
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop
+                        )
+                    } else {
+                        Icon(
+                            imageVector = Icons.Default.Person,
+                            contentDescription = "用户头像",
+                            modifier = Modifier.size(16.dp),
+                            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
+                        )
+                    }
+                }
             }
         }
 
@@ -174,7 +218,8 @@ fun StreamingBubble(
     content: String,
     isStreaming: Boolean,
     modifier: Modifier = Modifier,
-    fontSize: Float = 16f
+    fontSize: Float = 16f,
+    skillAvatarBitmap: ImageBitmap? = null
 ) {
     Column(
         modifier = modifier
@@ -182,19 +227,42 @@ fun StreamingBubble(
             .padding(horizontal = 16.dp, vertical = 4.dp),
         horizontalAlignment = Alignment.Start
     ) {
-        Box(
-            modifier = Modifier
-                .widthIn(max = 280.dp)
-                .clip(RoundedCornerShape(4.dp, 16.dp, 16.dp, 16.dp))
-                .background(BubbleAiBg)
-                .border(0.5.dp, BubbleAiBorder, RoundedCornerShape(4.dp, 16.dp, 16.dp, 16.dp))
-                .padding(horizontal = 16.dp, vertical = 12.dp)
+        Row(
+            verticalAlignment = Alignment.Bottom,
+            modifier = Modifier.fillMaxWidth()
         ) {
-            StreamingText(
-                text = content,
-                isStreaming = isStreaming,
-                fontSize = fontSize
-            )
+            // AI 头像
+            if (skillAvatarBitmap != null) {
+                Box(
+                    modifier = Modifier
+                        .size(28.dp)
+                        .clip(CircleShape)
+                        .background(GlassWhite),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Image(
+                        bitmap = skillAvatarBitmap,
+                        contentDescription = "角色头像",
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.width(8.dp))
+            Box(
+                modifier = Modifier
+                    .widthIn(max = 280.dp)
+                    .clip(RoundedCornerShape(4.dp, 16.dp, 16.dp, 16.dp))
+                    .background(BubbleAiBg)
+                    .border(0.5.dp, BubbleAiBorder, RoundedCornerShape(4.dp, 16.dp, 16.dp, 16.dp))
+                    .padding(horizontal = 16.dp, vertical = 12.dp)
+            ) {
+                StreamingText(
+                    text = content,
+                    isStreaming = isStreaming,
+                    fontSize = fontSize
+                )
+            }
         }
     }
 }

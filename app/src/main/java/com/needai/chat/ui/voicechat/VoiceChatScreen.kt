@@ -1,5 +1,6 @@
 package com.needai.chat.ui.voicechat
 
+import android.graphics.BitmapFactory
 import android.Manifest
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -7,6 +8,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -25,6 +27,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -296,6 +300,17 @@ private fun SkillChip(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
+    val avatarBitmap = remember(skill.avatarPath) {
+        val path = skill.avatarPath
+        if (path.isNotBlank()) {
+            val f = java.io.File(path)
+            if (f.exists()) {
+                try { android.graphics.BitmapFactory.decodeFile(path) } catch (_: Exception) { null }
+            } else null
+        } else null
+    }
+
     Card(
         modifier = modifier
             .clickable(onClick = onClick),
@@ -314,11 +329,26 @@ private fun SkillChip(
                 .padding(12.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text(
-                text = skill.avatar,
-                fontSize = 28.sp
-            )
-            Spacer(modifier = Modifier.height(6.dp))
+            // 固定 48dp 圆形容器，有图显示图，无图显示 emoji
+            Box(
+                modifier = Modifier
+                    .size(48.dp)
+                    .clip(CircleShape)
+                    .background(GlassWhite),
+                contentAlignment = Alignment.Center
+            ) {
+                if (avatarBitmap != null) {
+                    Image(
+                        bitmap = avatarBitmap.asImageBitmap(),
+                        contentDescription = null,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop
+                    )
+                } else {
+                    Text(text = skill.avatar, fontSize = 24.sp)
+                }
+            }
+            Spacer(modifier = Modifier.height(8.dp))
             Text(
                 text = skill.name,
                 style = MaterialTheme.typography.labelMedium,
@@ -331,6 +361,17 @@ private fun SkillChip(
 
 @Composable
 private fun SelectedSkillInfoCard(uiState: VoiceChatUiState) {
+    val context = LocalContext.current
+    val selAvatarBitmap = remember(uiState.skillAvatarPath) {
+        val path = uiState.skillAvatarPath
+        if (path.isNotBlank()) {
+            val f = java.io.File(path)
+            if (f.exists()) {
+                try { BitmapFactory.decodeFile(path) } catch (_: Exception) { null }
+            } else null
+        } else null
+    }
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
@@ -340,11 +381,25 @@ private fun SelectedSkillInfoCard(uiState: VoiceChatUiState) {
     ) {
         Column(modifier = Modifier.padding(12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = uiState.skillAvatar,
-                    fontSize = 20.sp
-                )
-                Spacer(modifier = Modifier.width(8.dp))
+                Box(
+                    modifier = Modifier
+                        .size(48.dp)
+                        .clip(CircleShape)
+                        .background(GlassWhite),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (selAvatarBitmap != null) {
+                        Image(
+                            bitmap = selAvatarBitmap.asImageBitmap(),
+                            contentDescription = null,
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop
+                        )
+                    } else {
+                        Text(text = uiState.skillAvatar, fontSize = 24.sp)
+                    }
+                }
+                Spacer(modifier = Modifier.width(12.dp))
                 Text(
                     text = uiState.skillName,
                     style = MaterialTheme.typography.titleSmall,
@@ -375,6 +430,18 @@ private fun CallActiveContent(
     amplitudeProvider: VoiceChatViewModel
 ) {
     val amplitude by amplitudeProvider.voiceAmplitude.collectAsState()
+    val context = LocalContext.current
+
+    // 角色头像
+    val callAvatarBitmap = remember(uiState.skillAvatarPath) {
+        val path = uiState.skillAvatarPath
+        if (path.isNotBlank()) {
+            val f = java.io.File(path)
+            if (f.exists()) {
+                try { BitmapFactory.decodeFile(path) } catch (_: Exception) { null }
+            } else null
+        } else null
+    }
 
     Column(
         modifier = Modifier.fillMaxSize(),
@@ -393,10 +460,25 @@ private fun CallActiveContent(
                 modifier = Modifier.padding(12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = uiState.skillAvatar,
-                    fontSize = 28.sp
-                )
+                // 角色头像（固定大小区域）
+                Box(
+                    modifier = Modifier
+                        .size(48.dp)
+                        .clip(CircleShape)
+                        .background(GlassWhite),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (callAvatarBitmap != null) {
+                        Image(
+                            bitmap = callAvatarBitmap.asImageBitmap(),
+                            contentDescription = null,
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop
+                        )
+                    } else {
+                        Text(text = uiState.skillAvatar, fontSize = 24.sp)
+                    }
+                }
                 Spacer(modifier = Modifier.width(12.dp))
                 Column(modifier = Modifier.weight(1f)) {
                     Text(

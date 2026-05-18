@@ -37,6 +37,7 @@ data class VoiceChatUiState(
     val errorStep: String? = null,
     val skillName: String = "语音助手",
     val skillAvatar: String = "🎙️",
+    val skillAvatarPath: String = "",
     val allSkills: List<Skill> = emptyList(),
     val selectedSkillId: String? = null,
     val currentVoiceDisplayName: String = "",
@@ -109,6 +110,7 @@ class VoiceChatViewModel @Inject constructor(
                         allSkills = skills,
                         skillName = firstSkill?.name ?: "语音助手",
                         skillAvatar = firstSkill?.avatar ?: "🎙️",
+                        skillAvatarPath = firstSkill?.avatarPath ?: "",
                         selectedSkillId = firstSkill?.id
                     )
                 }
@@ -176,6 +178,7 @@ class VoiceChatViewModel @Inject constructor(
                         allSkills = skills,
                         skillName = skill.name,
                         skillAvatar = skill.avatar,
+                        skillAvatarPath = skill.avatarPath,
                         selectedSkillId = skill.id
                     )
                 }
@@ -190,8 +193,10 @@ class VoiceChatViewModel @Inject constructor(
         _uiState.update {
             it.copy(
                 selectedSkillId = skillId,
+                conversationHistory = emptyList(),
                 skillName = skill.name,
-                skillAvatar = skill.avatar
+                skillAvatar = skill.avatar,
+                skillAvatarPath = skill.avatarPath
             )
         }
         updateVoiceModelDisplay(skill)
@@ -368,12 +373,14 @@ class VoiceChatViewModel @Inject constructor(
             it.copy(
                 isCallActive = true,
                 error = null,
+                conversationHistory = emptyList(),
                 partialText = "",
                 lastUserText = "",
                 assistantText = "",
                 status = "连接中...",
                 skillName = selectedSkill?.name ?: "语音助手",
                 skillAvatar = selectedSkill?.avatar ?: "🎙️",
+                skillAvatarPath = selectedSkill?.avatarPath ?: "",
                 isSpeaking = false,
                 isTtsPlaying = false
             )
@@ -407,6 +414,7 @@ class VoiceChatViewModel @Inject constructor(
             it.copy(
                 isCallActive = false,
                 status = "已结束",
+                conversationHistory = emptyList(),
                 partialText = "",
                 lastUserText = "",
                 assistantText = "",

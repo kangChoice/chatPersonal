@@ -41,6 +41,7 @@ class SettingsDataStore(private val context: Context) {
         private val SELECTED_BACKGROUND_ID = stringPreferencesKey("selected_background_id")
         private val DEVICE_PREFIX = stringPreferencesKey("device_prefix")
         private val USER_AVATAR_PATH = stringPreferencesKey("user_avatar_path")
+        private val USER_AVATAR_VERSION = intPreferencesKey("user_avatar_version")
     }
 
     val selectedSkillId: Flow<String> = context.settingsStore.data.map { preferences ->
@@ -250,9 +251,22 @@ class SettingsDataStore(private val context: Context) {
         preferences[USER_AVATAR_PATH] ?: ""
     }
 
+    val userAvatarVersion: Flow<Int> = context.settingsStore.data.map { preferences ->
+        preferences[USER_AVATAR_VERSION] ?: 0
+    }
+
     suspend fun setUserAvatarPath(path: String) {
         context.settingsStore.edit { preferences ->
             preferences[USER_AVATAR_PATH] = path
+            val currentVersion = preferences[USER_AVATAR_VERSION] ?: 0
+            preferences[USER_AVATAR_VERSION] = currentVersion + 1
+        }
+    }
+
+    suspend fun incrementUserAvatarVersion() {
+        context.settingsStore.edit { preferences ->
+            val currentVersion = preferences[USER_AVATAR_VERSION] ?: 0
+            preferences[USER_AVATAR_VERSION] = currentVersion + 1
         }
     }
 

@@ -136,7 +136,7 @@ StatsScreen 有路由有页面，但不在底部导航里。你要导航过去�
 
 ## 其他你该知道的
 
-- 当前版本：**v1.3.0**（versionCode=3），minSdk=26，targetSdk=36
+- 当前版本：**v1.4.0**（versionCode=4），minSdk=26，targetSdk=36
 - **全 UI 中文**，别手贱加英文
 - **Release 包？不存在的。** 没有签名配置，没有混淆，没有 CI
 - 内置 API Key 已从 `assets/model_config.json` 剥离，改用 BuildConfig 注入（见密钥安全章节）。首次启动前在 `local.properties` 中配置有效 Key 才能使用体验模型和 TTS。

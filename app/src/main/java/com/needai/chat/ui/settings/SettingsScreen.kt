@@ -1,5 +1,6 @@
 package com.needai.chat.ui.settings
 
+import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -242,7 +243,11 @@ fun SettingsScreen(
 
             // ============ 个人配置 ============
             val userAvatarDataStore = remember { SettingsDataStore(context) }
-            val userAvatarPath by userAvatarDataStore.userAvatarPath.collectAsState(initial = "")
+            val customAvatarFile = java.io.File(AvatarUtils.getUserAvatarPath(context))
+            val hasCustomAvatar = customAvatarFile.exists()
+            val initialAvatarPath = if (hasCustomAvatar) customAvatarFile.absolutePath
+                                    else AvatarUtils.getDefaultUserAvatarPath(context)
+            var avatarBitmap by remember { mutableStateOf(try { BitmapFactory.decodeFile(initialAvatarPath) } catch (_: Exception) { null }) }
 
             val userAvatarPickerLauncher = rememberLauncherForActivityResult(
                 ActivityResultContracts.GetContent()
@@ -250,7 +255,8 @@ fun SettingsScreen(
                 if (uri != null) {
                     val savedPath = AvatarUtils.saveUserAvatar(context, uri)
                     if (savedPath != null) {
-                        scope.launch { userAvatarDataStore.setUserAvatarPath(savedPath) }
+                        scope.launch { userAvatarDataStore.incrementUserAvatarVersion() }
+                        avatarBitmap = try { BitmapFactory.decodeFile(savedPath) } catch (_: Exception) { null }
                     }
                 }
             }
@@ -271,11 +277,6 @@ fun SettingsScreen(
                             .padding(vertical = 4.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        val avatarBitmap = remember(userAvatarPath) {
-                            if (userAvatarPath.isNotBlank()) {
-                                try { BitmapFactory.decodeFile(userAvatarPath) } catch (_: Exception) { null }
-                            } else null
-                        }
                         Box(
                             modifier = Modifier
                                 .size(64.dp)
@@ -283,9 +284,10 @@ fun SettingsScreen(
                                 .background(GlassWhite),
                             contentAlignment = Alignment.Center
                         ) {
-                            if (avatarBitmap != null) {
+                            val bm = avatarBitmap
+                            if (bm != null) {
                                 Image(
-                                    bitmap = avatarBitmap.asImageBitmap(),
+                                    bitmap = bm.asImageBitmap(),
                                     contentDescription = "用户头像",
                                     modifier = Modifier.fillMaxSize(),
                                     contentScale = ContentScale.Crop
@@ -303,7 +305,7 @@ fun SettingsScreen(
                         Column {
                             Text("本人头像", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = TextPrimary)
                             Text(
-                                text = if (userAvatarPath.isNotBlank()) "点击更换头像" else "点击设置头像",
+                                text = if (hasCustomAvatar) "点击更换头像" else "点击设置头像",
                                 fontSize = 13.sp,
                                 color = TextSecondary
                             )
@@ -416,7 +418,9 @@ fun SettingsScreen(
                                     .padding(vertical = 4.dp)
                             ) {
                                 Row(
-                                    modifier = Modifier.padding(8.dp),
+                                    modifier = Modifier
+                                        .padding(8.dp)
+                                        .heightIn(min = 48.dp),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     if (bitmap != null) {
@@ -449,7 +453,8 @@ fun SettingsScreen(
                                         Text(
                                             text = bg.name,
                                             style = MaterialTheme.typography.bodyMedium,
-                                            fontWeight = FontWeight.Medium
+                                            fontWeight = FontWeight.Medium,
+                                            maxLines = 1
                                         )
                                         Text(
                                             text = if (isSelected) "当前使用中" else "点击选择",
