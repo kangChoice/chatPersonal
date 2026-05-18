@@ -3,6 +3,7 @@ package com.needai.chat.di
 import android.content.Context
 import androidx.room.Room
 import com.needai.chat.data.local.db.AppDatabase
+import com.needai.chat.data.local.db.Migrations
 import com.needai.chat.data.local.db.dao.MessageDao
 import com.needai.chat.data.local.db.dao.ModelConfigDao
 import com.needai.chat.data.local.db.dao.SessionDao
@@ -25,7 +26,10 @@ object DatabaseModule {
             context,
             AppDatabase::class.java,
             "needai_chat.db"
-        ).fallbackToDestructiveMigration()
+        )
+            // 先前的版本未写 Migration，fallbackToDestructiveMigration 兜底旧版本
+            .addMigrations() // 在此注册 Migration：Migrations.MIGRATION_8_9, ...
+            .fallbackToDestructiveMigration(true)
             .build()
     }
 

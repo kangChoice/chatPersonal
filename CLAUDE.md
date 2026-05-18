@@ -64,14 +64,32 @@ app/src/main/java/com/needai/chat/
 
 聊天 → 群聊 → 技能管理（含音色） → 提示词优化 → 设置
 
-## 数据库（Room v8，毁灭性迁移）
+## 数据库（Room v8）
 
-4 张表，升级版本号就直接删数据，别指望写 migration：
+**核心原则：数据库版本升级必须写兼容性 Migration，禁止使用 `fallbackToDestructiveMigration()`。** 用户聊天记录和技能配置是有价值的数据，每次升级都删数据不可接受。
+
+### 4 张表
 
 - **skills** — 技能/角色预设。字段：id、name、description、avatar、systemPrompt、greeting、temperature、tags（JSON 字符串存数组）、isBuiltin、createdAt、updatedAt
 - **messages** — 聊天消息。字段：自增 id、sessionId、role（USER/ASSISTANT/SYSTEM）、content、skillId（可空）、timestamp、isStreaming、promptTokens/completionTokens/totalTokens（都可空）、modelConfigId（可空）
 - **sessions** — 会话。字段：id、skillId、title、createdAt、updatedAt
 - **model_configs** — 模型配置。字段：id、name、protocol（OPENAI/ANTHROPIC）、remoteBaseUrl、remoteApiKey、remoteModelName、temperature、maxTokens、topP、isBuiltin、createdAt、updatedAt
+
+### Migration 写法规范
+
+1. 在 `DatabaseModule.kt` 中用 `addMigrations()`，禁止 `fallbackToDestructiveMigration()`
+2. 每条迁移写一个 `object : Migration(oldVersion, newVersion)`，实现 `migrate(db)` 方法
+3. 用 `ALTER TABLE` 加字段/加索引，`CREATE TABLE` 建新表，不要删改已有列
+4. 新增表或新增可空字段不需要复杂数据迁移
+5. 迁移写好后加到 `.addMigrations(MIGRATION_1_2, MIGRATION_2_3, ...)` 链上
+
+```kotlin
+val MIGRATION_8_9 = object : Migration(8, 9) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE messages ADD COLUMN modelConfigId TEXT DEFAULT NULL")
+    }
+}
+```
 
 ## 支持的 AI 协议
 
@@ -130,6 +148,9 @@ StatsScreen 有路由有页面，但不在底部导航里。你要导航过去�
 
 ### AsrEngine 依赖 DashScope API Key 硬编码
 `VoiceChatViewModel` 中 ASR 的 API Key 从 `SettingsDataStore` 获取（TTS API Key 复用），但内置阿里云 Key 已过期。首次启动后用户必须自行设置有效的 TTS API Key 才能使用语音通话功能。
+
+### 数据库 Migration 基础设施已就绪，但历史 Migration 未补
+`Migrations.kt` 已创建、`DatabaseModule.kt` 已配置 `addMigrations()` + `fallbackToDestructiveMigration()` 兜底。但目前没有定义任何 Migration 对象，需要升版本时在 `Migrations.kt` 中添加 MIGRATION_X_Y 再注册到 `DatabaseModule.kt`。
 
 ### 音频打包体积
 `build.gradle.kts` 中配置了 `abiFilters = ["arm64-v8a", "armeabi-v7a"]` 排除 x86 架构的 so 文件。VAD 的 ONNX Runtime 强制 ≥1.25.0 以确保 16 KB 对齐。
