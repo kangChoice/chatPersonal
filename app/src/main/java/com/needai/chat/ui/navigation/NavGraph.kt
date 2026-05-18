@@ -44,7 +44,9 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector?
     data object SkillEdit : Screen("skill_edit/{skillId}", "编辑角色")
     data object VoiceManagement : Screen("voice_management", "音色管理")
     data object Settings : Screen("settings", "设置", Icons.Default.Settings)
-    data object VoiceChat : Screen("voice_chat", "语音通话")
+    data object VoiceChat : Screen("voice_chat/{skillId}", "语音通话") {
+        fun createRoute(skillId: String = "") = "voice_chat/$skillId"
+    }
 
     companion object {
         fun skillEdit(skillId: String) = "skill_edit/$skillId"
@@ -194,8 +196,10 @@ fun MainScreen(isDark: Boolean = false) {
                             }
                         )
                     }
-                    composable(Screen.VoiceChat.route) {
+                    composable(Screen.VoiceChat.route) { backStackEntry ->
+                        val skillId = backStackEntry.arguments?.getString("skillId") ?: ""
                         VoiceChatScreen(
+                            skillId = skillId,
                             onNavigateBack = { navController.popBackStack() }
                         )
                     }

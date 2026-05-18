@@ -294,22 +294,22 @@ fun VoiceListScreen(
     if (deleteVoice != null) {
         AlertDialog(
             onDismissRequest = { deleteVoice = null },
-            icon = { Icon(Icons.Default.Delete, contentDescription = null) },
-            title = { Text("删除音色") },
-            text = { Text("确定要删除「${deleteVoice!!.displayName.ifEmpty { deleteVoice!!.voiceId }}」吗？") },
+            icon = { Icon(Icons.Default.Delete, contentDescription = null, tint = BrandPink) },
+            title = { Text("删除音色", fontWeight = FontWeight.Bold, color = TextPrimary) },
+            text = { Text("确定要删除「${deleteVoice!!.displayName.ifEmpty { deleteVoice!!.voiceId }}」吗？", color = TextSecondary) },
             confirmButton = {
                 Button(
                     onClick = {
                         viewModel.deleteVoice(deleteVoice!!.voiceId)
                         deleteVoice = null
                     },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.error
-                    )
+                    colors = ButtonDefaults.buttonColors(containerColor = BrandPink)
                 ) { Text("删除") }
             },
             dismissButton = {
-                TextButton(onClick = { deleteVoice = null }) { Text("取消") }
+                TextButton(onClick = { deleteVoice = null }) {
+                    Text("取消", color = TextSecondary)
+                }
             }
         )
     }
@@ -318,22 +318,22 @@ fun VoiceListScreen(
     if (showDeleteAllDialog) {
         AlertDialog(
             onDismissRequest = { showDeleteAllDialog = false },
-            icon = { Icon(Icons.Default.Delete, contentDescription = null) },
-            title = { Text("删除全部音色") },
-            text = { Text("确定要删除所有远程音色吗？此操作不可撤销，已删除的音色无法恢复。系统内置音色不受影响。") },
+            icon = { Icon(Icons.Default.Delete, contentDescription = null, tint = BrandPink) },
+            title = { Text("删除全部音色", fontWeight = FontWeight.Bold, color = TextPrimary) },
+            text = { Text("确定要删除所有远程音色吗？此操作不可撤销，已删除的音色无法恢复。系统内置音色不受影响。", color = TextSecondary) },
             confirmButton = {
                 Button(
                     onClick = {
                         viewModel.deleteAllVoices()
                         showDeleteAllDialog = false
                     },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.error
-                    )
+                    colors = ButtonDefaults.buttonColors(containerColor = BrandPink)
                 ) { Text("全部删除") }
             },
             dismissButton = {
-                TextButton(onClick = { showDeleteAllDialog = false }) { Text("取消") }
+                TextButton(onClick = { showDeleteAllDialog = false }) {
+                    Text("取消", color = TextSecondary)
+                }
             }
         )
     }

@@ -40,6 +40,7 @@ class SettingsDataStore(private val context: Context) {
         private val BACKGROUNDS = stringPreferencesKey("backgrounds")
         private val SELECTED_BACKGROUND_ID = stringPreferencesKey("selected_background_id")
         private val DEVICE_PREFIX = stringPreferencesKey("device_prefix")
+        private val USER_AVATAR_PATH = stringPreferencesKey("user_avatar_path")
     }
 
     val selectedSkillId: Flow<String> = context.settingsStore.data.map { preferences ->
@@ -240,6 +241,18 @@ class SettingsDataStore(private val context: Context) {
     suspend fun setDevicePrefix(prefix: String) {
         context.settingsStore.edit { preferences ->
             preferences[DEVICE_PREFIX] = prefix
+        }
+    }
+
+    // ===== 用户头像 =====
+
+    val userAvatarPath: Flow<String> = context.settingsStore.data.map { preferences ->
+        preferences[USER_AVATAR_PATH] ?: ""
+    }
+
+    suspend fun setUserAvatarPath(path: String) {
+        context.settingsStore.edit { preferences ->
+            preferences[USER_AVATAR_PATH] = path
         }
     }
 

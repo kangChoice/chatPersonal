@@ -165,10 +165,12 @@ fun MultiChatScreen(
                             }
                             DropdownMenu(
                                 expanded = showMenu,
-                                onDismissRequest = { showMenu = false }
+                                onDismissRequest = { showMenu = false },
+                                modifier = Modifier
+                                    .background(GlassWhite, RoundedCornerShape(16.dp))
                             ) {
                                 DropdownMenuItem(
-                                    text = { Text("新建群聊") },
+                                    text = { Text("新建群聊", fontSize = 14.sp, color = TextPrimary) },
                                     onClick = {
                                         viewModel.newSession()
                                         showMenu = false
@@ -176,14 +178,15 @@ fun MultiChatScreen(
                                     }
                                 )
                                 DropdownMenuItem(
-                                    text = { Text("历史会话") },
+                                    text = { Text("历史会话", fontSize = 14.sp, color = TextPrimary) },
                                     onClick = {
                                         showMenu = false
                                         showHistorySession = true
                                     }
                                 )
+                                HorizontalDivider(color = Color.White.copy(alpha = 0.3f), thickness = 0.5.dp)
                                 DropdownMenuItem(
-                                    text = { Text("清空对话") },
+                                    text = { Text("清空对话", fontSize = 14.sp, color = BrandPink) },
                                     onClick = {
                                         viewModel.clearMessages()
                                         showMenu = false

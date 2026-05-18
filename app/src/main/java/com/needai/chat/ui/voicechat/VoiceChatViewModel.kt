@@ -163,6 +163,27 @@ class VoiceChatViewModel @Inject constructor(
         )
     }
 
+    /**
+     * 从外部预选角色（通过导航参数传入）。
+     * suspend 函数，等待角色加载完成后返回。
+     */
+    suspend fun preselectSkill(skillId: String) {
+        skillRepository.getAllSkills().first().let { skills ->
+            val skill = skills.find { it.id == skillId }
+            if (skill != null) {
+                _uiState.update {
+                    it.copy(
+                        allSkills = skills,
+                        skillName = skill.name,
+                        skillAvatar = skill.avatar,
+                        selectedSkillId = skill.id
+                    )
+                }
+                updateVoiceModelDisplay(skill)
+            }
+        }
+    }
+
     fun selectSkill(skillId: String) {
         resetMemory()
         val skill = _uiState.value.allSkills.find { it.id == skillId } ?: return

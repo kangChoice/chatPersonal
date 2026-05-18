@@ -3,18 +3,30 @@ package com.needai.chat.util
 import android.content.Context
 import android.graphics.BitmapFactory
 import android.net.Uri
+import android.os.Environment
 import java.io.File
 import java.io.FileOutputStream
 
 object AvatarUtils {
 
     private const val AVATAR_DIR = "skills_avatars"
+    private const val USER_AVATAR_DIR = "user_avatar"
     private const val DEFAULT_AVATAR = "default.png"
     private const val ASSETS_DEFAULT = "skillsBase.png"
 
-    /** 获取头像存储目录 */
+    /** 获取角色头像存储目录（用户可见的外部存储） */
     fun getAvatarDir(context: Context): File {
-        return File(context.filesDir, AVATAR_DIR).also { it.mkdirs() }
+        return File(context.getExternalFilesDir(null), AVATAR_DIR).also { it.mkdirs() }
+    }
+
+    /** 获取用户本人头像存储目录 */
+    fun getUserAvatarDir(context: Context): File {
+        return File(context.getExternalFilesDir(Environment.DIRECTORY_PICTURES), USER_AVATAR_DIR).also { it.mkdirs() }
+    }
+
+    /** 获取用户本人头像路径 */
+    fun getUserAvatarPath(context: Context): String {
+        return File(getUserAvatarDir(context), "user_avatar.png").absolutePath
     }
 
     /** 获取默认头像文件路径 */
@@ -42,7 +54,7 @@ object AvatarUtils {
         }
     }
 
-    /** 保存头像图片到本地，返回文件路径 */
+    /** 保存角色头像图片到本地，返回文件路径 */
     fun saveAvatar(context: Context, skillId: String, uri: Uri): String? {
         return try {
             val path = getSkillAvatarPath(context, skillId)
@@ -53,7 +65,23 @@ object AvatarUtils {
             }
             path
         } catch (e: Exception) {
-            FileLogger.e("AvatarUtils", "保存头像失败: skillId=$skillId", e)
+            FileLogger.e("AvatarUtils", "保存角色头像失败: skillId=$skillId", e)
+            null
+        }
+    }
+
+    /** 保存用户本人头像，返回文件路径 */
+    fun saveUserAvatar(context: Context, uri: Uri): String? {
+        return try {
+            val path = getUserAvatarPath(context)
+            context.contentResolver.openInputStream(uri)?.use { input ->
+                FileOutputStream(path).use { output ->
+                    input.copyTo(output)
+                }
+            }
+            path
+        } catch (e: Exception) {
+            FileLogger.e("AvatarUtils", "保存用户头像失败", e)
             null
         }
     }

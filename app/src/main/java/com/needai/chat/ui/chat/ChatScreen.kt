@@ -16,6 +16,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
@@ -71,7 +72,7 @@ fun ChatScreen(
     onChatDetailChange: (Boolean) -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    var showCarousel by remember { mutableStateOf(true) }
+    val showCarousel by viewModel.showCarousel.collectAsState()
     LaunchedEffect(showCarousel) {
         onChatDetailChange(!showCarousel)
         if (showCarousel) viewModel.onInputChanged("")
@@ -247,7 +248,7 @@ fun ChatScreen(
             pendingSkill != null -> pendingSkill = null
             sessionToDelete != null -> sessionToDelete = null
             showMenu -> showMenu = false
-            !showCarousel -> showCarousel = true
+            !showCarousel -> viewModel.showCarousel.value = true
         }
     }
 
@@ -291,7 +292,7 @@ fun ChatScreen(
                 onSelectedIndexChanged = { carouselSelectedIndex = it },
                 onSkillSelected = { skill ->
                     viewModel.switchSkill(skill)
-                    showCarousel = false
+                    viewModel.showCarousel.value = false
                 },
                 voiceNameMap = voiceAliases
             )
@@ -318,7 +319,7 @@ fun ChatScreen(
                         .clickable(
                             interactionSource = remember { MutableInteractionSource() },
                             indication = null
-                        ) { showCarousel = true },
+                        ) { viewModel.showCarousel.value = true },
                     contentAlignment = Alignment.Center
                 ) {
                     Text("<", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
@@ -353,6 +354,33 @@ fun ChatScreen(
                     )
                 }
 
+                // Right → 语音通话
+                val hasVoiceId = skill.voiceId.isNotBlank()
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(CircleShape)
+                        .background(if (hasVoiceId) Color.Black.copy(alpha = 0.3f) else Color.Black.copy(alpha = 0.1f))
+                        .border(0.5.dp, Color.White.copy(alpha = if (hasVoiceId) 0.2f else 0.05f), CircleShape)
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                            enabled = hasVoiceId
+                        ) {
+                            navController.navigate(Screen.VoiceChat.createRoute(skill.id))
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Phone,
+                        contentDescription = "语音通话",
+                        tint = Color.White.copy(alpha = if (hasVoiceId) 0.8f else 0.25f),
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+
+                Spacer(Modifier.width(6.dp))
+
                 // Right → 菜单
                 Box {
                     Box(
@@ -371,10 +399,12 @@ fun ChatScreen(
                     }
                     DropdownMenu(
                         expanded = showMenu,
-                        onDismissRequest = { showMenu = false }
+                        onDismissRequest = { showMenu = false },
+                        modifier = Modifier
+                            .background(GlassWhite, RoundedCornerShape(16.dp))
                     ) {
                         DropdownMenuItem(
-                            text = { Text("导出会话") },
+                            text = { Text("导出会话", fontSize = 14.sp, color = TextPrimary) },
                             onClick = {
                                 showMenu = false
                                 if (uiState.messages.isNotEmpty()) {
@@ -384,12 +414,13 @@ fun ChatScreen(
                                 }
                             }
                         )
+                        //DropdownMenuItem(
+                        //    text = { Text("导入会话") },
+                        //    onClick = { showMenu = false; importSessionLauncher.launch(arrayOf("text/*", "*/*")) }
+                        //)
+                        HorizontalDivider(color = Color.White.copy(alpha = 0.3f), thickness = 0.5.dp)
                         DropdownMenuItem(
-                            text = { Text("导入会话") },
-                            onClick = { showMenu = false; importSessionLauncher.launch(arrayOf("text/*", "*/*")) }
-                        )
-                        DropdownMenuItem(
-                            text = { Text("清空上下文") },
+                            text = { Text("清空上下文", fontSize = 14.sp, color = BrandPink) },
                             onClick = { viewModel.clearSession(); showMenu = false }
                         )
                     }

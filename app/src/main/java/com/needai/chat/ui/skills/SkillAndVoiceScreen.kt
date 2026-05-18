@@ -343,10 +343,12 @@ fun SkillAndVoiceScreen(
                                     }
                                     DropdownMenu(
                                         expanded = showVoiceMenu,
-                                        onDismissRequest = { showVoiceMenu = false }
+                                        onDismissRequest = { showVoiceMenu = false },
+                                        modifier = Modifier
+                                            .background(GlassWhite, RoundedCornerShape(16.dp))
                                     ) {
                                         DropdownMenuItem(
-                                            text = { Text("删除全部音色") },
+                                            text = { Text("删除全部音色", fontSize = 14.sp, color = BrandPink) },
                                             onClick = {
                                                 showVoiceMenu = false
                                                 showDeleteAllDialog = true
@@ -356,8 +358,8 @@ fun SkillAndVoiceScreen(
                                             }
                                         )
                                     }
-                }
-            }
+                                }
+                            }
                         }
                     }
                 }
@@ -869,7 +871,7 @@ fun SkillAndVoiceScreen(
                 text = {
                     val boundSkills = voiceSkillBindings[deleteVoice!!.voiceId] ?: emptyList()
                     Column {
-                        Text("确定要删除「${deleteVoice!!.displayName.ifEmpty { deleteVoice!!.voiceId }}」吗？")
+                        Text("确定要删除「${deleteVoice!!.displayName.ifEmpty { deleteVoice!!.voiceId }}」吗？", color = TextSecondary)
                         if (boundSkills.isNotEmpty()) {
                             Spacer(modifier = Modifier.height(8.dp))
                             Text(
@@ -895,7 +897,7 @@ fun SkillAndVoiceScreen(
                     ) { Text("删除") }
                 },
                 dismissButton = {
-                    TextButton(onClick = { deleteVoice = null }) { Text("取消") }
+                    TextButton(onClick = { deleteVoice = null }) { Text("取消", color = TextSecondary) }
                 }
             )
         }
@@ -907,7 +909,7 @@ fun SkillAndVoiceScreen(
                 title = { Text("删除全部音色", fontWeight = FontWeight.Bold, color = TextPrimary) },
                 text = {
                     Column {
-                        Text("确定要删除所有远程音色吗？此操作不可撤销，已删除的音色无法恢复。系统内置音色不受影响。")
+                        Text("确定要删除所有远程音色吗？此操作不可撤销，已删除的音色无法恢复。系统内置音色不受影响。", color = TextSecondary)
                         val allBoundIds = uiState.voices.flatMap { v ->
                             (voiceSkillBindings[v.voiceId] ?: emptyList()).map { it.id }
                         }.toSet()
@@ -937,7 +939,7 @@ fun SkillAndVoiceScreen(
                     ) { Text("全部删除") }
                 },
                 dismissButton = {
-                    TextButton(onClick = { showDeleteAllDialog = false }) { Text("取消") }
+                    TextButton(onClick = { showDeleteAllDialog = false }) { Text("取消", color = TextSecondary) }
                 }
             )
         }

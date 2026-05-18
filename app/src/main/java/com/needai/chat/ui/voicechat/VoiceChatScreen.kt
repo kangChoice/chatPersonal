@@ -39,6 +39,7 @@ import com.needai.chat.ui.theme.*
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun VoiceChatScreen(
+    skillId: String = "",
     onNavigateBack: () -> Unit,
     viewModel: VoiceChatViewModel = hiltViewModel()
 ) {
@@ -53,6 +54,31 @@ fun VoiceChatScreen(
             viewModel.toggleCall()
         } else {
             viewModel.updateError("需要麦克风权限才能通话")
+        }
+    }
+
+    // 从单人聊天页面发起时：预选角色并自动发起通话
+    LaunchedEffect(skillId) {
+        if (skillId.isNotBlank()) {
+            viewModel.preselectSkill(skillId)
+            if (ContextCompat.checkSelfPermission(
+                    context, Manifest.permission.RECORD_AUDIO
+                ) == PackageManager.PERMISSION_GRANTED
+            ) {
+                viewModel.toggleCall()
+            } else {
+                permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+            }
+        }
+    }
+
+    // 通话结束后自动返回聊天页面（从单人聊天进入时）
+    var wasCallActive by remember { mutableStateOf(false) }
+    LaunchedEffect(uiState.isCallActive) {
+        if (uiState.isCallActive) {
+            wasCallActive = true
+        } else if (wasCallActive && skillId.isNotBlank()) {
+            onNavigateBack()
         }
     }
 
@@ -100,9 +126,10 @@ fun VoiceChatScreen(
         ) {
             if (uiState.isCallActive) {
                 CallActiveContent(uiState, listState, viewModel)
-            } else {
+            } else if (skillId.isBlank()) {
                 SkillSelectionContent(uiState, viewModel, permissionLauncher)
             }
+            // skillId 非空（来自聊天页）：通话结束后不显示选择页，LaunchedEffect 处理返回
 
             // 错误提示（带步骤标识）
             if (uiState.error != null) {

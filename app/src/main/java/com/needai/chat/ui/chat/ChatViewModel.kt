@@ -46,6 +46,8 @@ class ChatViewModel @Inject constructor(
 
     private var streamingJob: Job? = null
 
+    val showCarousel = MutableStateFlow(true)
+
     private val sessionIdFlow = MutableStateFlow("")
 
     init {

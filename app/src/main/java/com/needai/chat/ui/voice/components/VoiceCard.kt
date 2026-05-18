@@ -177,11 +177,13 @@ fun VoiceCard(
                     }
                     DropdownMenu(
                         expanded = showEditMenu,
-                        onDismissRequest = { showEditMenu = false }
+                        onDismissRequest = { showEditMenu = false },
+                        modifier = Modifier
+                            .background(GlassWhite, RoundedCornerShape(16.dp))
                     ) {
                         if (onAliasEdit != null) {
                             DropdownMenuItem(
-                                text = { Text("编辑别名") },
+                                text = { Text("编辑别名", fontSize = 14.sp, color = TextPrimary) },
                                 onClick = {
                                     showEditMenu = false
                                     onAliasEdit()
@@ -190,7 +192,7 @@ fun VoiceCard(
                         }
                         if (onEditBindings != null) {
                             DropdownMenuItem(
-                                text = { Text("编辑绑定角色") },
+                                text = { Text("编辑绑定角色", fontSize = 14.sp, color = TextPrimary) },
                                 onClick = {
                                     showEditMenu = false
                                     onEditBindings()

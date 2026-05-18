@@ -17,6 +17,7 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.FileUpload
 import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -32,6 +33,7 @@ import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
@@ -44,12 +46,15 @@ import com.needai.chat.ui.settings.components.GenerationParamsDialog
 import com.needai.chat.ui.settings.components.ModelConfigEditDialog
 import com.needai.chat.ui.settings.components.QuickCreateProviderDialog
 import com.needai.chat.ui.settings.components.TtsSettingsSection
+import com.needai.chat.util.AvatarUtils
 import com.needai.chat.util.FileLogger
 import com.needai.chat.ui.navigation.Screen
 import com.needai.chat.ui.theme.*
 import androidx.compose.ui.graphics.Color
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -235,6 +240,80 @@ fun SettingsScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
+            // ============ 个人配置 ============
+            val userAvatarDataStore = remember { SettingsDataStore(context) }
+            val userAvatarPath by userAvatarDataStore.userAvatarPath.collectAsState(initial = "")
+
+            val userAvatarPickerLauncher = rememberLauncherForActivityResult(
+                ActivityResultContracts.GetContent()
+            ) { uri ->
+                if (uri != null) {
+                    val savedPath = AvatarUtils.saveUserAvatar(context, uri)
+                    if (savedPath != null) {
+                        scope.launch { userAvatarDataStore.setUserAvatarPath(savedPath) }
+                    }
+                }
+            }
+
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(
+                        text = "个人配置",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .clickable { userAvatarPickerLauncher.launch("image/*") }
+                            .padding(vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        val avatarBitmap = remember(userAvatarPath) {
+                            if (userAvatarPath.isNotBlank()) {
+                                try { BitmapFactory.decodeFile(userAvatarPath) } catch (_: Exception) { null }
+                            } else null
+                        }
+                        Box(
+                            modifier = Modifier
+                                .size(64.dp)
+                                .clip(CircleShape)
+                                .background(GlassWhite),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            if (avatarBitmap != null) {
+                                Image(
+                                    bitmap = avatarBitmap.asImageBitmap(),
+                                    contentDescription = "用户头像",
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentScale = ContentScale.Crop
+                                )
+                            } else {
+                                Icon(
+                                    Icons.Default.Person,
+                                    contentDescription = "设置头像",
+                                    tint = BrandBlue,
+                                    modifier = Modifier.size(32.dp)
+                                )
+                            }
+                        }
+                        Spacer(Modifier.width(16.dp))
+                        Column {
+                            Text("本人头像", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = TextPrimary)
+                            Text(
+                                text = if (userAvatarPath.isNotBlank()) "点击更换头像" else "点击设置头像",
+                                fontSize = 13.sp,
+                                color = TextSecondary
+                            )
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
             // TTS 配置
             val ttsApiKey by viewModel.ttsApiKey.collectAsStateWithLifecycle()
             val ttsVolume by viewModel.ttsVolume.collectAsStateWithLifecycle()
@@ -260,7 +339,7 @@ fun SettingsScreen(
             // 语音通话
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                onClick = { navController.navigate(Screen.VoiceChat.route) }
+                onClick = { navController.navigate(Screen.VoiceChat.createRoute()) }
             ) {
                 Row(
                     modifier = Modifier
