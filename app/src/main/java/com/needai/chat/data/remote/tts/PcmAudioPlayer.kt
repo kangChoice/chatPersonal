@@ -113,6 +113,31 @@ class PcmAudioPlayer(
         release()
     }
 
+    /**
+     * 等待音频缓冲区自然播放完毕，然后将 isPlaying 置回 false。
+     * 与 drainAndStop 的区别：不 stop/release AudioTrack，后续可直接继续 write+play。
+     */
+    @Synchronized
+    fun awaitDrain() {
+        val track = audioTrack ?: return
+        if (!isPlaying) return
+        try {
+            var lastPos = track.playbackHeadPosition
+            var stagnant = 0
+            while (stagnant < 4) {
+                Thread.sleep(150)
+                val pos = track.playbackHeadPosition
+                if (pos == lastPos) {
+                    stagnant++
+                } else {
+                    stagnant = 0
+                    lastPos = pos
+                }
+            }
+        } catch (_: Exception) {}
+        isPlaying = false
+    }
+
     @Synchronized
     fun isPlaying(): Boolean = isPlaying
 

@@ -1,7 +1,6 @@
 package com.needai.chat.util
 
-import com.needai.chat.data.remote.client.RemoteModelClient
-import com.needai.chat.domain.model.ApiProtocol
+import com.needai.chat.data.remote.client.ModelClient
 import com.needai.chat.domain.model.Message
 import com.needai.chat.domain.model.MessageRole
 import com.needai.chat.domain.model.ModelConfig
@@ -167,7 +166,7 @@ object ContextCompressor {
     // ======================================================================
 
     /** 压缩 prompt，发给模型让模型输出摘要 */
-    private val COMPRESSION_PROMPT = buildString {
+    val COMPRESSION_PROMPT = buildString {
         appendLine("你是对话摘要助手。请将以下对话内容压缩为一段简洁的中文摘要（不超过300字）。")
         appendLine("请保留以下信息：")
         appendLine("- 用户告诉你的关于自己的信息（名字、年龄、职业、喜好等）")
@@ -192,7 +191,7 @@ object ContextCompressor {
      * @return 新生成的摘要文本，失败时返回 null
      */
     suspend fun compress(
-        modelClient: RemoteModelClient,
+        modelClient: ModelClient,
         config: ModelConfig,
         messages: List<Message>,
         existingSummary: String?

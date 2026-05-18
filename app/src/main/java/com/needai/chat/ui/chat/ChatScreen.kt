@@ -263,9 +263,23 @@ fun ChatScreen(
                 contentDescription = null,
                 modifier = Modifier
                     .fillMaxSize()
-                    .blur(16.dp),
+                    .blur(4.dp),
                 contentScale = ContentScale.Crop,
-                alpha = 0.85f
+                alpha = 1.0f
+            )
+            // Layer 2: 渐变覆盖层 — 确保内容可读
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.verticalGradient(
+                            listOf(
+                                Color.Black.copy(alpha = 0.25f),
+                                Color.Transparent,
+                                Color.White.copy(alpha = 0.85f)
+                            )
+                        )
+                    )
             )
         }
 

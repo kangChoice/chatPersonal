@@ -15,6 +15,7 @@ import com.needai.chat.domain.repository.ModelConfigRepository
 import com.needai.chat.domain.repository.SkillRepository
 import com.needai.chat.domain.repository.VoiceRepository
 import com.needai.chat.domain.usecase.ChatMessage
+import com.needai.chat.util.ContextCompressor
 import com.needai.chat.util.FileLogger
 import com.needai.chat.util.ITtsManager
 import com.needai.chat.util.TtsManagerImpl
@@ -88,6 +89,10 @@ class VoiceChatViewModel @Inject constructor(
     private var pendingTtsCount = 0
     private var ttsStreamDone = false
 
+    // 记忆摘要（in-memory，通话结束即丢弃）
+    private var voiceSummaryText: String? = null
+    private var voiceSummaryEndIndex: Int = 0
+
     private companion object {
         private const val TAG = "VoiceChat"
     }
@@ -159,6 +164,7 @@ class VoiceChatViewModel @Inject constructor(
     }
 
     fun selectSkill(skillId: String) {
+        resetMemory()
         val skill = _uiState.value.allSkills.find { it.id == skillId } ?: return
         _uiState.update {
             it.copy(
@@ -334,6 +340,7 @@ class VoiceChatViewModel @Inject constructor(
             return
         }
 
+        resetMemory()
         reinitTtsManager()
         val selectedSkill = getSelectedSkill()
         _uiState.update {
@@ -416,10 +423,56 @@ class VoiceChatViewModel @Inject constructor(
         streamingJob?.cancel()
         streamingJob = viewModelScope.launch {
             try {
-                val messages = listOf(
-                    ChatMessage(role = "system", content = skill.systemPrompt),
-                    ChatMessage(role = "user", content = userText)
+                // ★ 记忆压缩检查
+                var summaryText = voiceSummaryText
+                var summaryEndIdx = voiceSummaryEndIndex
+                if (skill.enableMemory) {
+                    val history = _uiState.value.conversationHistory
+                    val uncompressedEntries = if (summaryEndIdx > 0) {
+                        history.drop(summaryEndIdx)
+                    } else {
+                        history
+                    }
+                    val estimatedTokens = estimateConversationTokens(
+                        systemPrompt = skill.systemPrompt,
+                        summary = summaryText,
+                        entries = uncompressedEntries,
+                        currentInput = userText
+                    )
+                    if (ContextCompressor.shouldCompress(
+                            estimatedTokens, config.contextWindow, uncompressedEntries.size
+                        )) {
+                        _uiState.update { it.copy(status = "整理记忆中...") }
+                        try {
+                            val newSummary = compressConversation(history, summaryText)
+                            if (newSummary != null) {
+                                summaryText = newSummary
+                                summaryEndIdx = (history.size * 0.5).toInt().coerceAtLeast(1)
+                                voiceSummaryText = summaryText
+                                voiceSummaryEndIndex = summaryEndIdx
+                            }
+                        } catch (_: Exception) { }
+                    }
+                }
+
+                // 构建消息列表
+                val messages = mutableListOf(
+                    ChatMessage(role = "system", content = skill.systemPrompt)
                 )
+                // 用 user 角色注入摘要，避免与 system prompt 抢指令权
+                if (summaryText != null) {
+                    messages.add(
+                        ChatMessage(
+                            role = "user",
+                            content = "[对话历史摘要]\n$summaryText\n---\n请基于以上上下文继续对话"
+                        )
+                    )
+                }
+                val history = _uiState.value.conversationHistory
+                for (entry in history.drop(summaryEndIdx)) {
+                    messages.add(ChatMessage(role = entry.role, content = entry.text))
+                }
+                messages.add(ChatMessage(role = "user", content = userText))
 
                 val fullText = StringBuilder()
                 modelClient.streamChat(messages, config, skill).collect { event ->
@@ -454,7 +507,6 @@ class VoiceChatViewModel @Inject constructor(
                     }
                 }
             } catch (e: CancellationException) {
-                // 被打断（用户说了新的话），不报错
                 FileLogger.d(TAG, "LLM 流被取消（用户打断）")
             } catch (e: Exception) {
                 FileLogger.e(TAG, "LLM 异常", e)
@@ -583,6 +635,96 @@ class VoiceChatViewModel @Inject constructor(
             ttsStreamDone = false
             _uiState.update { it.copy(status = "聆听中...", isTtsPlaying = false) }
         }
+    }
+
+    // ======================================================================
+    // 记忆压缩
+    // ======================================================================
+
+    /** 估算对话上下文的 token 数（同 ContextCompressor.estimateInputTokens，但适配 ChatEntry） */
+    private fun estimateConversationTokens(
+        systemPrompt: String,
+        summary: String?,
+        entries: List<ChatEntry>,
+        currentInput: String
+    ): Int {
+        var total = 0
+        total += tokenCount(systemPrompt) + 4
+        if (summary != null) total += tokenCount(summary) + 4
+        for (entry in entries) total += tokenCount(entry.text) + 4
+        total += tokenCount(currentInput) + 4
+        return total
+    }
+
+    private fun tokenCount(text: String): Int {
+        var chinese = 0
+        var other = 0
+        for (c in text) {
+            if (c.code in 0x4E00..0x9FFF || c.code in 0x3400..0x4DBF) {
+                chinese++
+            } else {
+                other++
+            }
+        }
+        return (chinese * 1.5 + other * 0.3).toInt()
+    }
+
+    /** 压缩早期对话历史，返回摘要文本 */
+    private suspend fun compressConversation(
+        history: List<ChatEntry>,
+        existingSummary: String?
+    ): String? {
+        val config = currentConfig ?: return null
+        val splitIndex = (history.size * 0.5).toInt().coerceAtLeast(1)
+        val toCompress = history.take(splitIndex)
+
+        val input = buildString {
+            if (existingSummary != null) {
+                appendLine("[上一轮对话摘要]")
+                appendLine(existingSummary)
+                appendLine()
+            }
+            appendLine("[待压缩的对话]")
+            for (entry in toCompress) {
+                val roleLabel = if (entry.role == "user") "用户" else "AI"
+                appendLine("$roleLabel: ${entry.text}")
+            }
+        }
+
+        val compressMessages = listOf(
+            ChatMessage("system", ContextCompressor.COMPRESSION_PROMPT),
+            ChatMessage("user", input)
+        )
+
+        val compressSkill = Skill(
+            id = "_compressor",
+            name = "Compressor",
+            description = "",
+            avatar = "",
+            systemPrompt = "",
+            greeting = "",
+            isBuiltin = true
+        )
+
+        return try {
+            val summary = StringBuilder()
+            modelClient.streamChat(compressMessages, config, compressSkill).collect { event ->
+                when (event) {
+                    is StreamEvent.Token -> summary.append(event.text)
+                    is StreamEvent.Done -> { }
+                }
+            }
+            val result = summary.toString().trim()
+            if (result.length < 10) null else result.take(500)
+        } catch (e: Exception) {
+            FileLogger.e("VoiceChat", "记忆压缩失败", e)
+            null
+        }
+    }
+
+    private fun resetMemory() {
+        voiceSummaryText = null
+        voiceSummaryEndIndex = 0
     }
 
     override fun onCleared() {

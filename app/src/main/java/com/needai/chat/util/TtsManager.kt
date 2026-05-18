@@ -221,7 +221,14 @@ class TtsManagerImpl(
                     while (isActive) {
                         val req = synchronized(queueLock) {
                             if (speakQueue.isEmpty()) null else speakQueue.removeFirst()
-                        } ?: break
+                        }
+                        if (req == null) {
+                            // 队列空：等待音频播放结束
+                            audioPlayer?.awaitDrain()
+                            // 再次检查队列（drain 期间可能有新消息入队）
+                            if (synchronized(queueLock) { speakQueue.isEmpty() }) break
+                            continue
+                        }
 
                         ensurePersistentClient(req.voiceId)
                         synthesizeUsingClient(req.text, persistentClient!!)

@@ -250,12 +250,12 @@ class ChatViewModel @Inject constructor(
                             )
                         )
 
-                        // Insert summary if exists (作为 system 消息，模型视作上下文)
+                        // Insert summary if exists（用 user 角色注入，避免与 system prompt 抢指令权）
                         if (summaryText != null) {
                             chatMessages.add(
                                 com.needai.chat.domain.usecase.ChatMessage(
-                                    role = "system",
-                                    content = "[对话历史摘要] $summaryText"
+                                    role = "user",
+                                    content = "[对话历史摘要]\n$summaryText\n---\n请基于以上上下文继续对话"
                                 )
                             )
                         }
