@@ -26,7 +26,8 @@ object SkillMapper {
             tags = tags,
             isBuiltin = entity.isBuiltin,
             voiceId = entity.voiceId,
-            avatarPath = entity.avatarPath
+            avatarPath = entity.avatarPath,
+            enableMemory = entity.enableMemory
         )
     }
 
@@ -43,6 +44,7 @@ object SkillMapper {
             isBuiltin = skill.isBuiltin,
             voiceId = skill.voiceId,
             avatarPath = skill.avatarPath,
+            enableMemory = skill.enableMemory,
             createdAt = System.currentTimeMillis(),
             updatedAt = System.currentTimeMillis()
         )

@@ -57,6 +57,20 @@ import com.needai.chat.util.ITtsManager
 import com.needai.chat.util.TtsManagerImpl
 import kotlinx.coroutines.launch
 
+/** 系统预置音色映射为 VoiceInfo，统一列表展示 */
+private val SYSTEM_VOICES: List<VoiceInfo> = SystemVoiceProvider.getSkillEditorVoices().map { sv ->
+    VoiceInfo(
+        voiceId = sv.voiceId,
+        displayName = sv.displayName,
+        voicePrompt = sv.description,
+        targetModel = sv.supportedModels.firstOrNull() ?: "cosyvoice-v3-flash",
+        status = "OK"
+    )
+}
+
+private fun isSystemVoice(voiceId: String): Boolean =
+    SYSTEM_VOICES.any { it.voiceId == voiceId }
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SkillAndVoiceScreen(
@@ -150,7 +164,7 @@ fun SkillAndVoiceScreen(
 
     val voiceSkillBindings = remember(skills, uiState.voices) {
         val nonBuiltinSkills = skills.filter { !it.isBuiltin }
-        uiState.voices.associate { voice ->
+        (uiState.voices + SYSTEM_VOICES).associate { voice ->
             voice.voiceId to nonBuiltinSkills.filter { it.voiceId == voice.voiceId }
         }
     }
@@ -164,11 +178,15 @@ fun SkillAndVoiceScreen(
     }
 
     val modelFilters = remember(uiState.voices) {
-        uiState.voices.map { it.targetModel }.filter { it.isNotBlank() }.distinct().sorted()
+        (SYSTEM_VOICES.map { it.targetModel } + uiState.voices.map { it.targetModel })
+            .filter { it.isNotBlank() }.distinct().sorted()
     }
-    val filteredVoices = remember(uiState.voices, selectedModelFilter) {
-        if (selectedModelFilter.isEmpty()) uiState.voices
-        else uiState.voices.filter { it.targetModel == selectedModelFilter }
+    val allVoices = remember(uiState.voices) {
+        SYSTEM_VOICES + uiState.voices.filterNot { isSystemVoice(it.voiceId) }
+    }
+    val filteredVoices = remember(allVoices, selectedModelFilter) {
+        if (selectedModelFilter.isEmpty()) allVoices
+        else allVoices.filter { it.targetModel == selectedModelFilter }
     }
 
     LaunchedEffect(ttsApiKey, ttsVolume, ttsRate, ttsPitch) {
@@ -494,6 +512,11 @@ fun SkillAndVoiceScreen(
                                     onDelete = if (isSelectionMode || skill.isBuiltin) null else {
                                         { skillToDelete = skill }
                                     },
+                                    voiceName = if (skill.voiceId.isNotBlank()) {
+                                        voiceAliases[skill.voiceId]?.ifBlank { null }
+                                            ?: SystemVoiceProvider.findSystemVoice(skill.voiceId)?.displayName
+                                            ?: skill.voiceId
+                                    } else null,
                                     isSelected = skill.id in selectedSkillIds,
                                     isSelectionMode = isSelectionMode,
                                     onSelectionChanged = { checked ->
@@ -616,13 +639,15 @@ fun SkillAndVoiceScreen(
                             }
                         } else {
                             items(filteredVoices, key = { it.voiceId }) { voice ->
+                                val isSystem = isSystemVoice(voice.voiceId)
                                 val isPlaying = playingVoiceId == voice.voiceId
                                 VoiceCard(
                                     voice = voice,
                                     alias = voiceAliases[voice.voiceId] ?: "",
                                     boundSkills = voiceSkillBindings[voice.voiceId] ?: emptyList(),
                                     isPlaying = isPlaying,
-                                    canPlay = voice.status == "OK",
+                                    canPlay = voice.status == "OK" || isSystem,
+                                    isBuiltin = isSystem,
                                     onPlay = {
                                         if (isPlaying) {
                                             ttsManager?.stop()
@@ -633,10 +658,12 @@ fun SkillAndVoiceScreen(
                                             playingVoiceId = voice.voiceId
                                         }
                                     },
-                                    onDelete = { deleteVoice = voice },
-                                    onAliasEdit = {
-                                        editingAliasVoice = voice
-                                        editingAliasText = voiceAliases[voice.voiceId] ?: ""
+                                    onDelete = if (isSystem) null else ({ deleteVoice = voice }),
+                                    onAliasEdit = if (isSystem) null else {
+                                        {
+                                            editingAliasVoice = voice
+                                            editingAliasText = voiceAliases[voice.voiceId] ?: ""
+                                        }
                                     },
                                     onEditBindings = {
                                         editingBindingsVoice = voice

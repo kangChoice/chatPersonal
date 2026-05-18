@@ -50,6 +50,7 @@ class TtsManagerImpl(
     // ---------- 批量合成相关 ----------
     private var synthesisJob: Job? = null
     private var cosyVoiceClient: CosyVoiceClient? = null
+    private var cosyVoiceVoiceId: String = ""
 
     // ---------- 流式合成相关 ----------
     private val activeStreamClients = mutableMapOf<Int, CosyVoiceClient>()
@@ -144,13 +145,15 @@ class TtsManagerImpl(
             return
         }
 
-        // 所有分块共享一个 CosyVoiceClient，避免 NUI 原生层重复初始化问题
-        var chunksClient: CosyVoiceClient? = null
+        // 复用 CosyVoiceClient（voiceId 变化时重建，不 release 旧 client，避免破坏 NativeNui 单例）
+        if (cosyVoiceClient == null || cosyVoiceVoiceId != voiceId) {
+            cosyVoiceClient = CosyVoiceClient(apiKey, params)
+            cosyVoiceVoiceId = voiceId
+        }
+        val client = cosyVoiceClient!!
 
         synthesisJob = scope.launch(Dispatchers.IO) {
             try {
-                chunksClient = CosyVoiceClient(apiKey, params)
-                cosyVoiceClient = chunksClient
                 var isFirstChunk = true
                 for (chunk in chunks) {
                     if (!isActive) break
@@ -161,7 +164,7 @@ class TtsManagerImpl(
                     // 预缓冲阈值：0.5 秒 (24000Hz × 2Bytes × 0.5s)
                     val PREBUFFER_THRESHOLD = sampleRateToBytes(params.sampleRate) / 2
 
-                    chunksClient!!.synthesize(chunk).collect { audio ->
+                    client.synthesize(chunk).collect { audio ->
                         if (audio.error != null) throw RuntimeException(audio.error)
                         if (audio.isLast) {
                             // 落盘预缓冲数据
@@ -198,8 +201,7 @@ class TtsManagerImpl(
                 drainAndStop(player)
                 withContext(Dispatchers.Main) { onDone?.invoke() }
             } finally {
-                chunksClient?.release()
-                cosyVoiceClient = null
+                // 不 release client，复用留给下次 speak()，避免 NativeNui 单例损坏
             }
         }
     }
@@ -368,13 +370,12 @@ class TtsManagerImpl(
     // 控制
     // ======================================================================
     override fun stop() {
-        // 取消批量合成
+        // 取消批量合成（不 release CosyVoiceClient，避免破坏 NativeNui C++ 单例）
         synthesisJob?.cancel()
         synthesisJob = null
         cosyVoiceClient?.let {
-            try { it.cancel(); it.release() } catch (_: Exception) {}
+            try { it.cancel() } catch (_: Exception) {}
         }
-        cosyVoiceClient = null
 
         // 取消队列
         queueJob?.cancel()
@@ -406,6 +407,10 @@ class TtsManagerImpl(
 
     override fun shutdown() {
         stop()
+        cosyVoiceClient?.let {
+            try { it.cancel(); it.release() } catch (_: Exception) {}
+        }
+        cosyVoiceClient = null
         persistentClient?.let {
             try { it.cancel(); it.release() } catch (_: Exception) {}
         }

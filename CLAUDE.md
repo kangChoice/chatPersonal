@@ -30,7 +30,7 @@ app/src/main/java/com/needai/chat/
 │   └── usecase/       # 用例（SendMessageUseCase、GetChatHistoryUseCase、SwitchSkillUseCase 等）
 ├── data/
 │   ├── local/
-│   │   ├── db/        # Room 数据库（4 张表，version 6，毁灭性迁移）
+│   │   ├── db/        # Room 数据库（4 张表，version 8，毁灭性迁移）
 │   │   ├── datastore/ # DataStore 存设置 + 模型配置
 │   │   └── config/    # model_config.json 管理（从 assets 复制到文件）
 │   ├── remote/
@@ -64,7 +64,7 @@ app/src/main/java/com/needai/chat/
 
 聊天 → 群聊 → 技能管理（含音色） → 提示词优化 → 设置
 
-## 数据库（Room v6，毁灭性迁移）
+## 数据库（Room v8，毁灭性迁移）
 
 4 张表，升级版本号就直接删数据，别指望写 migration：
 

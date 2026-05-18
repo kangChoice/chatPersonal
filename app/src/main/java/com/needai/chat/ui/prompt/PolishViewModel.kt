@@ -330,4 +330,12 @@ class PolishViewModel @Inject constructor(
     fun clearVoicePolishedPrompt() {
         _uiState.update { it.copy(voicePolishedPrompt = "", voiceCharCount = 0, voiceError = null) }
     }
+
+    fun clearAll(selectedTab: Int) {
+        if (selectedTab == 0) {
+            _uiState.update { it.copy(inputText = "", polishedPrompt = "", charCount = 0, error = null) }
+        } else {
+            _uiState.update { it.copy(voiceInputText = "", voicePolishedPrompt = "", voiceCharCount = 0, voiceError = null) }
+        }
+    }
 }

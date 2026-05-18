@@ -82,4 +82,8 @@ class SessionRepositoryImpl @Inject constructor(
         }
         sessionDao.deleteSessionsBySkillId(skillId)
     }
+
+    override suspend fun updateSummary(sessionId: String, summaryText: String?, summaryEndMessageId: Long?) {
+        sessionDao.updateSummary(sessionId, summaryText, summaryEndMessageId)
+    }
 }

@@ -10,5 +10,7 @@ data class ChatSession(
     val title: String,
     val messageCount: Int,
     val createdAt: Long,
-    val updatedAt: Long
+    val updatedAt: Long,
+    val summaryText: String? = null,
+    val summaryEndMessageId: Long? = null
 )

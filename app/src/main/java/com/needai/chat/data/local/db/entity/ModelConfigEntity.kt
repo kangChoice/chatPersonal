@@ -16,5 +16,6 @@ data class ModelConfigEntity(
     val topP: Double,
     val isBuiltin: Boolean = false,
     val createdAt: Long,
-    val updatedAt: Long
+    val updatedAt: Long,
+    val contextWindow: Int = 8192
 )

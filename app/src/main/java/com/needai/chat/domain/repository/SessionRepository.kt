@@ -11,4 +11,5 @@ interface SessionRepository {
     suspend fun saveSession(session: ChatSession)
     suspend fun deleteSession(id: String)
     suspend fun deleteSessionsBySkillId(skillId: String)
+    suspend fun updateSummary(sessionId: String, summaryText: String?, summaryEndMessageId: Long?)
 }

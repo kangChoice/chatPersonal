@@ -11,5 +11,7 @@ data class SessionEntity(
     val skillIds: String? = null,
     val title: String,
     val createdAt: Long,
-    val updatedAt: Long
+    val updatedAt: Long,
+    val summaryText: String? = null,
+    val summaryEndMessageId: Long? = null
 )

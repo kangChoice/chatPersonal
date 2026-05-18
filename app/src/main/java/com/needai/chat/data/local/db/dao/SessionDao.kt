@@ -30,4 +30,7 @@ interface SessionDao {
 
     @Query("SELECT COUNT(*) FROM sessions WHERE id = :id")
     suspend fun sessionExists(id: String): Int
+
+    @Query("UPDATE sessions SET summaryText = :summaryText, summaryEndMessageId = :summaryEndMessageId WHERE id = :sessionId")
+    suspend fun updateSummary(sessionId: String, summaryText: String?, summaryEndMessageId: Long?)
 }

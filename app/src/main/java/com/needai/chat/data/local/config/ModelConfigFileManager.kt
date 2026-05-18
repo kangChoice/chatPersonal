@@ -23,7 +23,8 @@ data class ConfigFile(
     @SerializedName("local_model_name") val localModelName: String = "",
     val temperature: Double = 0.7,
     @SerializedName("max_tokens") val maxTokens: Int = 4096,
-    @SerializedName("top_p") val topP: Double = 1.0
+    @SerializedName("top_p") val topP: Double = 1.0,
+    @SerializedName("context_window") val contextWindow: Int = 8192
 )
 
 data class BuiltinChatModel(
@@ -34,7 +35,8 @@ data class BuiltinChatModel(
     @SerializedName("remote_model_name") val remoteModelName: String = "",
     val temperature: Double = 0.7,
     @SerializedName("max_tokens") val maxTokens: Int = 4096,
-    @SerializedName("top_p") val topP: Double = 1.0
+    @SerializedName("top_p") val topP: Double = 1.0,
+    @SerializedName("context_window") val contextWindow: Int = 8192
 ) {
     fun isValid(): Boolean = name.isNotBlank() && protocol.isNotBlank()
             && remoteBaseUrl.isNotBlank() && remoteApiKey.isNotBlank() && remoteModelName.isNotBlank()
@@ -107,7 +109,8 @@ class ModelConfigFileManager @Inject constructor(
             localModelName = configFile.localModelName,
             temperature = configFile.temperature,
             maxTokens = configFile.maxTokens,
-            topP = configFile.topP
+            topP = configFile.topP,
+            contextWindow = configFile.contextWindow
         )
     }
 
@@ -135,7 +138,8 @@ class ModelConfigFileManager @Inject constructor(
             localModelName = config.localModelName,
             temperature = config.temperature,
             maxTokens = config.maxTokens,
-            topP = config.topP
+            topP = config.topP,
+            contextWindow = config.contextWindow
         )
     }
 }

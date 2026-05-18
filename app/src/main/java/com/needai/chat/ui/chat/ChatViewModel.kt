@@ -184,6 +184,62 @@ class ChatViewModel @Inject constructor(
             modelConfigRepository.getModelConfig().first().let { config ->
                 val skill = _uiState.value.currentSkill
 
+                // ★ 记忆压缩检查（仅当技能开启记忆且消息量足够时）
+                var summaryText: String? = null
+                var summaryEndMessageId: Long? = null
+                if (skill.enableMemory) {
+                    val session = sessionRepository.getSessionById(sessionId)
+                    val existingSummary = session?.summaryText
+                    val existingEndId = session?.summaryEndMessageId
+
+                    val allMessages = _uiState.value.messages
+                    val uncompressedMessages = if (existingEndId != null) {
+                        allMessages.filter { it.id > existingEndId }
+                    } else {
+                        allMessages
+                    }
+
+                    val estimatedTokens = com.needai.chat.util.ContextCompressor.estimateInputTokens(
+                        systemPrompt = skill.systemPrompt,
+                        summary = existingSummary,
+                        messages = uncompressedMessages,
+                        currentInput = text
+                    )
+
+                    if (com.needai.chat.util.ContextCompressor.shouldCompress(
+                            estimatedTokens, config.contextWindow, uncompressedMessages.size
+                        )) {
+                        _uiState.update { it.copy(isCompressing = true) }
+                        try {
+                            val newSummary = com.needai.chat.util.ContextCompressor.compress(
+                                modelClient = modelClient,
+                                config = config,
+                                messages = allMessages,
+                                existingSummary = existingSummary
+                            )
+                            if (newSummary != null) {
+                                val splitIndex = (allMessages.size * 0.5).toInt().coerceAtLeast(1)
+                                val keepMessages = allMessages.drop(splitIndex)
+                                val newEndId = keepMessages.firstOrNull()?.id?.minus(1)
+                                    ?: allMessages.lastOrNull()?.id ?: -1L
+                                sessionRepository.updateSummary(sessionId, newSummary, newEndId)
+                                summaryText = newSummary
+                                summaryEndMessageId = newEndId
+                            } else {
+                                summaryText = existingSummary
+                                summaryEndMessageId = existingEndId
+                            }
+                        } catch (_: Exception) {
+                            summaryText = existingSummary
+                            summaryEndMessageId = existingEndId
+                        }
+                        _uiState.update { it.copy(isCompressing = false) }
+                    } else {
+                        summaryText = existingSummary
+                        summaryEndMessageId = existingEndId
+                    }
+                }
+
                 streamingJob = viewModelScope.launch {
                     try {
                         // Build messages
@@ -194,8 +250,23 @@ class ChatViewModel @Inject constructor(
                             )
                         )
 
+                        // Insert summary if exists (作为 system 消息，模型视作上下文)
+                        if (summaryText != null) {
+                            chatMessages.add(
+                                com.needai.chat.domain.usecase.ChatMessage(
+                                    role = "system",
+                                    content = "[对话历史摘要] $summaryText"
+                                )
+                            )
+                        }
+
                         val currentMessages = _uiState.value.messages.filter {
                             it.role != MessageRole.SYSTEM
+                        }.let { msgs ->
+                            // 只取摘要之后的消息
+                            if (summaryEndMessageId != null) {
+                                msgs.filter { it.id > summaryEndMessageId }
+                            } else msgs
                         }
                         currentMessages.forEach { msg ->
                             val role = when (msg.role) {
@@ -313,6 +384,7 @@ class ChatViewModel @Inject constructor(
         viewModelScope.launch {
             val sessionId = _uiState.value.sessionId
             chatRepository.clearSession(sessionId)
+            sessionRepository.updateSummary(sessionId, null, null)
             _uiState.update {
                 it.copy(
                     messages = emptyList(),

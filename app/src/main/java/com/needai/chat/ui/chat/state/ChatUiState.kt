@@ -26,5 +26,6 @@ data class ChatUiState(
     val error: String? = null,
     val isLoading: Boolean = false,
     val inputText: String = "",
-    val sessionId: String = ""
+    val sessionId: String = "",
+    val isCompressing: Boolean = false
 )

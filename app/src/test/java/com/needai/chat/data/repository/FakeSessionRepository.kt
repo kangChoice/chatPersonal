@@ -43,4 +43,13 @@ class FakeSessionRepository : SessionRepository {
     override suspend fun deleteSessionsBySkillId(skillId: String) {
         _sessions.value = _sessions.value.filter { it.skillId != skillId }
     }
+
+    override suspend fun updateSummary(sessionId: String, summaryText: String?, summaryEndMessageId: Long?) {
+        _sessions.value = _sessions.value.map { session ->
+            if (session.id == sessionId) session.copy(
+                summaryText = summaryText,
+                summaryEndMessageId = summaryEndMessageId
+            ) else session
+        }
+    }
 }

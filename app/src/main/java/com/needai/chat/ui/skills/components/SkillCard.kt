@@ -30,6 +30,7 @@ fun SkillCard(
     isSelected: Boolean = false,
     isSelectionMode: Boolean = false,
     onSelectionChanged: ((Boolean) -> Unit)? = null,
+    voiceName: String? = null,
     modifier: Modifier = Modifier
 ) {
     Box(
@@ -109,6 +110,24 @@ fun SkillCard(
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
+                if (!voiceName.isNullOrBlank()) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(999.dp))
+                                .background(BrandMint.copy(alpha = 0.15f))
+                                .padding(horizontal = 8.dp, vertical = 2.dp)
+                        ) {
+                            Text(
+                                text = voiceName,
+                                fontSize = 9.sp,
+                                color = BrandMint,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                    }
+                }
             }
 
             // Export button

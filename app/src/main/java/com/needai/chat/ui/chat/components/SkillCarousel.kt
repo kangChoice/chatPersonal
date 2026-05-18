@@ -30,6 +30,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.needai.chat.domain.model.Skill
+import com.needai.chat.data.remote.tts.SystemVoiceProvider
 import com.needai.chat.ui.theme.*
 import com.needai.chat.util.AvatarUtils
 import java.io.File
@@ -202,20 +203,23 @@ fun SkillCarousel(
                                     color = Color.White
                                 )
                                 Spacer(Modifier.height(6.dp))
+                                val voiceDisplayName = voiceNameMap[skill.voiceId]
+                                    ?: SystemVoiceProvider.getAllSystemVoices()
+                                        .find { it.voiceId == skill.voiceId }?.displayName
+                                    ?: skill.name
                                 Box(
                                     modifier = Modifier
                                         .background(
-                                            Color.White.copy(alpha = 0.2f),
+                                            Color.White.copy(alpha = 0.7f),
                                             CircleShape
                                         )
                                         .padding(horizontal = 10.dp, vertical = 2.dp)
                                 ) {
                                     Text(
-                                        text = voiceNameMap[skill.voiceId]
-                                            ?: skill.name,
+                                        text = "voice: $voiceDisplayName",
                                         fontSize = 10.sp,
                                         fontWeight = FontWeight.Medium,
-                                        color = Color.White,
+                                        color = Color(0xFF2BAF8A),
                                         letterSpacing = 0.4.sp
                                     )
                                 }

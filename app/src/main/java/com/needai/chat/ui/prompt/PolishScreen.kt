@@ -39,6 +39,7 @@ fun PolishScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     var selectedTab by remember { mutableStateOf(0) }
     var showCreateDialog by remember { mutableStateOf(false) }
+    var showClearConfirmDialog by remember { mutableStateOf(false) }
     val scrollState = rememberScrollState()
     val coroutineScope = rememberCoroutineScope()
 
@@ -46,8 +47,6 @@ fun PolishScreen(
     Scaffold(
         containerColor = Color.Transparent,
         topBar = {
-            val hasPolishedContent = if (selectedTab == 0) uiState.polishedPrompt.isNotBlank()
-            else uiState.voicePolishedPrompt.isNotBlank()
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -56,25 +55,21 @@ fun PolishScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 BrandGradientText(
-                    text = "提示词优化",
+                    text = if (selectedTab == 0) "角色优化" else "音色优化",
                     fontSize = 22.sp
                 )
                 Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    if (hasPolishedContent) {
-                        Box(
-                            modifier = Modifier
-                                .size(36.dp)
-                                .clip(CircleShape)
-                                .background(GlassWhite)
-                                .border(0.5.dp, Color.White.copy(alpha = 0.5f), CircleShape)
-                                .clickable {
-                                    if (selectedTab == 0) viewModel.clearPolishedPrompt()
-                                    else viewModel.clearVoicePolishedPrompt()
-                                },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(Icons.Default.Delete, contentDescription = "清空", tint = BrandPink, modifier = Modifier.size(18.dp))
-                        }
+                    val isBusy = if (selectedTab == 0) uiState.isPolishing else uiState.voiceIsPolishing
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .background(if (isBusy) GlassWhite.copy(alpha = 0.5f) else GlassWhite)
+                            .border(0.5.dp, Color.White.copy(alpha = 0.5f), CircleShape)
+                            .clickable(enabled = !isBusy) { showClearConfirmDialog = true },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(Icons.Default.Delete, contentDescription = "清空", tint = if (isBusy) BrandPink.copy(alpha = 0.3f) else BrandPink, modifier = Modifier.size(18.dp))
                     }
                 }
             }
@@ -116,15 +111,40 @@ fun PolishScreen(
             }
         }
     ) { innerPadding ->
-        val tabTitles = listOf("角色优化", "音色优化")
-
         Column(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
-            PrimaryTabRow(selectedTabIndex = selectedTab) {
-                tabTitles.forEachIndexed { index, title ->
-                    Tab(
-                        selected = selectedTab == index,
-                        onClick = { selectedTab = index },
-                        text = { Text(title) }
+            // 圆角切换 Tab（与技能管理页一致）
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp, vertical = 12.dp),
+                horizontalArrangement = Arrangement.Center
+            ) {
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(999.dp))
+                        .background(if (selectedTab == 0) BrandMint.copy(alpha = 0.2f) else Color.Transparent)
+                        .clickable { selectedTab = 0 }
+                        .padding(horizontal = 24.dp, vertical = 8.dp)
+                ) {
+                    Text(
+                        "角色优化",
+                        fontSize = 13.sp,
+                        fontWeight = if (selectedTab == 0) FontWeight.Bold else FontWeight.Normal,
+                        color = if (selectedTab == 0) BrandMint else TextTertiary
+                    )
+                }
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(999.dp))
+                        .background(if (selectedTab == 1) BrandMint.copy(alpha = 0.2f) else Color.Transparent)
+                        .clickable { selectedTab = 1 }
+                        .padding(horizontal = 24.dp, vertical = 8.dp)
+                ) {
+                    Text(
+                        "音色优化",
+                        fontSize = 13.sp,
+                        fontWeight = if (selectedTab == 1) FontWeight.Bold else FontWeight.Normal,
+                        color = if (selectedTab == 1) BrandMint else TextTertiary
                     )
                 }
             }
@@ -485,6 +505,27 @@ fun PolishScreen(
                 }
             }
         }
+    }
+
+    if (showClearConfirmDialog) {
+        AlertDialog(
+            onDismissRequest = { showClearConfirmDialog = false },
+            icon = { Icon(Icons.Default.Delete, contentDescription = null, tint = BrandPink) },
+            title = { Text("清空内容", fontWeight = FontWeight.Bold) },
+            text = { Text("确定要清空当前 tab 的所有内容吗？包括输入文本和优化结果。") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.clearAll(selectedTab)
+                        showClearConfirmDialog = false
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = BrandPink)
+                ) { Text("清空") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showClearConfirmDialog = false }) { Text("取消") }
+            }
+        )
     }
 
     if (showCreateDialog && uiState.polishedPrompt.isNotBlank()) {

@@ -17,5 +17,6 @@ data class SkillEntity(
     val createdAt: Long,
     val updatedAt: Long,
     val voiceId: String = "",
-    val avatarPath: String = ""
+    val avatarPath: String = "",
+    val enableMemory: Boolean = false
 )

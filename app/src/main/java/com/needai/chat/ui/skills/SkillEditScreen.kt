@@ -38,6 +38,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.needai.chat.data.local.datastore.SettingsDataStore
 import com.needai.chat.data.remote.tts.SystemVoiceProvider
+import com.needai.chat.domain.model.VoiceInfo
 import com.needai.chat.ui.settings.components.VoiceSelectorSheet
 import com.needai.chat.ui.theme.*
 import com.needai.chat.util.AvatarUtils
@@ -68,6 +69,7 @@ fun SkillEditScreen(
     var temperature by remember(existingSkill) { mutableStateOf(existingSkill?.temperature?.toString() ?: "0.7") }
     var voiceId by remember(existingSkill) { mutableStateOf(existingSkill?.voiceId ?: "") }
     var avatarPath by remember(existingSkill) { mutableStateOf(existingSkill?.avatarPath ?: "") }
+    var enableMemory by remember(existingSkill) { mutableStateOf(existingSkill?.enableMemory ?: true) }
     var showDeleteConfirm by remember { mutableStateOf(false) }
     var showSystemPromptDialog by remember { mutableStateOf(false) }
     var showVoiceSelector by remember { mutableStateOf(false) }
@@ -317,6 +319,32 @@ fun SkillEditScreen(
                 }
             }
 
+            // ==================== 记忆功能 ====================
+            EditGlassCard(modifier = Modifier.fillMaxWidth()) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        SectionLabel("记忆功能")
+                        Text(
+                            text = "开启后长对话自动压缩上下文，让角色记住更久远的聊天内容",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                            maxLines = 2
+                        )
+                    }
+                    Switch(
+                        checked = enableMemory,
+                        onCheckedChange = { enableMemory = it },
+                        enabled = !isBuiltin
+                    )
+                }
+            }
+
             // ==================== 音色 ====================
             EditGlassCard(
                 modifier = Modifier
@@ -342,15 +370,36 @@ fun SkillEditScreen(
                     Spacer(Modifier.width(8.dp))
                     Column(modifier = Modifier.weight(1f)) {
                         SectionLabel("音色")
-                        Text(
-                            text = if (voiceId.isNotBlank())
-                                (voiceAliases[voiceId]?.ifBlank { null } ?: "--")
-                            else "未关联音色",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = if (voiceId.isNotBlank())
-                                MaterialTheme.colorScheme.onSurface
-                            else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
-                        )
+                        val voiceName = if (voiceId.isNotBlank()) {
+                            val alias = voiceAliases[voiceId]
+                            if (!alias.isNullOrBlank()) alias
+                            else SystemVoiceProvider.findSystemVoice(voiceId)?.displayName ?: voiceId
+                        } else null
+                        val isSystemVoiceSelected = voiceId.isNotBlank() && SystemVoiceProvider.findSystemVoice(voiceId) != null
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text(
+                                text = voiceName ?: "未关联音色",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = if (voiceId.isNotBlank())
+                                    MaterialTheme.colorScheme.onSurface
+                                else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
+                            )
+                            if (isSystemVoiceSelected) {
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(4.dp))
+                                        .background(BrandMint.copy(alpha = 0.15f))
+                                        .padding(horizontal = 6.dp, vertical = 1.dp)
+                                ) {
+                                    Text(
+                                        text = "内置",
+                                        fontSize = 10.sp,
+                                        color = BrandMint,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                }
+                            }
+                        }
                     }
                     if (!isBuiltin) {
                         Icon(
@@ -373,7 +422,7 @@ fun SkillEditScreen(
                         if (isNew) {
                             viewModel.createSkill(
                                 name, description, systemPrompt, avatar, greeting, temp,
-                                voiceId = voiceId, avatarPath = avatarPath
+                                voiceId = voiceId, avatarPath = avatarPath, enableMemory = enableMemory
                             )
                         } else if (existingSkill != null && !isBuiltin) {
                             viewModel.updateSkill(
@@ -381,7 +430,8 @@ fun SkillEditScreen(
                                     name = name, description = description,
                                     systemPrompt = systemPrompt, avatar = avatar,
                                     greeting = greeting, temperature = temp,
-                                    voiceId = voiceId, avatarPath = avatarPath
+                                    voiceId = voiceId, avatarPath = avatarPath,
+                                    enableMemory = enableMemory
                                 )
                             )
                         }

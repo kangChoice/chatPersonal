@@ -33,7 +33,9 @@ object SessionMapper {
             title = entity.title,
             messageCount = messageCount,
             createdAt = entity.createdAt,
-            updatedAt = entity.updatedAt
+            updatedAt = entity.updatedAt,
+            summaryText = entity.summaryText,
+            summaryEndMessageId = entity.summaryEndMessageId
         )
     }
 
@@ -45,7 +47,9 @@ object SessionMapper {
             skillIds = if (session.skillIds.isNotEmpty()) gson.toJson(session.skillIds) else null,
             title = session.title,
             createdAt = session.createdAt,
-            updatedAt = session.updatedAt
+            updatedAt = session.updatedAt,
+            summaryText = session.summaryText,
+            summaryEndMessageId = session.summaryEndMessageId
         )
     }
 }

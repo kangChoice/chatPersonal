@@ -46,7 +46,7 @@ class SkillViewModel @Inject constructor(
         }
     }
 
-    fun createSkill(name: String, description: String, systemPrompt: String, avatar: String, greeting: String, temperature: Double, voiceId: String = "", avatarPath: String = "", onResult: ((Boolean, String) -> Unit)? = null) {
+    fun createSkill(name: String, description: String, systemPrompt: String, avatar: String, greeting: String, temperature: Double, voiceId: String = "", avatarPath: String = "", enableMemory: Boolean = false, onResult: ((Boolean, String) -> Unit)? = null) {
         val skill = Skill(
             id = java.util.UUID.randomUUID().toString(),
             name = name,
@@ -58,7 +58,8 @@ class SkillViewModel @Inject constructor(
             tags = listOf("custom"),
             isBuiltin = false,
             voiceId = voiceId,
-            avatarPath = avatarPath
+            avatarPath = avatarPath,
+            enableMemory = enableMemory
         )
         viewModelScope.launch {
             skillRepository.insertSkill(skill)

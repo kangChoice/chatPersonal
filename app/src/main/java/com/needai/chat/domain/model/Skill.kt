@@ -11,5 +11,6 @@ data class Skill(
     val tags: List<String> = emptyList(),
     val isBuiltin: Boolean = false,
     val voiceId: String = "",
-    val avatarPath: String = ""
+    val avatarPath: String = "",
+    val enableMemory: Boolean = true
 )

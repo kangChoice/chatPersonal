@@ -13,5 +13,6 @@ data class ModelConfig(
     val temperature: Double = 0.7,
     val maxTokens: Int = 4096,
     val topP: Double = 1.0,
-    val isBuiltin: Boolean = false
+    val isBuiltin: Boolean = false,
+    val contextWindow: Int = 8192
 )

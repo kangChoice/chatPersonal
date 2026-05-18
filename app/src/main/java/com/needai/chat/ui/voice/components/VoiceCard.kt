@@ -33,8 +33,9 @@ fun VoiceCard(
     boundSkills: List<Skill> = emptyList(),
     isPlaying: Boolean = false,
     canPlay: Boolean = true,
+    isBuiltin: Boolean = false,
     onPlay: () -> Unit,
-    onDelete: () -> Unit,
+    onDelete: (() -> Unit)? = null,
     onAliasEdit: (() -> Unit)? = null,
     onEditBindings: (() -> Unit)? = null,
     modifier: Modifier = Modifier
@@ -66,12 +67,29 @@ fun VoiceCard(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = alias.ifEmpty { voice.displayName.ifEmpty { voice.voiceId } },
-                    fontSize = 15.sp,
-                    fontWeight = if (alias.isNotBlank()) FontWeight.Bold else FontWeight.Medium,
-                    color = TextPrimary
-                )
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(
+                        text = alias.ifEmpty { voice.displayName.ifEmpty { voice.voiceId } },
+                        fontSize = 15.sp,
+                        fontWeight = if (alias.isNotBlank()) FontWeight.Bold else FontWeight.Medium,
+                        color = TextPrimary
+                    )
+                    if (isBuiltin) {
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(4.dp))
+                                .background(BrandMint.copy(alpha = 0.15f))
+                                .padding(horizontal = 6.dp, vertical = 1.dp)
+                        ) {
+                            Text(
+                                text = "内置",
+                                fontSize = 10.sp,
+                                color = BrandMint,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                    }
+                }
                 if (voice.voicePrompt.isNotBlank()) {
                     Text(
                         text = voice.voicePrompt,
@@ -203,19 +221,21 @@ fun VoiceCard(
             }
 
             // Delete button
-            Box(
-                modifier = Modifier
-                    .size(32.dp)
-                    .clip(RoundedCornerShape(999.dp))
-                    .clickable { onDelete() },
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    Icons.Default.Delete,
-                    contentDescription = "删除",
-                    tint = BrandPink,
-                    modifier = Modifier.size(18.dp)
-                )
+            if (onDelete != null) {
+                Box(
+                    modifier = Modifier
+                        .size(32.dp)
+                        .clip(RoundedCornerShape(999.dp))
+                        .clickable { onDelete() },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        Icons.Default.Delete,
+                        contentDescription = "删除",
+                        tint = BrandPink,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
             }
         }
     }

@@ -18,7 +18,8 @@ object ModelConfigMapper {
             temperature = entity.temperature,
             maxTokens = entity.maxTokens,
             topP = entity.topP,
-            isBuiltin = entity.isBuiltin
+            isBuiltin = entity.isBuiltin,
+            contextWindow = entity.contextWindow
         )
     }
 
@@ -34,6 +35,7 @@ object ModelConfigMapper {
             maxTokens = config.maxTokens,
             topP = config.topP,
             isBuiltin = config.isBuiltin,
+            contextWindow = config.contextWindow,
             createdAt = System.currentTimeMillis(),
             updatedAt = System.currentTimeMillis()
         )
@@ -49,6 +51,7 @@ object ModelConfigMapper {
             temperature = config.temperature,
             maxTokens = config.maxTokens,
             topP = config.topP,
+            contextWindow = config.contextWindow,
             updatedAt = System.currentTimeMillis()
         )
     }

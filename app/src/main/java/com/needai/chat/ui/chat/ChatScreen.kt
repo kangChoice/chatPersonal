@@ -158,6 +158,13 @@ fun ChatScreen(
         }
     }
 
+    // Compression indicator
+    LaunchedEffect(uiState.isCompressing) {
+        if (uiState.isCompressing) {
+            snackbarHostState.showSnackbar("正在整理记忆，请稍候…")
+        }
+    }
+
     // Auto-read TTS
     LaunchedEffect(uiState.isStreaming) {
         if (!uiState.isStreaming) return@LaunchedEffect

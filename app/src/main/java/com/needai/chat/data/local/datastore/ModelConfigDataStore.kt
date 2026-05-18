@@ -33,6 +33,7 @@ class ModelConfigDataStore(
         private val TEMPERATURE = doublePreferencesKey("temperature")
         private val MAX_TOKENS = intPreferencesKey("max_tokens")
         private val TOP_P = doublePreferencesKey("top_p")
+        private val CONTEXT_WINDOW = intPreferencesKey("context_window")
     }
 
     val modelConfig: Flow<ModelConfig> = context.modelConfigStore.data.map { preferences ->
@@ -51,7 +52,8 @@ class ModelConfigDataStore(
             localModelName = preferences[LOCAL_MODEL_NAME] ?: fileConfig.localModelName,
             temperature = preferences[TEMPERATURE] ?: fileConfig.temperature,
             maxTokens = preferences[MAX_TOKENS] ?: fileConfig.maxTokens,
-            topP = preferences[TOP_P] ?: fileConfig.topP
+            topP = preferences[TOP_P] ?: fileConfig.topP,
+            contextWindow = preferences[CONTEXT_WINDOW] ?: fileConfig.contextWindow
         )
     }
 
@@ -67,6 +69,7 @@ class ModelConfigDataStore(
             preferences[TEMPERATURE] = config.temperature
             preferences[MAX_TOKENS] = config.maxTokens
             preferences[TOP_P] = config.topP
+            preferences[CONTEXT_WINDOW] = config.contextWindow
         }
         // Also sync to config file
         configFileManager.saveConfig(configFileManager.fromModelConfig(config))

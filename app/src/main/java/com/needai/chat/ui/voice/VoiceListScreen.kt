@@ -36,6 +36,20 @@ import com.needai.chat.util.TtsManagerImpl
 import com.needai.chat.ui.theme.*
 import androidx.compose.ui.graphics.Color
 
+/** 系统预置音色映射为 VoiceInfo，统一列表展示 */
+private val SYSTEM_VOICES: List<VoiceInfo> = SystemVoiceProvider.getSkillEditorVoices().map { sv ->
+    VoiceInfo(
+        voiceId = sv.voiceId,
+        displayName = sv.displayName,
+        voicePrompt = sv.description,
+        targetModel = sv.supportedModels.firstOrNull() ?: "cosyvoice-v3-flash",
+        status = "OK"
+    )
+}
+
+private fun isSystemVoice(voiceId: String): Boolean =
+    SYSTEM_VOICES.any { it.voiceId == voiceId }
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun VoiceListScreen(
@@ -68,13 +82,19 @@ fun VoiceListScreen(
 
     // Distinct models from voice list for filter chips
     val modelFilters = remember(uiState.voices) {
-        uiState.voices.map { it.targetModel }.filter { it.isNotBlank() }.distinct().sorted()
+        (SYSTEM_VOICES.map { it.targetModel } + uiState.voices.map { it.targetModel })
+            .filter { it.isNotBlank() }.distinct().sorted()
     }
 
-    // Filtered voice list
-    val filteredVoices = remember(uiState.voices, selectedModelFilter) {
-        if (selectedModelFilter.isEmpty()) uiState.voices
-        else uiState.voices.filter { it.targetModel == selectedModelFilter }
+    // 合并系统内置音色 + 自定义音色
+    val allVoices = remember(uiState.voices) {
+        SYSTEM_VOICES + uiState.voices.filterNot { isSystemVoice(it.voiceId) }
+    }
+
+    // 按模型筛选
+    val filteredVoices = remember(allVoices, selectedModelFilter) {
+        if (selectedModelFilter.isEmpty()) allVoices
+        else allVoices.filter { it.targetModel == selectedModelFilter }
     }
 
     var ttsManager by remember { mutableStateOf<ITtsManager?>(null) }
@@ -231,11 +251,13 @@ fun VoiceListScreen(
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     items(filteredVoices, key = { it.voiceId }) { voice ->
+                        val isSystem = isSystemVoice(voice.voiceId)
                         val isPlaying = playingVoiceId == voice.voiceId
                         VoiceCard(
                             voice = voice,
                             isPlaying = isPlaying,
-                            canPlay = voice.status == "OK",
+                            canPlay = voice.status == "OK" || isSystem,
+                            isBuiltin = isSystem,
                             onPlay = {
                                 if (isPlaying) {
                                     ttsManager?.stop()
@@ -246,7 +268,7 @@ fun VoiceListScreen(
                                     playingVoiceId = voice.voiceId
                                 }
                             },
-                            onDelete = { deleteVoice = voice }
+                            onDelete = if (isSystem) null else ({ deleteVoice = voice })
                         )
                     }
                 }
