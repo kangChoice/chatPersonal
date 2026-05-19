@@ -110,7 +110,8 @@ export default function Hero() {
         <p className="hero-desc text-lg sm:text-xl text-text-secondary max-w-lg mb-10">
           你的 AI 助理，不止于聊天。
           <br />
-          多角色、多模态、语音通话 —— 一个 App 搞定。
+          想你所想
+          —— 做你想做
         </p>
 
         {/* CTA Buttons */}
