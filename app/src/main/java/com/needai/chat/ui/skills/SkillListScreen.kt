@@ -402,7 +402,7 @@ fun SkillEditDialog(
                     )
                     OutlinedTextField(
                         value = avatar,
-                        onValueChange = { avatar = it },
+                        onValueChange = { if (it.codePointCount(0, it.length) <= 1) avatar = it },
                         label = { Text("头像 (Emoji)") },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),

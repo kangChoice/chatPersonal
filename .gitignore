@@ -94,3 +94,11 @@ docs/
 skills/
 
 演示动画/
+
+
+
+# web/needai (Next.js 演示项目)
+webShow/needai/.next/
+webShow/needai/node_modules/
+webShow/needai/next-env.d.ts
+webShow/needai/data/

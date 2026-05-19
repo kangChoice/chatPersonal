@@ -14,8 +14,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
@@ -132,38 +132,38 @@ fun CreateVoiceDialog(
                         )
                     )
 
-                    // Debug info
-                    if (devicePrefix.isNotBlank()) {
-                        Surface(
-                            onClick = { showDebugInfo = !showDebugInfo },
-                            shape = RoundedCornerShape(12.dp),
-                            color = GlassWhite,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Column(modifier = Modifier.padding(12.dp)) {
-                                Text(
-                                    text = if (showDebugInfo) "▼ 调试信息" else "▶ 调试信息",
-                                    fontSize = 11.sp,
-                                    color = TextTertiary
-                                )
-                                if (showDebugInfo) {
-                                    Spacer(modifier = Modifier.height(8.dp))
-                                    Text(
-                                        text = "原始机器码: $rawDeviceId",
-                                        fontSize = 11.sp,
-                                        color = TextTertiary,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
-                                    )
-                                    Text(
-                                        text = "加密前缀: $devicePrefix",
-                                        fontSize = 11.sp,
-                                        color = TextTertiary
-                                    )
-                                }
-                            }
-                        }
-                    }
+                    // Debug info (temporarily hidden)
+//                    if (devicePrefix.isNotBlank()) {
+//                        Surface(
+//                            onClick = { showDebugInfo = !showDebugInfo },
+//                            shape = RoundedCornerShape(12.dp),
+//                            color = GlassWhite,
+//                            modifier = Modifier.fillMaxWidth()
+//                        ) {
+//                            Column(modifier = Modifier.padding(12.dp)) {
+//                                Text(
+//                                    text = if (showDebugInfo) "▼ 调试信息" else "▶ 调试信息",
+//                                    fontSize = 11.sp,
+//                                    color = TextTertiary
+//                                )
+//                                if (showDebugInfo) {
+//                                    Spacer(modifier = Modifier.height(8.dp))
+//                                    Text(
+//                                        text = "原始机器码: $rawDeviceId",
+//                                        fontSize = 11.sp,
+//                                        color = TextTertiary,
+//                                        maxLines = 1,
+//                                        overflow = TextOverflow.Ellipsis
+//                                    )
+//                                    Text(
+//                                        text = "加密前缀: $devicePrefix",
+//                                        fontSize = 11.sp,
+//                                        color = TextTertiary
+//                                    )
+//                                }
+//                            }
+//                        }
+//                    }
                 }
 
                 Spacer(Modifier.height(20.dp))

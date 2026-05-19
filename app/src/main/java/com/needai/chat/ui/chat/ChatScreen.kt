@@ -188,9 +188,9 @@ fun ChatScreen(
     // Auto-read TTS
     LaunchedEffect(uiState.isStreaming) {
         if (!uiState.isStreaming) return@LaunchedEffect
-        if (!ttsAutoRead || ttsManager == null) return@LaunchedEffect
+        if (!ttsAutoRead || ttsManager == null || uiState.currentSkill.voiceId.isBlank()) return@LaunchedEffect
         val tts = ttsManager as? com.needai.chat.util.TtsManagerImpl ?: return@LaunchedEffect
-        val voiceId = if (uiState.currentSkill.voiceId.isNotBlank()) uiState.currentSkill.voiceId else ttsVoice
+        val voiceId = uiState.currentSkill.voiceId
         speakingMessageId = -1L
         while (uiState.isStreaming && uiState.currentStreamingMessage.isEmpty()) delay(100)
         if (!uiState.isStreaming) return@LaunchedEffect
@@ -450,14 +450,13 @@ fun ChatScreen(
                                 onSpeak = {
                                     if (autoSpeaking) {
                                         ttsManager?.stop(); autoSpeaking = false
-                                    } else {
+                                    } else if (uiState.currentSkill.voiceId.isNotBlank()) {
                                         val mgr = ttsManager
                                         if (mgr != null) {
                                             if (speakingMessageId == message.id) {
                                                 mgr.stop(); speakingMessageId = null
                                             } else {
-                                                val voiceId = if (uiState.currentSkill.voiceId.isNotBlank()) uiState.currentSkill.voiceId else ttsVoice
-                                                mgr.speak(stripParenthetical(message.content), voiceId) { speakingMessageId = null }
+                                                mgr.speak(stripParenthetical(message.content), uiState.currentSkill.voiceId) { speakingMessageId = null }
                                                 speakingMessageId = message.id
                                             }
                                         }

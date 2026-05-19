@@ -237,7 +237,7 @@ fun SkillEditScreen(
                     ) {
                         OutlinedTextField(
                             value = avatar,
-                            onValueChange = { avatar = it },
+                            onValueChange = { if (it.codePointCount(0, it.length) <= 1) avatar = it },
                             label = { Text("表情") },
                             singleLine = true,
                             modifier = Modifier.weight(1f),

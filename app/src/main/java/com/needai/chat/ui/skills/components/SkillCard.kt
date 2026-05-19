@@ -1,5 +1,7 @@
 package com.needai.chat.ui.skills.components
 
+import android.graphics.BitmapFactory
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -10,16 +12,21 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.needai.chat.domain.model.Skill
 import com.needai.chat.ui.theme.*
+import java.io.File
 
 @Composable
 fun SkillCard(
@@ -33,6 +40,15 @@ fun SkillCard(
     voiceName: String? = null,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
+    val avatarBitmap = remember(skill.avatarPath, skill.id) {
+        val path = skill.avatarPath.takeIf { it.isNotBlank() }?.let {
+            val f = File(it)
+            if (f.exists()) it else null
+        }
+        path?.let { try { BitmapFactory.decodeFile(it) } catch (_: Exception) { null } }
+    }
+
     Box(
         modifier = modifier
             .fillMaxWidth()
@@ -68,10 +84,19 @@ fun SkillCard(
                     .background(BgPage),
                 contentAlignment = Alignment.Center
             ) {
-                Text(
-                    text = skill.avatar,
-                    fontSize = 24.sp
-                )
+                if (avatarBitmap != null) {
+                    Image(
+                        bitmap = avatarBitmap.asImageBitmap(),
+                        contentDescription = "角色头像",
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop
+                    )
+                } else {
+                    Text(
+                        text = skill.avatar,
+                        fontSize = 24.sp
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.width(12.dp))

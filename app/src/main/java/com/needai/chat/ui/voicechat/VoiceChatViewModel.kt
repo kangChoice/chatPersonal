@@ -111,17 +111,25 @@ class VoiceChatViewModel @Inject constructor(
             voiceAliasesMap = settingsDataStore.voiceAliases.first()
             skillRepository.getAllSkills().first().let { skills ->
                 val firstSkill = skills.firstOrNull()
-                _uiState.update {
-                    it.copy(
+                _uiState.update { state ->
+                    // 不覆盖已选角色（preselectSkill 可能已设置了正确的 selectedSkillId）
+                    val sid = if (state.selectedSkillId != null) state.selectedSkillId
+                              else firstSkill?.id
+                    state.copy(
                         allSkills = skills,
-                        skillName = firstSkill?.name ?: "语音助手",
-                        skillAvatar = firstSkill?.avatar ?: "🎙️",
-                        skillAvatarPath = firstSkill?.avatarPath ?: "",
-                        selectedSkillId = firstSkill?.id
+                        selectedSkillId = sid,
+                        skillName = skills.find { it.id == sid }?.name
+                            ?: firstSkill?.name ?: "语音助手",
+                        skillAvatar = skills.find { it.id == sid }?.avatar
+                            ?: firstSkill?.avatar ?: "🎙️",
+                        skillAvatarPath = skills.find { it.id == sid }?.avatarPath
+                            ?: firstSkill?.avatarPath ?: ""
                     )
                 }
-                if (firstSkill != null) {
-                    updateVoiceModelDisplay(firstSkill)
+                val currentId = _uiState.value.selectedSkillId
+                val targetSkill = if (currentId != null) skills.find { it.id == currentId } else firstSkill
+                if (targetSkill != null) {
+                    updateVoiceModelDisplay(targetSkill)
                 }
             }
         }
