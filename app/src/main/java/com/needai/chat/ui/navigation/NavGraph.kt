@@ -1,6 +1,7 @@
 package com.needai.chat.ui.navigation
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
@@ -13,14 +14,21 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.needai.chat.data.local.datastore.SettingsDataStore
 import com.needai.chat.ui.chat.ChatScreen
 import com.needai.chat.ui.multichat.MultiChatScreen
 import com.needai.chat.ui.onboarding.OnboardingOverlay
@@ -34,6 +42,8 @@ import com.needai.chat.ui.voicechat.VoiceChatScreen
 import com.needai.chat.ui.theme.BgPage
 import com.needai.chat.ui.theme.JellyTabBar
 import com.needai.chat.ui.theme.JellyTabItem
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 sealed class Screen(val route: String, val title: String, val icon: ImageVector? = null) {
     data object Chat : Screen("chat", "聊天", Icons.Default.Chat)
@@ -90,6 +100,23 @@ fun MainScreen(isDark: Boolean = false) {
     var showOnboarding by remember { mutableStateOf(false) }
     var onboardingStep by remember { mutableIntStateOf(-1) }
 
+    // Background image state (全屏背景，仅聊天详情页生效)
+    val bgContext = LocalContext.current
+    val bgSettingsDataStore = remember { SettingsDataStore(bgContext) }
+    val bgList by bgSettingsDataStore.backgrounds.collectAsState(initial = emptyList())
+    val bgSelectedId by bgSettingsDataStore.selectedBackgroundId.collectAsState(initial = "")
+    val selectedBg = remember(bgList, bgSelectedId) {
+        bgList.find { it.id == bgSelectedId }
+    }
+    var bgBitmap by remember(selectedBg) { mutableStateOf<android.graphics.Bitmap?>(null) }
+    LaunchedEffect(selectedBg) {
+        bgBitmap = withContext(Dispatchers.IO) {
+            selectedBg?.imagePath?.let { path ->
+                try { android.graphics.BitmapFactory.decodeFile(path) } catch (_: Exception) { null }
+            }
+        }
+    }
+
     // 系统返回手势：非聊天 tab → 回到聊天页
     BackHandler(enabled = currentDestination?.route != Screen.Chat.route) {
         navController.navigate(Screen.Chat.route) {
@@ -118,6 +145,29 @@ fun MainScreen(isDark: Boolean = false) {
     Box(modifier = Modifier.fillMaxSize().background(BgPage)) {
         // 根级动态波动底色，确保页面切换时始终显示
         com.needai.chat.ui.theme.FluidGlowBackground(isDark = isDark)
+
+        // 全屏聊天背景图（仅聊天详情页，渲染在 Scaffold 之后以覆盖全屏）
+        if (isChatDetail && bgBitmap != null) {
+            Image(
+                bitmap = bgBitmap!!.asImageBitmap(),
+                contentDescription = null,
+                modifier = Modifier.fillMaxSize().blur(4.dp),
+                contentScale = ContentScale.Crop,
+                alpha = 1.0f
+            )
+            Box(
+                modifier = Modifier.fillMaxSize().background(
+                    Brush.verticalGradient(
+                        listOf(
+                            Color.Black.copy(alpha = 0.25f),
+                            Color.Transparent,
+                            Color.White.copy(alpha = 0.85f)
+                        )
+                    )
+                )
+            )
+        }
+
         Scaffold(
             containerColor = Color.Transparent,
             bottomBar = {

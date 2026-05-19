@@ -54,8 +54,10 @@ import com.needai.chat.ui.navigation.Screen
 import com.needai.chat.ui.theme.*
 import java.text.SimpleDateFormat
 import java.util.*
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /**
  * 精确对应 index.html 的 .chat-page 结构
@@ -101,37 +103,33 @@ fun ChatScreen(
     val voiceModelResolver: (String) -> String? = { voiceId ->
         SystemVoiceProvider.getModelForVoice(voiceId) ?: voiceModelMap[voiceId]
     }
-    val backgroundList by settingsDataStore.backgrounds.collectAsState(initial = emptyList())
-    val selectedBgId by settingsDataStore.selectedBackgroundId.collectAsState(initial = "")
     val userAvatarVersion by settingsDataStore.userAvatarVersion.collectAsState(initial = 0)
-    val selectedBg = remember(backgroundList, selectedBgId) {
-        backgroundList.find { it.id == selectedBgId }
-    }
-    val backgroundBitmap = remember(selectedBg) {
-        selectedBg?.imagePath?.let { path ->
-            try { android.graphics.BitmapFactory.decodeFile(path) } catch (_: Exception) { null }
-        }
-    }
 
     val skill = uiState.currentSkill
 
-    val skillAvatarBitmap = remember(skill.avatarPath) {
-        val path = skill.avatarPath
-        if (path.isNotBlank()) {
+    var skillAvatarBitmap by remember(skill.avatarPath) { mutableStateOf<androidx.compose.ui.graphics.ImageBitmap?>(null) }
+    LaunchedEffect(skill.avatarPath) {
+        skillAvatarBitmap = withContext(Dispatchers.IO) {
+            val path = skill.avatarPath
+            if (path.isNotBlank()) {
+                val f = java.io.File(path)
+                if (f.exists()) {
+                    try { android.graphics.BitmapFactory.decodeFile(path)?.let { it.asImageBitmap() } } catch (_: Exception) { null }
+                } else null
+            } else null
+        }
+    }
+    var userAvatarBitmap by remember(userAvatarVersion) { mutableStateOf<androidx.compose.ui.graphics.ImageBitmap?>(null) }
+    LaunchedEffect(userAvatarVersion) {
+        userAvatarBitmap = withContext(Dispatchers.IO) {
+            val customFile = java.io.File(AvatarUtils.getUserAvatarPath(context))
+            val path = if (customFile.exists()) customFile.absolutePath
+                       else AvatarUtils.getDefaultUserAvatarPath(context)
             val f = java.io.File(path)
             if (f.exists()) {
                 try { android.graphics.BitmapFactory.decodeFile(path)?.let { it.asImageBitmap() } } catch (_: Exception) { null }
             } else null
-        } else null
-    }
-    val userAvatarBitmap = remember(userAvatarVersion) {
-        val customFile = java.io.File(AvatarUtils.getUserAvatarPath(context))
-        val path = if (customFile.exists()) customFile.absolutePath
-                   else AvatarUtils.getDefaultUserAvatarPath(context)
-        val f = java.io.File(path)
-        if (f.exists()) {
-            try { android.graphics.BitmapFactory.decodeFile(path)?.let { it.asImageBitmap() } } catch (_: Exception) { null }
-        } else null
+        }
     }
 
     var ttsManager by remember { mutableStateOf<ITtsManager?>(null) }
@@ -277,33 +275,6 @@ fun ChatScreen(
     // LAYOUT — 精确对应 index.html 的 .chat-page 结构
     // ============================================================
     Box(modifier = Modifier.fillMaxSize().imePadding()) {
-
-        // Layer 1: 背景图片 — 对应 .chat-bg img (hide in carousel)
-        if (!showCarousel && backgroundBitmap != null) {
-            Image(
-                bitmap = backgroundBitmap.asImageBitmap(),
-                contentDescription = null,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .blur(4.dp),
-                contentScale = ContentScale.Crop,
-                alpha = 1.0f
-            )
-            // Layer 2: 渐变覆盖层 — 确保内容可读
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(
-                        Brush.verticalGradient(
-                            listOf(
-                                Color.Black.copy(alpha = 0.25f),
-                                Color.Transparent,
-                                Color.White.copy(alpha = 0.85f)
-                            )
-                        )
-                    )
-            )
-        }
 
         // Layer 3: 内容 — carousel or chat
         if (showCarousel) {

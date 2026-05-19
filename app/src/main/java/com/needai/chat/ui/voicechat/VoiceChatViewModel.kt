@@ -42,6 +42,8 @@ data class VoiceChatUiState(
     val selectedSkillId: String? = null,
     val currentVoiceDisplayName: String = "",
     val currentModelDisplayName: String = "",
+    /** 是否已配置声音输出模型（voiceId 非空且能解析到 model） */
+    val hasVoiceOutputModel: Boolean = false,
     /** 用户正在说话（ASR 有中间结果） */
     val isSpeaking: Boolean = false,
     /** 正在播放 TTS */
@@ -81,6 +83,7 @@ class VoiceChatViewModel @Inject constructor(
     private var currentConfig: ModelConfig? = null
     private var ttsManager: ITtsManager? = null
     private var allVoices: List<VoiceInfo> = emptyList()
+    private var voiceAliasesMap: Map<String, String> = emptyMap()
     private var ttsApiKey: String = ""
     private var ttsVolume: Int = 50
     private var ttsRate: Float = 1.0f
@@ -103,6 +106,9 @@ class VoiceChatViewModel @Inject constructor(
             currentConfig = modelConfigRepository.getModelConfig().first()
         }
         viewModelScope.launch {
+            // 先加载 allVoices 和 voiceAliasesMap，再选择角色（updateVoiceModelDisplay 依赖它们）
+            allVoices = voiceRepository.getVoices()
+            voiceAliasesMap = settingsDataStore.voiceAliases.first()
             skillRepository.getAllSkills().first().let { skills ->
                 val firstSkill = skills.firstOrNull()
                 _uiState.update {
@@ -118,9 +124,6 @@ class VoiceChatViewModel @Inject constructor(
                     updateVoiceModelDisplay(firstSkill)
                 }
             }
-        }
-        viewModelScope.launch {
-            allVoices = voiceRepository.getVoices()
         }
 
         // 监听 TTS API Key 和语速/音量/音高设置
@@ -207,8 +210,9 @@ class VoiceChatViewModel @Inject constructor(
         if (voiceId.isBlank()) {
             _uiState.update {
                 it.copy(
-                    currentVoiceDisplayName = "默认音色",
-                    currentModelDisplayName = "cosyvoice-v3-flash"
+                    currentVoiceDisplayName = "未配置",
+                    currentModelDisplayName = "",
+                    hasVoiceOutputModel = false
                 )
             }
             return
@@ -218,8 +222,9 @@ class VoiceChatViewModel @Inject constructor(
         if (systemVoice != null) {
             _uiState.update {
                 it.copy(
-                    currentVoiceDisplayName = systemVoice.displayName,
-                    currentModelDisplayName = "cosyvoice-v3-flash"
+                    currentVoiceDisplayName = voiceAliasesMap[voiceId]?.ifBlank { null } ?: systemVoice.displayName,
+                    currentModelDisplayName = "cosyvoice-v3-flash",
+                    hasVoiceOutputModel = true
                 )
             }
             return
@@ -227,21 +232,35 @@ class VoiceChatViewModel @Inject constructor(
 
         val customVoice = allVoices.find { it.voiceId == voiceId }
         if (customVoice != null) {
+            val alias = voiceAliasesMap[voiceId]?.ifBlank { null }
+                ?: customVoice.displayName.ifEmpty { customVoice.voicePrompt.ifEmpty { voiceId } }
             _uiState.update {
                 it.copy(
-                    currentVoiceDisplayName = customVoice.displayName.ifEmpty { voiceId },
-                    currentModelDisplayName = customVoice.targetModel.ifEmpty { "cosyvoice-v3-flash" }
+                    currentVoiceDisplayName = alias,
+                    currentModelDisplayName = customVoice.targetModel.ifEmpty { "cosyvoice-v3-flash" },
+                    hasVoiceOutputModel = customVoice.targetModel.isNotBlank()
                 )
             }
             return
         }
 
-        val resolvedModel = SystemVoiceProvider.getModelForVoice(voiceId) ?: "cosyvoice-v3-flash"
-        _uiState.update {
-            it.copy(
-                currentVoiceDisplayName = voiceId,
-                currentModelDisplayName = resolvedModel
-            )
+        val resolvedModel = SystemVoiceProvider.getModelForVoice(voiceId)
+        if (resolvedModel != null) {
+            _uiState.update {
+                it.copy(
+                    currentVoiceDisplayName = voiceAliasesMap[voiceId]?.ifBlank { null } ?: voiceId,
+                    currentModelDisplayName = resolvedModel,
+                    hasVoiceOutputModel = true
+                )
+            }
+        } else {
+            _uiState.update {
+                it.copy(
+                    currentVoiceDisplayName = voiceAliasesMap[voiceId]?.ifBlank { null } ?: voiceId,
+                    currentModelDisplayName = "",
+                    hasVoiceOutputModel = false
+                )
+            }
         }
     }
 

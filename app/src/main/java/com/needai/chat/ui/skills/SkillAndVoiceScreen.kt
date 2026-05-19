@@ -448,7 +448,10 @@ fun SkillAndVoiceScreen(
                         modifier = Modifier
                             .clip(RoundedCornerShape(999.dp))
                             .background(if (selectedTab == 1) BrandMint.copy(alpha = 0.2f) else Color.Transparent)
-                            .clickable { selectedTab = 1 }
+                            .clickable {
+                                if (selectedTab != 1) voiceViewModel.loadVoices()
+                                selectedTab = 1
+                            }
                             .padding(horizontal = 24.dp, vertical = 8.dp)
                     ) {
                         Text(
@@ -677,6 +680,23 @@ fun SkillAndVoiceScreen(
                     }
                 }
             }
+        }
+
+        // API Key 错误弹窗
+        if (uiState.apiKeyErrorType != null) {
+            AlertDialog(
+                onDismissRequest = { voiceViewModel.dismissApiKeyError() },
+                icon = { Icon(Icons.Default.Warning, contentDescription = null, tint = BrandPink) },
+                title = { Text("API Key 错误", fontWeight = FontWeight.Bold, color = TextPrimary) },
+                text = { Text(uiState.apiKeyErrorMessage, color = TextSecondary) },
+                confirmButton = {
+                    Button(
+                        onClick = { voiceViewModel.dismissApiKeyError() },
+                        colors = ButtonDefaults.buttonColors(containerColor = BrandBlue),
+                        shape = RoundedCornerShape(999.dp)
+                    ) { Text("确定") }
+                }
+            )
         }
 
         // Dialogs – Skill

@@ -39,7 +39,10 @@ data class PolishUiState(
     val voiceAlias: String = "",
     val voiceTargetModel: String = "cosyvoice-v3.5-flash",
     val isCreatingVoice: Boolean = false,
-    val voiceCreateError: String? = null
+    val voiceCreateError: String? = null,
+    // API Key 错误弹窗
+    val apiKeyErrorType: String? = null,
+    val apiKeyErrorMessage: String = ""
 )
 
 @HiltViewModel
@@ -268,7 +271,7 @@ class PolishViewModel @Inject constructor(
             return
         }
 
-        _uiState.update { it.copy(isCreatingVoice = true, voiceCreateError = null) }
+        _uiState.update { it.copy(isCreatingVoice = true, voiceCreateError = null, apiKeyErrorType = null) }
 
         viewModelScope.launch {
             val result = voiceRepository.createVoice(
@@ -285,16 +288,31 @@ class PolishViewModel @Inject constructor(
                 _uiState.update { it.copy(isCreatingVoice = false) }
                 onResult(true, "音色「${alias}」创建成功！")
             }.onFailure { e ->
-                _uiState.update {
-                    it.copy(isCreatingVoice = false, voiceCreateError = "创建失败: ${e.localizedMessage ?: "未知错误"}")
+                val msg = e.localizedMessage ?: ""
+                if (msg.contains("未配置 API Key")) {
+                    _uiState.update {
+                        it.copy(isCreatingVoice = false, voiceCreateError = null, apiKeyErrorType = "not_configured", apiKeyErrorMessage = "TTS API Key 未配置")
+                    }
+                } else if (msg.contains("HTTP 401") || msg.contains("HTTP 403")) {
+                    _uiState.update {
+                        it.copy(isCreatingVoice = false, voiceCreateError = null, apiKeyErrorType = "invalid", apiKeyErrorMessage = "TTS API Key 不可用，请检查配置")
+                    }
+                } else {
+                    _uiState.update {
+                        it.copy(isCreatingVoice = false, voiceCreateError = "创建失败: $msg")
+                    }
+                    onResult(false, "创建失败: $msg")
                 }
-                onResult(false, "创建失败: ${e.localizedMessage ?: "未知错误"}")
             }
         }
     }
 
     fun dismissVoiceCreateError() {
         _uiState.update { it.copy(voiceCreateError = null) }
+    }
+
+    fun dismissApiKeyError() {
+        _uiState.update { it.copy(apiKeyErrorType = null, apiKeyErrorMessage = "") }
     }
 
     fun createSkill(name: String, description: String, systemPrompt: String, avatar: String, greeting: String, temperature: Double, onResult: ((Boolean, String) -> Unit)? = null) {

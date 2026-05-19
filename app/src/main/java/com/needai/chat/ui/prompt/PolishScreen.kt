@@ -9,6 +9,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -505,6 +506,23 @@ fun PolishScreen(
                 }
             }
         }
+    }
+
+    // API Key 错误弹窗
+    if (uiState.apiKeyErrorType != null) {
+        AlertDialog(
+            onDismissRequest = { viewModel.dismissApiKeyError() },
+            icon = { Icon(Icons.Default.Warning, contentDescription = null, tint = BrandPink) },
+            title = { Text("API Key 错误", fontWeight = FontWeight.Bold, color = TextPrimary) },
+            text = { Text(uiState.apiKeyErrorMessage, color = TextSecondary) },
+            confirmButton = {
+                Button(
+                    onClick = { viewModel.dismissApiKeyError() },
+                    colors = ButtonDefaults.buttonColors(containerColor = BrandBlue),
+                    shape = RoundedCornerShape(999.dp)
+                ) { Text("确定") }
+            }
+        )
     }
 
     if (showClearConfirmDialog) {

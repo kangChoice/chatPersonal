@@ -18,6 +18,9 @@ data class VoiceListUiState(
     val voices: List<VoiceInfo> = emptyList(),
     val isLoading: Boolean = false,
     val error: String? = null,
+    /** API Key 相关错误弹窗类型：null=无, "not_configured"=未配置, "invalid"=不可用 */
+    val apiKeyErrorType: String? = null,
+    val apiKeyErrorMessage: String = "",
     val isCreating: Boolean = false,
     val creatingStatus: String? = null,
     val previewAudioData: VoiceDesignClient.PreviewAudioData? = null,
@@ -41,23 +44,52 @@ class VoiceListViewModel @Inject constructor(
                 rawDeviceId = devicePrefixManager.getRawDeviceId()
             )
         }
-        loadVoices()
     }
 
     fun loadVoices() {
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, error = null) }
+            _uiState.update { it.copy(isLoading = true, error = null, apiKeyErrorType = null) }
             try {
                 val voices = voiceRepository.getVoices()
                 _uiState.update { it.copy(voices = voices, isLoading = false) }
                 if (voices.isEmpty()) {
                     val check = voiceRepository.listRemoteVoices(null)
                     if (check.isFailure) {
-                        _uiState.update { it.copy(error = "获取音色失败: ${check.exceptionOrNull()?.localizedMessage}") }
+                        val errMsg = check.exceptionOrNull()?.localizedMessage ?: ""
+                        handleApiKeyError(errMsg)
                     }
                 }
             } catch (e: Exception) {
                 _uiState.update { it.copy(isLoading = false, error = e.localizedMessage) }
+            }
+        }
+    }
+
+    private fun handleApiKeyError(errMsg: String) {
+        if (errMsg.contains("未配置 API Key")) {
+            _uiState.update {
+                it.copy(
+                    isLoading = false,
+                    error = null,
+                    apiKeyErrorType = "not_configured",
+                    apiKeyErrorMessage = "TTS API Key 未配置"
+                )
+            }
+        } else if (errMsg.contains("HTTP 401") || errMsg.contains("HTTP 403")) {
+            _uiState.update {
+                it.copy(
+                    isLoading = false,
+                    error = null,
+                    apiKeyErrorType = "invalid",
+                    apiKeyErrorMessage = "TTS API Key 不可用，请检查配置"
+                )
+            }
+        } else {
+            _uiState.update {
+                it.copy(
+                    isLoading = false,
+                    error = "获取音色失败: $errMsg"
+                )
             }
         }
     }
@@ -115,7 +147,18 @@ class VoiceListViewModel @Inject constructor(
                 }
                 pollVoiceStatus(createResult.voiceId)
             }.onFailure { e ->
-                _uiState.update { it.copy(isCreating = false, error = "创建失败: ${e.localizedMessage}") }
+                val msg = e.localizedMessage ?: ""
+                if (msg.contains("未配置 API Key")) {
+                    _uiState.update {
+                        it.copy(isCreating = false, error = null, apiKeyErrorType = "not_configured", apiKeyErrorMessage = "TTS API Key 未配置")
+                    }
+                } else if (msg.contains("HTTP 401") || msg.contains("HTTP 403")) {
+                    _uiState.update {
+                        it.copy(isCreating = false, error = null, apiKeyErrorType = "invalid", apiKeyErrorMessage = "TTS API Key 不可用，请检查配置")
+                    }
+                } else {
+                    _uiState.update { it.copy(isCreating = false, error = "创建失败: $msg") }
+                }
             }
         }
     }
@@ -152,6 +195,10 @@ class VoiceListViewModel @Inject constructor(
 
     fun dismissError() {
         _uiState.update { it.copy(error = null) }
+    }
+
+    fun dismissApiKeyError() {
+        _uiState.update { it.copy(apiKeyErrorType = null, apiKeyErrorMessage = "") }
     }
 
     fun dismissPreviewAudio() {

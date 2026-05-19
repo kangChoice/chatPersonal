@@ -1,5 +1,6 @@
 package com.needai.chat.ui.skills
 
+import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -42,6 +43,10 @@ import com.needai.chat.domain.model.VoiceInfo
 import com.needai.chat.ui.settings.components.VoiceSelectorSheet
 import com.needai.chat.ui.theme.*
 import com.needai.chat.util.AvatarUtils
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
 
 /**
@@ -78,26 +83,51 @@ fun SkillEditScreen(
     val context = LocalContext.current
     val settingsDataStore = remember { SettingsDataStore(context) }
     val voiceAliases by settingsDataStore.voiceAliases.collectAsState(initial = emptyMap())
+    val coroutineScope = rememberCoroutineScope()
+    var showAvatarSuccessDialog by remember { mutableStateOf(false) }
+    var avatarBitmap by remember { mutableStateOf<Bitmap?>(null) }
+
+    // 初始加载头像
+    LaunchedEffect(existingSkill) {
+        val path = existingSkill?.avatarPath
+        if (!path.isNullOrBlank()) {
+            val f = File(path)
+            if (f.exists()) {
+                avatarBitmap = withContext(Dispatchers.IO) { BitmapFactory.decodeFile(path) }
+            }
+        }
+    }
 
     val avatarPickerLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.GetContent()
     ) { uri ->
         if (uri != null) {
-            val savedPath = AvatarUtils.saveAvatar(context, existingSkill?.id ?: skillId, uri)
-            if (savedPath != null) {
-                avatarPath = savedPath
+            coroutineScope.launch {
+                val savedPath = withContext(Dispatchers.IO) {
+                    AvatarUtils.saveAvatar(context, existingSkill?.id ?: skillId, uri)
+                }
+                if (savedPath != null) {
+                    avatarPath = savedPath
+                    val bm = withContext(Dispatchers.IO) {
+                        val f = File(savedPath)
+                        if (f.exists()) BitmapFactory.decodeFile(savedPath) else null
+                    }
+                    if (bm != null) avatarBitmap = bm
+                    showAvatarSuccessDialog = true
+                }
             }
         }
     }
 
-    val avatarBitmap = remember(avatarPath) {
-        if (avatarPath.isNotBlank()) {
-            val f = File(avatarPath)
-            if (f.exists()) BitmapFactory.decodeFile(avatarPath) else null
-        } else null
+    if (showAvatarSuccessDialog) {
+        LaunchedEffect(Unit) {
+            delay(1500)
+            showAvatarSuccessDialog = false
+        }
     }
 
-    Scaffold(
+    Box(modifier = Modifier.fillMaxSize()) {
+        Scaffold(
         containerColor = Color.Transparent,
         topBar = {
             TopAppBar(
@@ -142,9 +172,10 @@ fun SkillEditScreen(
                             .border(1.dp, Color.White.copy(alpha = 0.5f), CircleShape),
                         contentAlignment = Alignment.Center
                     ) {
-                        if (avatarBitmap != null) {
+                        val bm = avatarBitmap
+                        if (bm != null) {
                             Image(
-                                bitmap = avatarBitmap.asImageBitmap(),
+                                bitmap = bm.asImageBitmap(),
                                 contentDescription = "角色头像",
                                 modifier = Modifier.fillMaxSize(),
                                 contentScale = ContentScale.Crop
@@ -508,6 +539,33 @@ fun SkillEditScreen(
                 }
             }
         )
+    }
+
+    if (showAvatarSuccessDialog) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 48.dp)
+                .padding(horizontal = 16.dp)
+                .statusBarsPadding(),
+            contentAlignment = Alignment.TopCenter
+        ) {
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = GlassWhite,
+                border = BorderStroke(0.5.dp, Color.White.copy(alpha = 0.5f)),
+                shadowElevation = 4.dp
+            ) {
+                Text(
+                    text = "头像已更新",
+                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
+                    color = TextPrimary,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium
+                )
+            }
+        }
+    }
     }
 }
 

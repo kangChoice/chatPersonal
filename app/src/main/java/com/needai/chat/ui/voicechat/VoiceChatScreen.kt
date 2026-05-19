@@ -270,6 +270,7 @@ private fun SkillSelectionContent(
                         viewModel.toggleCall()
                     }
                 },
+                enabled = uiState.hasVoiceOutputModel,
                 modifier = Modifier
                     .size(120.dp)
                     .clip(CircleShape),
@@ -284,7 +285,7 @@ private fun SkillSelectionContent(
             }
 
             Text(
-                text = "点击开始通话",
+                text = if (uiState.hasVoiceOutputModel) "点击开始通话" else "请先为该角色配置音色",
                 modifier = Modifier.padding(top = 12.dp, bottom = 32.dp),
                 fontSize = 14.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -410,12 +411,12 @@ private fun SelectedSkillInfoCard(uiState: VoiceChatUiState) {
             HorizontalDivider()
             Spacer(modifier = Modifier.height(6.dp))
             Text(
-                text = "音色: ${uiState.currentVoiceDisplayName}",
+                text = "voice：${uiState.currentVoiceDisplayName}",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
             )
             Text(
-                text = "模型: ${uiState.currentModelDisplayName}",
+                text = "模型：${uiState.currentModelDisplayName}",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
             )
@@ -495,7 +496,12 @@ private fun CallActiveContent(
                     )
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
-                        text = "音色: ${uiState.currentVoiceDisplayName}",
+                        text = "voice：${uiState.currentVoiceDisplayName}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                    )
+                    Text(
+                        text = "模型：${uiState.currentModelDisplayName}",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
                     )

@@ -1,6 +1,7 @@
 package com.needai.chat.util
 
 import android.content.Context
+import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Environment
@@ -73,13 +74,17 @@ object AvatarUtils {
         }
     }
 
-    /** 保存角色头像图片到本地，返回文件路径 */
+    /** 保存角色头像图片到本地，返回文件路径（压缩至 1024px、JPEG quality=90） */
     fun saveAvatar(context: Context, skillId: String, uri: Uri): String? {
         return try {
             val path = getSkillAvatarPath(context, skillId)
             context.contentResolver.openInputStream(uri)?.use { input ->
-                FileOutputStream(path).use { output ->
-                    input.copyTo(output)
+                val bitmap = BitmapFactory.decodeStream(input)
+                if (bitmap != null) {
+                    val compressed = compressBitmap(bitmap, 1024)
+                    FileOutputStream(path).use { compressed.compress(Bitmap.CompressFormat.JPEG, 90, it) }
+                    if (compressed !== bitmap) compressed.recycle()
+                    bitmap.recycle()
                 }
             }
             path
@@ -89,13 +94,17 @@ object AvatarUtils {
         }
     }
 
-    /** 保存用户本人头像，返回文件路径 */
+    /** 保存用户本人头像，返回文件路径（压缩至 1024px、JPEG quality=90） */
     fun saveUserAvatar(context: Context, uri: Uri): String? {
         return try {
             val path = getUserAvatarPath(context)
             context.contentResolver.openInputStream(uri)?.use { input ->
-                FileOutputStream(path).use { output ->
-                    input.copyTo(output)
+                val bitmap = BitmapFactory.decodeStream(input)
+                if (bitmap != null) {
+                    val compressed = compressBitmap(bitmap, 1024)
+                    FileOutputStream(path).use { compressed.compress(Bitmap.CompressFormat.JPEG, 90, it) }
+                    if (compressed !== bitmap) compressed.recycle()
+                    bitmap.recycle()
                 }
             }
             path
@@ -103,6 +112,13 @@ object AvatarUtils {
             FileLogger.e("AvatarUtils", "保存用户头像失败", e)
             null
         }
+    }
+
+    /** 缩放 Bitmap 至最大不超过 maxPx，保持宽高比 */
+    private fun compressBitmap(bitmap: Bitmap, maxPx: Int): Bitmap {
+        val scale = minOf(maxPx.toFloat() / bitmap.width, maxPx.toFloat() / bitmap.height, 1f)
+        if (scale >= 1f) return bitmap
+        return Bitmap.createScaledBitmap(bitmap, (bitmap.width * scale).toInt(), (bitmap.height * scale).toInt(), true)
     }
 
     /** 删除指定 skill 的头像文件（内置角色不删除） */
