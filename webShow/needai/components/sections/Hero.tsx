@@ -167,6 +167,22 @@ export default function Hero() {
             </svg>
             下载 App
           </GlassButton>
+          <GlassButton
+            onClick={() => {
+              fetch("/api/visits", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ type: "baidu_download" }),
+              });
+              window.open(
+                "https://pan.baidu.com/s/1qrnnrQL_Eqd1oHtEEglJkg?pwd=kkkk",
+                "_blank"
+              );
+            }}
+          >
+            <img src="/iconsbaidu.png" alt="百度网盘" className="w-4 h-4" />
+            网盘下载
+          </GlassButton>
         </div>
       </div>
 
