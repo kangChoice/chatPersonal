@@ -538,6 +538,28 @@ fun SettingsScreen(
 
             Card(
                 modifier = Modifier.fillMaxWidth(),
+                onClick = { uriHandler.openUri("https://www.needaichat.top") }
+            ) {
+                Row(
+                    modifier = Modifier.padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("官方网站", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "PS：欢迎向作者反馈",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Card(
+                modifier = Modifier.fillMaxWidth(),
                 onClick = { uriHandler.openUri("https://github.com/kangChoice/chatPersonal") }
             ) {
                 Column(

@@ -12,6 +12,7 @@ export const metadata: Metadata = {
   title: "NeedAI — 你的 AI 助理，不止于聊天",
   description:
     "NeedAIChat 是一款支持多角色、多模态、语音聊天的 AI 对话应用。流式对话、角色管理、音色克隆、提示词优化，尽在 NeedAI。",
+  icons: "/app_icon.webp",
   openGraph: {
     title: "NeedAI — 你的 AI 助理，不止于聊天",
     description:
