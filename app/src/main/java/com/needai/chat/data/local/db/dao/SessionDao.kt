@@ -16,8 +16,8 @@ interface SessionDao {
     @Query("SELECT * FROM sessions WHERE id = :id")
     suspend fun getSessionById(id: String): SessionEntity?
 
-    @Query("SELECT * FROM sessions WHERE skillId = :skillId")
-    suspend fun getSessionsBySkillId(skillId: String): List<SessionEntity>
+    @Query("SELECT * FROM sessions WHERE skillId = :skillId AND type = :type ORDER BY updatedAt DESC")
+    suspend fun getSessionsBySkillId(skillId: String, type: String): List<SessionEntity>
 
     @Upsert
     suspend fun upsertSession(session: SessionEntity)

@@ -63,8 +63,8 @@ class SessionRepositoryImpl @Inject constructor(
         return toDomainSession(entity)
     }
 
-    override suspend fun getSessionsBySkillId(skillId: String): List<ChatSession> {
-        return sessionDao.getSessionsBySkillId(skillId).map { toDomainSession(it) }
+    override suspend fun getSessionsBySkillId(skillId: String, type: String): List<ChatSession> {
+        return sessionDao.getSessionsBySkillId(skillId, type).map { toDomainSession(it) }
     }
 
     override suspend fun saveSession(session: ChatSession) {
@@ -76,7 +76,7 @@ class SessionRepositoryImpl @Inject constructor(
     }
 
     override suspend fun deleteSessionsBySkillId(skillId: String) {
-        val sessions = sessionDao.getSessionsBySkillId(skillId)
+        val sessions = sessionDao.getSessionsBySkillId(skillId, "single")
         for (s in sessions) {
             messageDao.clearSession(s.id)
         }

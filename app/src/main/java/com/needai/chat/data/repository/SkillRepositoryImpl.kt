@@ -46,7 +46,7 @@ class SkillRepositoryImpl @Inject constructor(
     override suspend fun deleteSkill(id: String) {
         skillDao.getSkillById(id)?.let {
             // Cascade delete: remove all sessions and their messages for this skill
-            val sessions = sessionDao.getSessionsBySkillId(id)
+            val sessions = sessionDao.getSessionsBySkillId(id, "single")
             for (s in sessions) {
                 messageDao.clearSession(s.id)
             }

@@ -23,8 +23,8 @@ class FakeSessionRepository : SessionRepository {
         return _sessions.value.find { it.id == id }
     }
 
-    override suspend fun getSessionsBySkillId(skillId: String): List<ChatSession> {
-        return _sessions.value.filter { it.skillId == skillId }
+    override suspend fun getSessionsBySkillId(skillId: String, type: String): List<ChatSession> {
+        return _sessions.value.filter { it.skillId == skillId && it.type == type }
     }
 
     override suspend fun saveSession(session: ChatSession) {

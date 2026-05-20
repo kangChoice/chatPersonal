@@ -7,7 +7,7 @@ interface SessionRepository {
     fun getAllSessions(): Flow<List<ChatSession>>
     fun getSessionsByType(type: String): Flow<List<ChatSession>>
     suspend fun getSessionById(id: String): ChatSession?
-    suspend fun getSessionsBySkillId(skillId: String): List<ChatSession>
+    suspend fun getSessionsBySkillId(skillId: String, type: String): List<ChatSession>
     suspend fun saveSession(session: ChatSession)
     suspend fun deleteSession(id: String)
     suspend fun deleteSessionsBySkillId(skillId: String)

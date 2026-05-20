@@ -59,7 +59,7 @@ class ChatViewModel @Inject constructor(
         // 按角色 ID 驱动消息加载，角色间天然隔离，不会串数据
         viewModelScope.launch {
             skillRepository.selectedSkillIdFlow().distinctUntilChanged().collect { skillId ->
-                val sessions = sessionRepository.getSessionsBySkillId(skillId)
+                val sessions = sessionRepository.getSessionsBySkillId(skillId, "single")
                 val latestSession = sessions.maxByOrNull { it.updatedAt }
                 val sessionId = latestSession?.id ?: chatRepository.createNewSession()
                 val skillName = skillRepository.getSkillById(skillId)?.name ?: skillId
@@ -366,6 +366,10 @@ class ChatViewModel @Inject constructor(
     }
 
     fun switchSkill(skill: Skill) {
+        if (skill.id == _uiState.value.currentSkill.id) {
+            // 同一角色：不需要切换，只需收起轮播即可
+            return
+        }
         // 立即清空旧消息，避免协程异步期间详情页闪烁旧数据
         _uiState.update {
             it.copy(messages = emptyList(), currentStreamingMessage = "", isStreaming = false)
