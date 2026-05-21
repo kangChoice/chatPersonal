@@ -1,7 +1,6 @@
 package com.needai.chat.app
 
 import android.app.Service
-import android.content.Context
 import android.content.Intent
 import android.os.IBinder
 import android.util.Log
@@ -23,10 +22,10 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 /**
- * AI 定时通知执行 Service。
+ * AI 定时通知手动测试 Service。
  *
- * 由 AlarmReceiver 触发，处理指定的到期任务后立刻停止。
- * 前台 Service（dataSync），短生命周期，几秒内完成。
+ * 仅由用户点击"测试发送"按钮触发（前台环境，无需 FGS）。
+ * 正常定时触发由 AlarmReceiver 内联处理，不经过此 Service。
  */
 @AndroidEntryPoint
 class ScheduleNotificationService : Service() {
@@ -35,14 +34,12 @@ class ScheduleNotificationService : Service() {
     @Inject lateinit var modelConfigRepository: ModelConfigRepository
     @Inject lateinit var notificationHelper: AppNotificationHelper
     @Inject lateinit var aiNotificationManager: AiNotificationManager
-    @Inject lateinit var gson: com.google.gson.Gson
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var processingJob: Job? = null
 
     companion object {
         private const val TAG = "ScheduleNotifSvc"
-        private const val NOTIFICATION_ID = 2002
         const val EXTRA_FORCE_ALL = "force_all"
         const val EXTRA_CONFIG_IDS = "config_ids"
     }
@@ -57,8 +54,6 @@ class ScheduleNotificationService : Service() {
             stopSelfSafe()
             return START_NOT_STICKY
         }
-
-        startForeground(NOTIFICATION_ID, notificationHelper.buildProgressNotification("AI 定时通知"))
 
         processingJob = scope.launch {
             try {
@@ -86,8 +81,6 @@ class ScheduleNotificationService : Service() {
         Log.d(TAG, "处理任务: skill=${config.skillName}, prompt=${config.prompt}")
         FileLogger.i(TAG, "处理任务: skill=${config.skillName}, time=${String.format("%02d:%02d", config.hour, config.minute)}")
 
-        updateNotification("正在生成 ${config.skillName} 的消息...")
-
         val skill = skillRepository.getSkillById(config.skillId)
         if (skill == null) {
             Log.w(TAG, "角色 ${config.skillId} 不存在")
@@ -102,7 +95,7 @@ class ScheduleNotificationService : Service() {
             return
         }
 
-        val modelClient = RemoteModelClient(gson)
+        val modelClient = RemoteModelClient(com.google.gson.Gson())
         val messages = listOf(
             ChatMessage(role = "system", content = skill.systemPrompt),
             ChatMessage(role = "user", content = config.prompt)
@@ -123,12 +116,6 @@ class ScheduleNotificationService : Service() {
 
         aiNotificationManager.update(config.copy(lastTriggeredAt = System.currentTimeMillis()))
         delay(2000)
-    }
-
-    private fun updateNotification(text: String) {
-        val notification = notificationHelper.buildProgressNotification("AI 定时通知", text)
-        val manager = getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
-        manager.notify(NOTIFICATION_ID, notification)
     }
 
     private fun stopSelfSafe() {

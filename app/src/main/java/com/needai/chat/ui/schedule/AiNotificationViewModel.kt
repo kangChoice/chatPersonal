@@ -71,6 +71,6 @@ class AiNotificationViewModel @Inject constructor(
         val intent = Intent(context, ScheduleNotificationService::class.java).apply {
             putExtra(ScheduleNotificationService.EXTRA_FORCE_ALL, true)
         }
-        context.startForegroundService(intent)
+        context.startService(intent)
     }
 }

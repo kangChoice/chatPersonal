@@ -40,7 +40,6 @@
 
         <service
             android:name=".app.ScheduleNotificationService"
-            android:foregroundServiceType="dataSync"
             android:exported="false" />
 
         <receiver
