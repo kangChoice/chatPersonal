@@ -3,6 +3,7 @@ package com.needai.chat.ui.schedule
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -13,6 +14,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -20,6 +22,8 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.needai.chat.data.ilink.FixedScheduleItem
 import com.needai.chat.ui.theme.*
+import com.needai.chat.ui.util.LocalToast
+import com.needai.chat.ui.util.ToastType
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -27,6 +31,7 @@ fun IlinkScheduleScreen(
     viewModel: IlinkScheduleViewModel = hiltViewModel()
 ) {
     val config by viewModel.config.collectAsStateWithLifecycle()
+    val toastState = LocalToast.current
 
     var showEditDialog by remember { mutableStateOf(false) }
     var editIndex by remember { mutableStateOf(-1) }            // -1 = add mode
@@ -138,47 +143,57 @@ fun IlinkScheduleScreen(
                     )
                     Spacer(Modifier.height(8.dp))
 
-                    var startText by remember(config) { mutableStateOf(formatHour(config.randomStartHour)) }
-                    var endText by remember(config) { mutableStateOf(formatHour(config.randomEndHour)) }
-                    var startError by remember { mutableStateOf(false) }
-                    var endError by remember { mutableStateOf(false) }
+                    var startHour by remember(config) { mutableStateOf(config.randomStartTime.split(":").getOrElse(0) { "" }) }
+                    var startMinute by remember(config) { mutableStateOf(config.randomStartTime.split(":").getOrElse(1) { "" }) }
+                    var endHour by remember(config) { mutableStateOf(config.randomEndTime.split(":").getOrElse(0) { "" }) }
+                    var endMinute by remember(config) { mutableStateOf(config.randomEndTime.split(":").getOrElse(1) { "" }) }
+                    var startHourError by remember { mutableStateOf(false) }
+                    var startMinuteError by remember { mutableStateOf(false) }
+                    var endHourError by remember { mutableStateOf(false) }
+                    var endMinuteError by remember { mutableStateOf(false) }
 
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        OutlinedTextField(
-                            value = startText,
-                            onValueChange = { startText = it },
-                            label = { Text("起始") },
-                            placeholder = { Text("08:00") },
-                            singleLine = true,
-                            isError = startError,
-                            modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(12.dp)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        TimeFieldGroup(
+                            label = "起始",
+                            hour = startHour,
+                            onHourChange = { startHour = it },
+                            minute = startMinute,
+                            onMinuteChange = { startMinute = it },
+                            hourError = startHourError,
+                            minuteError = startMinuteError,
+                            modifier = Modifier.weight(1f)
                         )
-                        Text("~", color = TextSecondary)
-                        OutlinedTextField(
-                            value = endText,
-                            onValueChange = { endText = it },
-                            label = { Text("结束") },
-                            placeholder = { Text("18:00") },
-                            singleLine = true,
-                            isError = endError,
-                            modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(12.dp)
+                        Text("~", color = TextSecondary, modifier = Modifier.padding(top = 28.dp))
+                        TimeFieldGroup(
+                            label = "结束",
+                            hour = endHour,
+                            onHourChange = { endHour = it },
+                            minute = endMinute,
+                            onMinuteChange = { endMinute = it },
+                            hourError = endHourError,
+                            minuteError = endMinuteError,
+                            modifier = Modifier.weight(1f)
                         )
                     }
 
                     Spacer(Modifier.height(8.dp))
                     Button(
                         onClick = {
-                            val start = parseHourInput(startText)
-                            val end = parseHourInput(endText)
-                            startError = start == null || start < 0 || start > 23
-                            endError = end == null || end < 0 || end > 23
-                            if (!startError && !endError && start != null && end != null) {
-                                viewModel.setRandomTimeRange(start, end)
+                            val sh = startHour.toIntOrNull()
+                            val sm = startMinute.toIntOrNull()
+                            val eh = endHour.toIntOrNull()
+                            val em = endMinute.toIntOrNull()
+                            startHourError = sh == null || sh !in 0..23
+                            startMinuteError = sm == null || sm !in 0..59
+                            endHourError = eh == null || eh !in 0..23
+                            endMinuteError = em == null || em !in 0..59
+                            if (!startHourError && !startMinuteError && !endHourError && !endMinuteError) {
+                                val startTime = String.format("%02d:%02d", sh!!, sm!!)
+                                val endTime = String.format("%02d:%02d", eh!!, em!!)
+                                viewModel.setRandomTimeRange(startTime, endTime)
+                                toastState.show("时间范围已更新", ToastType.Success)
+                            } else {
+                                toastState.show("请输入正确的时间", ToastType.Error)
                             }
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = BrandBlue),
@@ -197,8 +212,8 @@ fun IlinkScheduleScreen(
                     Slider(
                         value = config.randomCount.toFloat(),
                         onValueChange = { viewModel.setRandomCount(it.toInt()) },
-                        valueRange = 0f..60f,
-                        steps = 59,
+                        valueRange = 0f..10f,
+                        steps = 9,
                         modifier = Modifier.fillMaxWidth()
                     )
                     Row(
@@ -206,8 +221,21 @@ fun IlinkScheduleScreen(
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Text("0", fontSize = 11.sp, color = TextTertiary)
-                        Text("60", fontSize = 11.sp, color = TextTertiary)
+                        Text("10", fontSize = 11.sp, color = TextTertiary)
                     }
+
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        text = "定时任务依赖 context_token，该凭证有效期内可回复最多 10 条消息。若连续 10 次定时消息期间未收到用户回复，后续定时任务将因 token 耗尽而失效。",
+                        fontSize = 11.sp,
+                        color = TextTertiary
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        text = "为确保定时任务正常工作，请在系统设置中将本应用加入省电白名单，避免后台被系统限制。",
+                        fontSize = 11.sp,
+                        color = TextTertiary
+                    )
                 }
             }
 
@@ -317,9 +345,11 @@ private fun FixedMessageEditDialog(
     onDismiss: () -> Unit,
     onSave: (FixedScheduleItem) -> Unit
 ) {
-    var time by remember { mutableStateOf(initial?.time ?: "") }
+    var hour by remember { mutableStateOf(initial?.time?.split(":")?.getOrElse(0) { "" } ?: "") }
+    var minute by remember { mutableStateOf(initial?.time?.split(":")?.getOrElse(1) { "" } ?: "") }
     var message by remember { mutableStateOf(initial?.message ?: "") }
-    var timeError by remember { mutableStateOf(false) }
+    var hourError by remember { mutableStateOf(false) }
+    var minuteError by remember { mutableStateOf(false) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -331,19 +361,32 @@ private fun FixedMessageEditDialog(
         },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                OutlinedTextField(
-                    value = time,
-                    onValueChange = {
-                        time = it
-                        timeError = false
-                    },
-                    label = { Text("时间 (HH:mm)") },
-                    placeholder = { Text("08:00") },
-                    singleLine = true,
-                    isError = timeError,
-                    supportingText = if (timeError) {{ Text("格式错误，请输入 HH:mm (00:00-23:59)") }} else null,
-                    modifier = Modifier.fillMaxWidth()
-                )
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    OutlinedTextField(
+                        value = hour,
+                        onValueChange = { if (it.length <= 2) { hour = it; hourError = false } },
+                        label = { Text("时") },
+                        placeholder = { Text("08") },
+                        singleLine = true,
+                        isError = hourError,
+                        modifier = Modifier.width(80.dp),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                    )
+                    Text(":", fontSize = 20.sp, color = TextSecondary)
+                    OutlinedTextField(
+                        value = minute,
+                        onValueChange = { if (it.length <= 2) { minute = it; minuteError = false } },
+                        label = { Text("分") },
+                        placeholder = { Text("00") },
+                        singleLine = true,
+                        isError = minuteError,
+                        modifier = Modifier.width(80.dp),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                    )
+                }
+                if (hourError || minuteError) {
+                    Text("请输入有效时间（00:00-23:59）", fontSize = 12.sp, color = MaterialTheme.colorScheme.error)
+                }
                 OutlinedTextField(
                     value = message,
                     onValueChange = { message = it },
@@ -356,10 +399,12 @@ private fun FixedMessageEditDialog(
         },
         confirmButton = {
             Button(onClick = {
-                val valid = isValidTimeFormat(time)
-                timeError = !valid
-                if (valid && message.isNotBlank()) {
-                    onSave(FixedScheduleItem(time = time, message = message))
+                val h = hour.toIntOrNull()
+                val m = minute.toIntOrNull()
+                hourError = h == null || h !in 0..23
+                minuteError = m == null || m !in 0..59
+                if (!hourError && !minuteError && message.isNotBlank()) {
+                    onSave(FixedScheduleItem(time = String.format("%02d:%02d", h!!, m!!), message = message))
                 }
             }) {
                 Text("保存")
@@ -373,19 +418,43 @@ private fun FixedMessageEditDialog(
     )
 }
 
-private fun isValidTimeFormat(input: String): Boolean {
-    val parts = input.split(":")
-    if (parts.size != 2) return false
-    val hour = parts[0].toIntOrNull() ?: return false
-    val minute = parts[1].toIntOrNull() ?: return false
-    return hour in 0..23 && minute in 0..59 && parts[0].length == 2 && parts[1].length == 2
+@Composable
+private fun TimeFieldGroup(
+    label: String,
+    hour: String,
+    onHourChange: (String) -> Unit,
+    minute: String,
+    onMinuteChange: (String) -> Unit,
+    hourError: Boolean,
+    minuteError: Boolean,
+    modifier: Modifier = Modifier
+) {
+    Column(modifier = modifier) {
+        Text(label, fontSize = 12.sp, color = TextSecondary)
+        Spacer(Modifier.height(4.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            OutlinedTextField(
+                value = hour,
+                onValueChange = { if (it.length <= 2) onHourChange(it) },
+                placeholder = { Text("08") },
+                singleLine = true,
+                isError = hourError,
+                modifier = Modifier.width(56.dp),
+                shape = RoundedCornerShape(12.dp),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+            )
+            Text(":", fontSize = 20.sp, color = TextSecondary, modifier = Modifier.padding(horizontal = 2.dp))
+            OutlinedTextField(
+                value = minute,
+                onValueChange = { if (it.length <= 2) onMinuteChange(it) },
+                placeholder = { Text("00") },
+                singleLine = true,
+                isError = minuteError,
+                modifier = Modifier.width(56.dp),
+                shape = RoundedCornerShape(12.dp),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+            )
+        }
+    }
 }
 
-private fun formatHour(hour: Int): String = String.format("%02d:00", hour)
-
-private fun parseHourInput(input: String): Int? {
-    val trimmed = input.trim()
-    val parts = trimmed.split(":")
-    if (parts.isEmpty()) return null
-    return parts[0].toIntOrNull()
-}

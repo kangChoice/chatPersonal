@@ -33,7 +33,7 @@ import com.needai.chat.data.local.datastore.SettingsDataStore
 import com.needai.chat.ui.chat.ChatScreen
 import com.needai.chat.ui.ilink.IlinkSetupScreen
 import com.needai.chat.ui.ilink.IlinkStatusScreen
-import com.needai.chat.ui.schedule.IlinkScheduleScreen
+import com.needai.chat.ui.schedule.ScheduleTabContainer
 import com.needai.chat.ui.multichat.MultiChatScreen
 import com.needai.chat.ui.onboarding.OnboardingOverlay
 import com.needai.chat.ui.settings.SettingsScreen
@@ -261,7 +261,7 @@ fun MainScreen(isDark: Boolean = false) {
                         )
                     }
                     composable(Screen.IlinkSchedule.route) {
-                        IlinkScheduleScreen()
+                        ScheduleTabContainer()
                     }
                     composable(Screen.IlinkSetup.route) {
                         IlinkSetupScreen(

@@ -41,8 +41,8 @@ data class ScheduleConfig(
         FixedScheduleItem("21:00", "晚安！好梦")
     ),
     val randomMessage: String = "在干嘛?要好好生活哦",
-    val randomStartHour: Int = 8,
-    val randomEndHour: Int = 18,
+    val randomStartTime: String = "08:00",
+    val randomEndTime: String = "18:00",
     val randomCount: Int = 3
 )
 
@@ -184,7 +184,7 @@ class IlinkScheduleManager @Inject constructor(
         if (clamped == randomCount) return
         randomCount = clamped
         scheduleConfig = scheduleConfig.copy(randomCount = clamped)
-        randomTimes = generateRandomTimes(scheduleConfig.randomStartHour, scheduleConfig.randomEndHour, sentRandom)
+        randomTimes = generateRandomTimes(scheduleConfig.randomStartTime, scheduleConfig.randomEndTime, sentRandom)
         persistConfig()
         persistState()
         FileLogger.i(TAG, "setRandomCount: $clamped, newTimes=$randomTimes")
@@ -224,21 +224,26 @@ class IlinkScheduleManager @Inject constructor(
         todayDate = today
         sentFixed.clear()
         sentRandom.clear()
-        randomTimes = generateRandomTimes(now.hour, scheduleConfig.randomEndHour, emptySet())
+        randomTimes = generateRandomTimes(
+            String.format("%02d:%02d", now.hour, now.minute),
+            scheduleConfig.randomEndTime,
+            emptySet()
+        )
     }
 
-    private fun generateRandomTimes(startHour: Int, endHour: Int, exclude: Set<String>): List<String> {
-        val count = min(randomCount, (endHour - startHour) * 60)
-        if (count <= 0) return emptyList()
+    private fun generateRandomTimes(startTime: String, endTime: String, exclude: Set<String>): List<String> {
+        val start = parseMinuteOfDay(startTime) ?: return emptyList()
+        val end = parseMinuteOfDay(endTime) ?: return emptyList()
+        val totalMinutes = end - start
+        if (totalMinutes <= 0) return emptyList()
 
-        val totalMinutes = (endHour - startHour) * 60
+        val count = min(randomCount, totalMinutes)
         val segmentSize = totalMinutes / count
-        val startMinute = startHour * 60
 
         val result = mutableListOf<Int>()
         for (i in 0 until count) {
-            val segStart = startMinute + i * segmentSize
-            val segEnd = segStart + segmentSize - 1
+            val segStart = start + i * segmentSize
+            val segEnd = if (i == count - 1) end else segStart + segmentSize - 1
             val minutesInSeg = segEnd - segStart + 1
             if (minutesInSeg <= 0) continue
             result.add(segStart + (0 until minutesInSeg).random())
@@ -246,11 +251,18 @@ class IlinkScheduleManager @Inject constructor(
 
         return result.sorted()
             .map { totalMin ->
-                val h = totalMin / 60
-                val m = totalMin % 60
-                String.format("%02d:%02d", h, m)
+                String.format("%02d:%02d", totalMin / 60, totalMin % 60)
             }
             .filter { it !in exclude }
+    }
+
+    private fun parseMinuteOfDay(time: String): Int? {
+        val parts = time.split(":")
+        if (parts.size != 2) return null
+        val h = parts[0].toIntOrNull() ?: return null
+        val m = parts[1].toIntOrNull() ?: return null
+        if (h !in 0..23 || m !in 0..59) return null
+        return h * 60 + m
     }
 
     /** 获取完整配置 */
@@ -269,17 +281,22 @@ class IlinkScheduleManager @Inject constructor(
     }
 
     /** 更新随机消息时间范围 */
-    suspend fun setRandomTimeRange(startHour: Int, endHour: Int) {
-        val clampedStart = startHour.coerceIn(0, 23)
-        val clampedEnd = endHour.coerceIn(clampedStart + 1, 23)
+    suspend fun setRandomTimeRange(startTime: String, endTime: String) {
+        val start = parseMinuteOfDay(startTime) ?: return
+        val end = parseMinuteOfDay(endTime) ?: return
+        if (end - start < 30) return  // 最小 30 分钟范围
+        val clampedStart = start.coerceIn(0, 23 * 60 + 59)
+        val clampedEnd = end.coerceIn(clampedStart + 30, 23 * 60 + 59)
+        val startStr = String.format("%02d:%02d", clampedStart / 60, clampedStart % 60)
+        val endStr = String.format("%02d:%02d", clampedEnd / 60, clampedEnd % 60)
         scheduleConfig = scheduleConfig.copy(
-            randomStartHour = clampedStart,
-            randomEndHour = clampedEnd
+            randomStartTime = startStr,
+            randomEndTime = endStr
         )
-        randomTimes = generateRandomTimes(clampedStart, clampedEnd, sentRandom)
+        randomTimes = generateRandomTimes(startStr, endStr, sentRandom)
         persistConfig()
         persistState()
-        FileLogger.i(TAG, "setRandomTimeRange: $clampedStart:00-$clampedEnd:00, newTimes=$randomTimes")
+        FileLogger.i(TAG, "setRandomTimeRange: $startStr-$endStr, newTimes=$randomTimes")
     }
 
     // ===== DataStore 持久化 =====

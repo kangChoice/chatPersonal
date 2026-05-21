@@ -144,6 +144,9 @@ dependencies {
     // VAD
     implementation(libs.vad.silero)
 
+    // WorkManager
+    implementation(libs.workmanager.ktx)
+
     // QR Code
     implementation(libs.zxing.core)
 

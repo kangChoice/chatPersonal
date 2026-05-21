@@ -19,7 +19,6 @@ class IlinkBridgeNotification @Inject constructor(
     companion object {
         private const val CHANNEL_ID = "ilink_bridge"
         const val NOTIFICATION_ID = 1001
-        private const val STOP_ACTION_CODE = 1002
     }
 
     init {
@@ -48,21 +47,12 @@ class IlinkBridgeNotification @Inject constructor(
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        val stopIntent = Intent(context, IlinkBridgeService::class.java).apply {
-            action = IlinkBridgeService.ACTION_STOP
-        }
-        val stopPendingIntent = PendingIntent.getService(
-            context, STOP_ACTION_CODE, stopIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-
         return NotificationCompat.Builder(context, CHANNEL_ID)
             .setContentTitle("ClawBot 已连接")
             .setContentText("角色：$skillName")
             .setSmallIcon(android.R.drawable.ic_dialog_info)
             .setOngoing(true)
             .setContentIntent(openPendingIntent)
-            .addAction(android.R.drawable.ic_media_pause, "停止", stopPendingIntent)
             .build()
     }
 

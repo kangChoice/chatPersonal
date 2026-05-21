@@ -13,5 +13,11 @@ interface ModelClient {
         skill: Skill
     ): Flow<StreamEvent>
 
+    suspend fun chatNonStreaming(
+        messages: List<ChatMessage>,
+        config: ModelConfig,
+        skill: Skill
+    ): Result<String>
+
     suspend fun validateConfig(config: ModelConfig): Result<Boolean>
 }

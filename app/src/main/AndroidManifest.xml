@@ -37,6 +37,15 @@
             android:name=".data.ilink.IlinkBridgeService"
             android:foregroundServiceType="dataSync"
             android:exported="false" />
+
+        <service
+            android:name=".app.ScheduleNotificationService"
+            android:foregroundServiceType="dataSync"
+            android:exported="false" />
+
+        <receiver
+            android:name=".app.AlarmReceiver"
+            android:exported="false" />
     </application>
 
 </manifest>

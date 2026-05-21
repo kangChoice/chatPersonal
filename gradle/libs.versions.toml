@@ -20,6 +20,7 @@ junit = "4.13.2"
 junitExt = "1.1.5"
 espresso = "3.5.1"
 turbine = "1.0.0"
+workmanager = "2.9.1"
 
 [libraries]
 # Core
@@ -86,6 +87,9 @@ vad-silero = { group = "com.github.gkonovalov.android-vad", name = "silero", ver
 
 # QR Code
 zxing-core = { group = "com.google.zxing", name = "core", version = "3.5.3" }
+
+# WorkManager
+workmanager-ktx = { group = "androidx.work", name = "work-runtime-ktx", version.ref = "workmanager" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

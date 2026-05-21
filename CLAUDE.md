@@ -39,6 +39,7 @@ app/src/main/java/com/needai/chat/
 │   │   ├── api/       # DeepSeekApi（Retrofit 接口 — dead code，实际是 OkHttp 直连）
 │   │   ├── tts/       # CosyVoice TTS（NUI SDK）：合成、音色管理、PCM 播放、系统音色列表
 │   │   └── asr/       # WebSocket ASR（DashScope）、VAD（Silero DNN）、AEC（平台 AEC）、回声过滤
+│   ├── ilink/         # iLink 桥接（认证、客户端、定时任务、微信消息处理、前台通知）
 │   ├── mapper/        # Entity ↔ Domain 映射器
 │   ├── repository/    # 仓库实现
 │   ├── export/        # Markdown 会话导出、JSON 配置+技能导出
@@ -52,17 +53,19 @@ app/src/main/java/com/needai/chat/
 │   ├── voicechat/     # 语音通话页（ASR → LLM → TTS 全双工对话）
 │   ├── prompt/        # 提示词润色（AI 帮你写 system prompt）
 │   ├── settings/      # 设置页、模型配置管理、TTS 配置
+│   ├── ilink/         # iLink 桥接管理页（扫码连接、状态监控、调试）
+│   ├── schedule/      # 定时任务配置页（固定/随机消息、时间范围、频率）
 │   ├── stats/         # Token 统计（入口隐藏）
 │   ├── onboarding/    # 新手指引覆盖层（4 步引导）
-│   ├── navigation/    # NavGraph + 底部导航（5 个 tab）
+│   ├── navigation/    # NavGraph + 底部导航（6 个 tab）
 │   └── theme/         # Material 3 主题
 ├── di/                # Hilt 注入（AppModule / DatabaseModule / NetworkModule / VoiceModule）
-└── util/              # Constants / EncryptUtil / FileLogger / DevicePrefixManager / TtsManager
+└── util/              # Constants / EncryptUtil / FileLogger / DevicePrefixManager / TtsManager / AppToast
 ```
 
-### 5 个底部 Tab
+### 6 个底部 Tab
 
-聊天 → 群聊 → 技能管理（含音色） → 提示词优化 → 设置
+聊天 → 群聊 → 技能管理（含音色） → 提示词优化 → 定时任务 → 设置
 
 ## 数据库（Room v8）
 
@@ -166,7 +169,31 @@ StatsScreen 有路由有页面，但不在底部导航里。你要导航过去�
 - 支持背景图片自定义（`BackgroundConfig`，通过 DataStore 存储）
 - 设备隔离前缀（`DevicePrefixManager`）：基于 Android ID 生成 10 位 Base62 前缀，用于远程音色管理中的设备隔离
 - `TtsManager` 中的 `voiceModelResolver` 回调根据 voiceId 返回对应模型名，系统音色 → `cosyvoice-v3-flash`，自定义音色 → 其 `targetModel`
-- 所有的语音相关日志走 `FileLogger`，文件日志保留 7 天、单文件最大 5MB
+- 所有的语音相关日志走 `FileLogger`，文件日志保留 3 天、单文件最大 5MB
+
+## AppToast 通用弹窗组件
+
+`ui/util/AppToast.kt` — 替代散落各处的 `Toast.makeText` 和 `Snackbar` 的通用提示组件。
+
+- **`ToastState`**：持有 `SnapshotStateList<ToastItem>`，`show(message, type)` 添加提示，自动在 2500ms 后移除
+- **`LocalToast`**：`staticCompositionLocalOf`，在 `MainActivity` 中通过 `CompositionLocalProvider` 注入全局实例
+- **`AppToastHost`**：放在最外层 `Box` 的 overlay 层，顶部堆叠显示，支持同时多条提示
+- **`ToastType`**：`Success`（绿点）、`Error`（红点）、`Info`（蓝点）
+- 使用方式：任意 Composable 中 `val toast = LocalToast.current`，然后 `toast.show("消息", ToastType.Success)`
+- 已替换的地方：TTS 自动朗读弹窗、技能头像更新、提示词优化页创建成功、iLink 桥接状态变更
+
+## iLink 桥接 & 定时任务配置
+
+### IlinkScheduleManager — 定时消息
+
+`data/ilink/IlinkScheduleManager.kt` 管理 WeChat ClawBot 定时消息的发送编排。
+
+- **`ScheduleConfig`**：持久化配置（DataStore JSON），包含 `fixedMessages: List<FixedScheduleItem>`（固定时间+内容）、`randomMessage`（随机消息内容）、`randomStartTime`/`randomEndTime`（随机时间范围，HH:mm 格式）、`randomCount`（每日随机次数）
+- **`FixedScheduleItem`**：`time: String`（HH:mm）+ `message: String`
+- 配置通过 `IlinkScheduleViewModel` → `IlinkScheduleScreen` 在"定时任务" tab 中可视化编辑
+- `checkAndSend()` 每分钟触发一次，读取内存中的 `scheduleConfig`，无需重启 Service
+- `context_token` 有微信服务端 10 次限制，`MAX_USAGE=8` 留 margin；`ret=-2` 是 iLink 频率限制，非 token 耗尽
+- 随机时间生成为分段均匀分布（`generateRandomTimes(startHour, endHour, exclude)`），首次连接从当前小时开始避免过期时间点
 
 ## 密钥安全：BuildConfig 注入机制
 

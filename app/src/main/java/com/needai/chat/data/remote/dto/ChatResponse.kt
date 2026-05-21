@@ -37,3 +37,20 @@ data class ErrorDetail(
     val type: String? = null,
     val code: String? = null
 )
+
+// 非流式响应
+data class ChatNonStreamResponse(
+    val choices: List<NonStreamChoice>? = null,
+    val usage: Usage? = null
+)
+
+data class NonStreamChoice(
+    val message: NonStreamMessage? = null,
+    @SerializedName("finish_reason")
+    val finishReason: String? = null
+)
+
+data class NonStreamMessage(
+    val role: String? = null,
+    val content: String? = null
+)

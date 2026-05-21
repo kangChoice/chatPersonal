@@ -30,6 +30,7 @@ class IlinkBridgeService : Service() {
     @Inject lateinit var authManager: IlinkAuthManager
     @Inject lateinit var notificationHelper: IlinkBridgeNotification
     @Inject lateinit var scheduleManager: IlinkScheduleManager
+    @Inject lateinit var skillRepository: com.needai.chat.domain.repository.SkillRepository
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var pollingJob: Job? = null
@@ -161,7 +162,10 @@ class IlinkBridgeService : Service() {
                         }
                         // 首次成功连接后更新通知
                         if (cursor == null) {
-                            startForeground(NOTIFICATION_ID, notificationHelper.buildConnected("ClawBot"))
+                            val ilinkId = authManager.getIlinkSkillId()
+                            val skillId = if (!ilinkId.isNullOrBlank()) ilinkId else skillRepository.getSelectedSkillId()
+                            val skillName = skillRepository.getSkillById(skillId)?.name ?: "ClawBot"
+                            startForeground(NOTIFICATION_ID, notificationHelper.buildConnected(skillName))
                         }
                         syncBuf = response.syncBuf
                         for (msg in response.messages) {

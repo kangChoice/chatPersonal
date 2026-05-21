@@ -87,11 +87,17 @@ object HttpLogger : Interceptor {
         return response
     }
 
-    /** 判断是否为 SSE 流式请求（对话接口） */
+    /** 从请求体中读取 stream 字段，准确判断是否流式请求 */
     private fun isStreamingRequest(request: okhttp3.Request): Boolean {
-        val path = request.url.encodedPath
-        return path.contains("chat/completions", ignoreCase = true) ||
-               path.contains("/v1/messages", ignoreCase = true)
+        val body = request.body ?: return false
+        return try {
+            val buffer = Buffer()
+            body.writeTo(buffer)
+            val bodyStr = buffer.readUtf8()
+            bodyStr.contains("\"stream\":true")
+        } catch (_: Exception) {
+            false
+        }
     }
 
     /** 把 URL path 转成中文描述 */

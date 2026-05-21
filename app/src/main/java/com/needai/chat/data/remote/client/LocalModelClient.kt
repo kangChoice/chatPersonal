@@ -22,6 +22,12 @@ class LocalModelClient @Inject constructor() : ModelClient {
         skill: Skill
     ): Flow<StreamEvent> = flowOf(StreamEvent.Token("[提示] 本地模型功能开发中，敬请期待。"))
 
+    override suspend fun chatNonStreaming(
+        messages: List<ChatMessage>,
+        config: ModelConfig,
+        skill: Skill
+    ): Result<String> = Result.failure(Exception("本地模型功能尚未实现"))
+
     override suspend fun validateConfig(config: ModelConfig): Result<Boolean> {
         return Result.failure(Exception("本地模型功能尚未实现"))
     }

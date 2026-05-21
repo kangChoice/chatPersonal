@@ -68,9 +68,9 @@ class IlinkScheduleViewModel @Inject constructor(
         }
     }
 
-    fun setRandomTimeRange(startHour: Int, endHour: Int) {
+    fun setRandomTimeRange(startTime: String, endTime: String) {
         viewModelScope.launch {
-            scheduleManager.setRandomTimeRange(startHour, endHour)
+            scheduleManager.setRandomTimeRange(startTime, endTime)
             refreshConfig()
         }
     }

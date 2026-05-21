@@ -3,9 +3,11 @@ package com.needai.chat.data.remote.client
 import com.google.gson.Gson
 import com.google.gson.JsonObject
 import com.needai.chat.data.remote.dto.AnthropicMessage
+import com.needai.chat.data.remote.dto.AnthropicNonStreamResponse
 import com.needai.chat.data.remote.dto.AnthropicRequest
 import com.needai.chat.data.remote.dto.AnthropicStreamEvent
 import com.needai.chat.data.remote.dto.ChatMessageDto
+import com.needai.chat.data.remote.dto.ChatNonStreamResponse
 import com.needai.chat.data.remote.dto.ChatRequest
 import com.needai.chat.data.remote.dto.ChatStreamChunk
 import com.needai.chat.domain.model.ApiProtocol
@@ -204,6 +206,90 @@ class RemoteModelClient @Inject constructor(
             .addHeader("Content-Type", "application/json")
             .post(gson.toJson(anthropicRequest).toRequestBody("application/json".toMediaType()))
             .build()
+    }
+
+    override suspend fun chatNonStreaming(
+        messages: List<ChatMessage>,
+        config: ModelConfig,
+        skill: Skill
+    ): Result<String> {
+        return try {
+            val client = OkHttpClient.Builder()
+                .connectTimeout(30, TimeUnit.SECONDS)
+                .readTimeout(120, TimeUnit.SECONDS)
+                .writeTimeout(30, TimeUnit.SECONDS)
+                .addInterceptor(HttpLogger)
+                .build()
+
+            val finalTemperature = if (skill.temperature != 0.7) skill.temperature else config.temperature
+
+            val request = when (config.protocol) {
+                ApiProtocol.OPENAI -> {
+                    val url = "${config.remoteBaseUrl.trimEnd('/')}/v1/chat/completions"
+                    val body = ChatRequest(
+                        model = config.remoteModelName,
+                        messages = messages.map { ChatMessageDto(role = it.role, content = it.content) },
+                        stream = false,
+                        temperature = finalTemperature,
+                        maxTokens = config.maxTokens,
+                        topP = config.topP
+                    )
+                    Request.Builder()
+                        .url(url)
+                        .addHeader("Authorization", "Bearer ${config.remoteApiKey}")
+                        .addHeader("Content-Type", "application/json")
+                        .post(gson.toJson(body).toRequestBody("application/json".toMediaType()))
+                        .build()
+                }
+                ApiProtocol.ANTHROPIC -> {
+                    val url = "${config.remoteBaseUrl.trimEnd('/')}/v1/messages"
+                    val systemPrompt = messages.firstOrNull { it.role == "system" }?.content
+                    val anthropicMessages = messages
+                        .filter { it.role != "system" }
+                        .map { AnthropicMessage(role = it.role, content = it.content) }
+                    val body = AnthropicRequest(
+                        model = config.remoteModelName,
+                        maxTokens = config.maxTokens,
+                        system = systemPrompt,
+                        messages = anthropicMessages,
+                        stream = false,
+                        temperature = finalTemperature,
+                        topP = config.topP
+                    )
+                    Request.Builder()
+                        .url(url)
+                        .addHeader("x-api-key", config.remoteApiKey)
+                        .addHeader("anthropic-version", "2023-06-01")
+                        .addHeader("Content-Type", "application/json")
+                        .post(gson.toJson(body).toRequestBody("application/json".toMediaType()))
+                        .build()
+                }
+            }
+
+            val response = client.newCall(request).execute()
+            val body = response.body?.string().orEmpty()
+
+            if (!response.isSuccessful) {
+                return Result.failure(Exception("HTTP ${response.code}: ${body.take(200)}"))
+            }
+
+            val text = when (config.protocol) {
+                ApiProtocol.OPENAI -> {
+                    val parsed = gson.fromJson(body, ChatNonStreamResponse::class.java)
+                    parsed.choices?.firstOrNull()?.message?.content.orEmpty()
+                }
+                ApiProtocol.ANTHROPIC -> {
+                    val parsed = gson.fromJson(body, AnthropicNonStreamResponse::class.java)
+                    parsed.content?.firstOrNull()?.text.orEmpty()
+                }
+            }
+
+            client.dispatcher.executorService.shutdown()
+            if (text.isBlank()) Result.failure(Exception("空响应"))
+            else Result.success(text)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
     }
 
     override suspend fun validateConfig(config: ModelConfig): Result<Boolean> {

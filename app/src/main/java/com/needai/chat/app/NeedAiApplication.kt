@@ -13,6 +13,7 @@ import com.needai.chat.data.local.db.entity.SkillEntity
 import com.needai.chat.util.AvatarUtils
 import com.needai.chat.util.FileLogger
 import dagger.hilt.android.HiltAndroidApp
+import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
@@ -23,12 +24,19 @@ class NeedAiApplication : Application() {
 
     private val applicationScope = CoroutineScope(Dispatchers.IO)
 
+    @Inject lateinit var aiNotificationScheduler: AiNotificationScheduler
+
     override fun onCreate() {
         super.onCreate()
         FileLogger.init(this)
         setupCrashHandler()
         initializeConfigFile()
         initializeDefaults()
+        scheduleAIAgentNotification()
+    }
+
+    private fun scheduleAIAgentNotification() {
+        aiNotificationScheduler.start()
     }
 
     private fun setupCrashHandler() {

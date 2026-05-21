@@ -18,3 +18,14 @@ data class AnthropicContentBlock(
     val type: String? = null,
     val text: String? = null
 )
+
+// 非流式响应
+data class AnthropicNonStreamResponse(
+    val content: List<AnthropicContentBlock>? = null,
+    val usage: AnthropicUsage? = null
+)
+
+data class AnthropicUsage(
+    @SerializedName("input_tokens") val inputTokens: Int? = null,
+    @SerializedName("output_tokens") val outputTokens: Int? = null
+)
