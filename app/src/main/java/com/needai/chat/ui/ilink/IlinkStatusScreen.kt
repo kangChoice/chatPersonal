@@ -179,7 +179,7 @@ private fun ActionButtons(uiState: IlinkUiState, viewModel: IlinkViewModel) {
                     Text("停止桥接", fontSize = 16.sp)
                 }
             }
-            is IlinkUiState.Stopped, is IlinkUiState.Setup -> {
+            is IlinkUiState.Stopped -> {
                 Button(
                     onClick = { viewModel.reconnect() },
                     colors = ButtonDefaults.buttonColors(containerColor = BrandBlue),

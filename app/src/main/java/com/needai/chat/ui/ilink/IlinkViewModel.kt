@@ -280,6 +280,7 @@ class IlinkViewModel @Inject constructor(
         viewModelScope.launch {
             FileLogger.i(TAG, "resetAuth: 清除 Token")
             authManager.clearToken()
+            stopBridge()
             _uiState.value = IlinkUiState.Setup(
                 step = SetupStep.ENABLE_PLUGIN,
                 currentSkill = getCurrentSkill()
