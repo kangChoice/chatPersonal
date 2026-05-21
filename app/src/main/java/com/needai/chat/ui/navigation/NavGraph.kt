@@ -10,6 +10,7 @@ import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Forum
+import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -32,6 +33,7 @@ import com.needai.chat.data.local.datastore.SettingsDataStore
 import com.needai.chat.ui.chat.ChatScreen
 import com.needai.chat.ui.ilink.IlinkSetupScreen
 import com.needai.chat.ui.ilink.IlinkStatusScreen
+import com.needai.chat.ui.schedule.IlinkScheduleScreen
 import com.needai.chat.ui.multichat.MultiChatScreen
 import com.needai.chat.ui.onboarding.OnboardingOverlay
 import com.needai.chat.ui.settings.SettingsScreen
@@ -52,6 +54,7 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector?
     data object MultiChat : Screen("multi_chat", "群聊", Icons.Default.Forum)
     data object SkillList : Screen("skill_list", "技能管理", Icons.Default.AutoAwesome)
     data object PromptPolish : Screen("prompt_polish", "提示词优化", Icons.Default.Edit)
+    data object IlinkSchedule : Screen("ilink_schedule", "定时任务", Icons.Default.Schedule)
     data object Stats : Screen("stats", "统计", Icons.Default.BarChart)
     data object SkillEdit : Screen("skill_edit/{skillId}", "编辑角色")
     data object VoiceManagement : Screen("voice_management", "音色管理")
@@ -67,7 +70,7 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector?
     }
 }
 
-val bottomNavItems = listOf(Screen.Chat, Screen.MultiChat, Screen.SkillList, Screen.PromptPolish, Screen.Settings)
+val bottomNavItems = listOf(Screen.Chat, Screen.MultiChat, Screen.SkillList, Screen.PromptPolish, Screen.IlinkSchedule, Screen.Settings)
 
 private val onboardingRoutes = listOf(
     Screen.Chat.route,          // step 0: 聊天
@@ -256,6 +259,9 @@ fun MainScreen(isDark: Boolean = false) {
                             skillId = skillId,
                             onNavigateBack = { navController.popBackStack() }
                         )
+                    }
+                    composable(Screen.IlinkSchedule.route) {
+                        IlinkScheduleScreen()
                     }
                     composable(Screen.IlinkSetup.route) {
                         IlinkSetupScreen(

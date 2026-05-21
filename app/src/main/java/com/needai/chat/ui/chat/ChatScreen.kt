@@ -52,6 +52,8 @@ import com.needai.chat.util.ITtsManager
 import com.needai.chat.util.TtsManagerImpl
 import com.needai.chat.ui.navigation.Screen
 import com.needai.chat.ui.theme.*
+import com.needai.chat.ui.util.LocalToast
+import com.needai.chat.ui.util.ToastType
 import java.text.SimpleDateFormat
 import java.util.*
 import kotlinx.coroutines.Dispatchers
@@ -86,6 +88,7 @@ fun ChatScreen(
     val listState = rememberLazyListState()
     val snackbarHostState = remember { SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()
+    val toastState = LocalToast.current
     val context = LocalContext.current
     var showModelTip by remember { mutableStateOf(false) }
     var sessionToDelete by remember { mutableStateOf<ChatSession?>(null) }
@@ -195,7 +198,7 @@ fun ChatScreen(
         while (uiState.isStreaming && uiState.currentStreamingMessage.isEmpty()) delay(100)
         if (!uiState.isStreaming) return@LaunchedEffect
         autoSpeaking = true
-        coroutineScope.launch { snackbarHostState.showSnackbar("TTS: 自动朗读") }
+        toastState.show("TTS: 自动朗读", ToastType.Info)
         var lastSentFilteredLen = 0
         var sentenceBuffer = StringBuilder()
         try {

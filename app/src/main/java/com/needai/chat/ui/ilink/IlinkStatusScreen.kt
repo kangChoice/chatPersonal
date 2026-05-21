@@ -21,6 +21,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.needai.chat.domain.model.Skill
 import androidx.compose.ui.graphics.Color
 import com.needai.chat.ui.theme.*
+import com.needai.chat.ui.util.LocalToast
+import com.needai.chat.ui.util.ToastType
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -165,11 +167,15 @@ private fun SkillItem(skill: Skill, isSelected: Boolean, onClick: () -> Unit) {
 
 @Composable
 private fun ActionButtons(uiState: IlinkUiState, viewModel: IlinkViewModel) {
+    val toastState = LocalToast.current
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         when (uiState) {
             is IlinkUiState.Connected -> {
                 Button(
-                    onClick = { viewModel.stopBridge() },
+                    onClick = {
+                        viewModel.stopBridge()
+                        toastState.show("桥接已停止", ToastType.Info)
+                    },
                     colors = ButtonDefaults.buttonColors(containerColor = StatusRed),
                     modifier = Modifier.fillMaxWidth().height(48.dp),
                     shape = RoundedCornerShape(12.dp)
@@ -181,7 +187,10 @@ private fun ActionButtons(uiState: IlinkUiState, viewModel: IlinkViewModel) {
             }
             is IlinkUiState.Stopped -> {
                 Button(
-                    onClick = { viewModel.reconnect() },
+                    onClick = {
+                        viewModel.reconnect()
+                        toastState.show("桥接已启动", ToastType.Success)
+                    },
                     colors = ButtonDefaults.buttonColors(containerColor = BrandBlue),
                     modifier = Modifier.fillMaxWidth().height(48.dp),
                     shape = RoundedCornerShape(12.dp)
@@ -193,7 +202,10 @@ private fun ActionButtons(uiState: IlinkUiState, viewModel: IlinkViewModel) {
             }
             is IlinkUiState.Error -> {
                 Button(
-                    onClick = { viewModel.reconnect() },
+                    onClick = {
+                        viewModel.reconnect()
+                        toastState.show("正在重新连接...", ToastType.Info)
+                    },
                     colors = ButtonDefaults.buttonColors(containerColor = BrandBlue),
                     modifier = Modifier.fillMaxWidth().height(48.dp),
                     shape = RoundedCornerShape(12.dp)
@@ -208,7 +220,10 @@ private fun ActionButtons(uiState: IlinkUiState, viewModel: IlinkViewModel) {
 
         // 重新授权（重置 Token）
         OutlinedButton(
-            onClick = { viewModel.resetAuth() },
+            onClick = {
+                viewModel.resetAuth()
+                toastState.show("已清除授权信息", ToastType.Info)
+            },
             modifier = Modifier.fillMaxWidth().height(48.dp),
             shape = RoundedCornerShape(12.dp),
             colors = ButtonDefaults.outlinedButtonColors(contentColor = StatusRed)
@@ -225,6 +240,7 @@ private fun ScheduleTestCard(
     schedule: List<Pair<String, String>>,
     onTestSend: () -> Unit
 ) {
+    val toastState = LocalToast.current
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
@@ -249,7 +265,10 @@ private fun ScheduleTestCard(
 
             Spacer(Modifier.height(12.dp))
             Button(
-                onClick = onTestSend,
+                onClick = {
+                    onTestSend()
+                    toastState.show("测试消息已发送", ToastType.Success)
+                },
                 colors = ButtonDefaults.buttonColors(containerColor = BrandPink),
                 modifier = Modifier.fillMaxWidth().height(44.dp),
                 shape = RoundedCornerShape(12.dp)

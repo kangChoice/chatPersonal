@@ -22,6 +22,8 @@ import com.needai.chat.domain.model.Skill
 import com.needai.chat.ui.skills.SkillEditDialog
 import com.needai.chat.ui.voice.components.SUPPORTED_CREATION_MODELS
 import com.needai.chat.ui.theme.*
+import com.needai.chat.ui.util.LocalToast
+import com.needai.chat.ui.util.ToastType
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.shape.CircleShape
@@ -38,6 +40,7 @@ fun PolishScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
+    val toastState = LocalToast.current
     var selectedTab by remember { mutableStateOf(0) }
     var showCreateDialog by remember { mutableStateOf(false) }
     var showClearConfirmDialog by remember { mutableStateOf(false) }
@@ -480,9 +483,7 @@ fun PolishScreen(
                                 Button(
                                     onClick = {
                                         viewModel.createVoice { success, msg ->
-                                            coroutineScope.launch {
-                                                snackbarHostState.showSnackbar(msg)
-                                            }
+                                            toastState.show(msg, ToastType.Success)
                                         }
                                     },
                                     enabled = uiState.voiceAlias.isNotBlank() && !uiState.isCreatingVoice,
@@ -560,9 +561,7 @@ fun PolishScreen(
             onDismiss = { showCreateDialog = false },
             onSave = { name, desc, prompt, avatar, greeting, temp ->
                 viewModel.createSkill(name, desc, prompt, avatar, greeting, temp) { success, msg ->
-                    coroutineScope.launch {
-                        snackbarHostState.showSnackbar(msg)
-                    }
+                    toastState.show(msg, ToastType.Success)
                 }
                 showCreateDialog = false
             }

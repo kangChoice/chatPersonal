@@ -42,9 +42,10 @@ import com.needai.chat.data.remote.tts.SystemVoiceProvider
 import com.needai.chat.domain.model.VoiceInfo
 import com.needai.chat.ui.settings.components.VoiceSelectorSheet
 import com.needai.chat.ui.theme.*
+import com.needai.chat.ui.util.LocalToast
+import com.needai.chat.ui.util.ToastType
 import com.needai.chat.util.AvatarUtils
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -84,7 +85,7 @@ fun SkillEditScreen(
     val settingsDataStore = remember { SettingsDataStore(context) }
     val voiceAliases by settingsDataStore.voiceAliases.collectAsState(initial = emptyMap())
     val coroutineScope = rememberCoroutineScope()
-    var showAvatarSuccessDialog by remember { mutableStateOf(false) }
+    val toastState = LocalToast.current
     var avatarBitmap by remember { mutableStateOf<Bitmap?>(null) }
 
     // 初始加载头像
@@ -113,16 +114,9 @@ fun SkillEditScreen(
                         if (f.exists()) BitmapFactory.decodeFile(savedPath) else null
                     }
                     if (bm != null) avatarBitmap = bm
-                    showAvatarSuccessDialog = true
+                    toastState.show("头像已更新", ToastType.Success)
                 }
             }
-        }
-    }
-
-    if (showAvatarSuccessDialog) {
-        LaunchedEffect(Unit) {
-            delay(1500)
-            showAvatarSuccessDialog = false
         }
     }
 
@@ -541,31 +535,6 @@ fun SkillEditScreen(
         )
     }
 
-    if (showAvatarSuccessDialog) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 48.dp)
-                .padding(horizontal = 16.dp)
-                .statusBarsPadding(),
-            contentAlignment = Alignment.TopCenter
-        ) {
-            Surface(
-                shape = RoundedCornerShape(12.dp),
-                color = GlassWhite,
-                border = BorderStroke(0.5.dp, Color.White.copy(alpha = 0.5f)),
-                shadowElevation = 4.dp
-            ) {
-                Text(
-                    text = "头像已更新",
-                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
-                    color = TextPrimary,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Medium
-                )
-            }
-        }
-    }
     }
 }
 

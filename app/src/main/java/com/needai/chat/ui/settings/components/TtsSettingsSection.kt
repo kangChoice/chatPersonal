@@ -11,6 +11,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.needai.chat.ui.util.LocalToast
+import com.needai.chat.ui.util.ToastType
 
 @Composable
 fun TtsSettingsSection(
@@ -132,6 +134,7 @@ fun TtsSettingsSection(
             HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
 
             // 自动朗读
+            val toastState = LocalToast.current
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -147,7 +150,13 @@ fun TtsSettingsSection(
                 }
                 Switch(
                     checked = ttsAutoRead,
-                    onCheckedChange = onTtsAutoReadChange
+                    onCheckedChange = {
+                        onTtsAutoReadChange(it)
+                        toastState.show(
+                            if (it) "已开启自动朗读" else "已关闭自动朗读",
+                            ToastType.Info
+                        )
+                    }
                 )
             }
         }

@@ -29,6 +29,23 @@ data class ScheduleState(
     @SerializedName("random_count") val randomCount: Int = 3
 )
 
+data class FixedScheduleItem(
+    val time: String = "08:00",
+    val message: String = ""
+)
+
+data class ScheduleConfig(
+    val fixedMessages: List<FixedScheduleItem> = listOf(
+        FixedScheduleItem("08:00", "起床了吗？要好好吃早饭噢"),
+        FixedScheduleItem("12:00", "中午要好好吃饭哦！我会担心的"),
+        FixedScheduleItem("21:00", "晚安！好梦")
+    ),
+    val randomMessage: String = "在干嘛?要好好生活哦",
+    val randomStartHour: Int = 8,
+    val randomEndHour: Int = 18,
+    val randomCount: Int = 3
+)
+
 @Singleton
 class IlinkScheduleManager @Inject constructor(
     @ApplicationContext private val context: Context,
@@ -37,17 +54,8 @@ class IlinkScheduleManager @Inject constructor(
     companion object {
         private const val TAG = "IlinkSchedule"
         private val SCHEDULE_STATE_KEY = stringPreferencesKey("schedule_state")
-        private const val RANDOM_MSG = "在干嘛?要好好生活哦"
-        private const val RANDOM_START_HOUR = 8
-        private const val RANDOM_END_HOUR = 18
-        private const val DEFAULT_RANDOM_COUNT = 3
+        private val SCHEDULE_CONFIG_KEY = stringPreferencesKey("schedule_config")
         private val FMT = DateTimeFormatter.ofPattern("HH:mm")
-
-        private val FIXED_SCHEDULE = listOf(
-            "08:00" to "起床了吗？要好好吃早饭噢",
-            "12:00" to "中午要好好吃饭哦！我会担心的",
-            "21:00" to "晚安！好梦"
-        )
     }
 
     // 内存状态，避免每次检查都读 DataStore
@@ -55,7 +63,8 @@ class IlinkScheduleManager @Inject constructor(
     private var sentFixed: MutableSet<String> = mutableSetOf()
     private var sentRandom: MutableSet<String> = mutableSetOf()
     private var randomTimes: List<String> = emptyList()
-    private var randomCount: Int = DEFAULT_RANDOM_COUNT
+    private var randomCount: Int = 3
+    private var scheduleConfig: ScheduleConfig = ScheduleConfig()
     private var initialized = false
 
     /**
@@ -63,6 +72,7 @@ class IlinkScheduleManager @Inject constructor(
      */
     suspend fun initialize() {
         if (initialized) return
+        loadConfig()
         loadState()
         initialized = true
         FileLogger.i(TAG, "initialize: date=$todayDate, fixed=${sentFixed.size}, random=${sentRandom.size}, times=$randomTimes")
@@ -93,7 +103,9 @@ class IlinkScheduleManager @Inject constructor(
         var changed = false
 
         // 固定时间点
-        for ((time, text) in FIXED_SCHEDULE) {
+        for (item in scheduleConfig.fixedMessages) {
+            val time = item.time
+            val text = item.message
             if (time !in sentFixed) {
                 val scheduled = LocalTime.parse(time, FMT)
                 if (!now.isBefore(scheduled)) {
@@ -118,8 +130,8 @@ class IlinkScheduleManager @Inject constructor(
                 if (!now.isBefore(scheduled)) {
                     val inWindow = !now.isAfter(scheduled.plusMinutes(5))
                     if (inWindow) {
-                        FileLogger.i(TAG, "checkAndSend: 随机消息触发 $time → $RANDOM_MSG")
-                        sendToAllUsers(RANDOM_MSG, botToken, syncBuf, contextTokenCache, ilinkClient)
+                        FileLogger.i(TAG, "checkAndSend: 随机消息触发 $time → ${scheduleConfig.randomMessage}")
+                        sendToAllUsers(scheduleConfig.randomMessage, botToken, syncBuf, contextTokenCache, ilinkClient)
                     } else {
                         FileLogger.i(TAG, "checkAndSend: 随机消息 $time 已过期，跳过发送")
                     }
@@ -138,11 +150,11 @@ class IlinkScheduleManager @Inject constructor(
     /** 获取今日所有定时消息预览（时间, 消息文本），含时间前缀 */
     fun getTodaySchedulePreview(): List<Pair<String, String>> {
         val result = mutableListOf<Pair<String, String>>()
-        for ((time, text) in FIXED_SCHEDULE) {
-            result.add(time to text)
+        for (item in scheduleConfig.fixedMessages) {
+            result.add(item.time to item.message)
         }
         for (time in randomTimes) {
-            result.add(time to RANDOM_MSG)
+            result.add(time to scheduleConfig.randomMessage)
         }
         result.sortBy { it.first }
         return result
@@ -171,7 +183,9 @@ class IlinkScheduleManager @Inject constructor(
         val clamped = count.coerceIn(0, 60)
         if (clamped == randomCount) return
         randomCount = clamped
-        randomTimes = generateRandomTimes(RANDOM_START_HOUR, sentRandom)
+        scheduleConfig = scheduleConfig.copy(randomCount = clamped)
+        randomTimes = generateRandomTimes(scheduleConfig.randomStartHour, scheduleConfig.randomEndHour, sentRandom)
+        persistConfig()
         persistState()
         FileLogger.i(TAG, "setRandomCount: $clamped, newTimes=$randomTimes")
     }
@@ -210,14 +224,14 @@ class IlinkScheduleManager @Inject constructor(
         todayDate = today
         sentFixed.clear()
         sentRandom.clear()
-        randomTimes = generateRandomTimes(now.hour, emptySet())
+        randomTimes = generateRandomTimes(now.hour, scheduleConfig.randomEndHour, emptySet())
     }
 
-    private fun generateRandomTimes(startHour: Int, exclude: Set<String>): List<String> {
-        val count = min(randomCount, (RANDOM_END_HOUR - startHour) * 60)
+    private fun generateRandomTimes(startHour: Int, endHour: Int, exclude: Set<String>): List<String> {
+        val count = min(randomCount, (endHour - startHour) * 60)
         if (count <= 0) return emptyList()
 
-        val totalMinutes = (RANDOM_END_HOUR - startHour) * 60
+        val totalMinutes = (endHour - startHour) * 60
         val segmentSize = totalMinutes / count
         val startMinute = startHour * 60
 
@@ -239,7 +253,56 @@ class IlinkScheduleManager @Inject constructor(
             .filter { it !in exclude }
     }
 
+    /** 获取完整配置 */
+    fun getConfig(): ScheduleConfig = scheduleConfig
+
+    /** 原子替换所有固定消息 */
+    suspend fun setFixedMessages(messages: List<FixedScheduleItem>) {
+        scheduleConfig = scheduleConfig.copy(fixedMessages = messages)
+        persistConfig()
+    }
+
+    /** 更新随机消息文本 */
+    suspend fun setRandomMessage(text: String) {
+        scheduleConfig = scheduleConfig.copy(randomMessage = text)
+        persistConfig()
+    }
+
+    /** 更新随机消息时间范围 */
+    suspend fun setRandomTimeRange(startHour: Int, endHour: Int) {
+        val clampedStart = startHour.coerceIn(0, 23)
+        val clampedEnd = endHour.coerceIn(clampedStart + 1, 23)
+        scheduleConfig = scheduleConfig.copy(
+            randomStartHour = clampedStart,
+            randomEndHour = clampedEnd
+        )
+        randomTimes = generateRandomTimes(clampedStart, clampedEnd, sentRandom)
+        persistConfig()
+        persistState()
+        FileLogger.i(TAG, "setRandomTimeRange: $clampedStart:00-$clampedEnd:00, newTimes=$randomTimes")
+    }
+
     // ===== DataStore 持久化 =====
+
+    private suspend fun loadConfig() {
+        val json = context.scheduleStore.data.map { prefs ->
+            prefs[SCHEDULE_CONFIG_KEY]
+        }.first().orEmpty()
+        if (json.isNotEmpty()) {
+            try {
+                scheduleConfig = gson.fromJson(json, ScheduleConfig::class.java)
+            } catch (e: Exception) {
+                FileLogger.w(TAG, "loadConfig: 解析失败 ${e.localizedMessage}")
+            }
+        }
+    }
+
+    private suspend fun persistConfig() {
+        val json = gson.toJson(scheduleConfig)
+        context.scheduleStore.edit { prefs ->
+            prefs[SCHEDULE_CONFIG_KEY] = json
+        }
+    }
 
     private suspend fun loadState() {
         val json = context.scheduleStore.data.map { prefs ->
@@ -255,7 +318,12 @@ class IlinkScheduleManager @Inject constructor(
             sentFixed = state.sentFixed.toMutableSet()
             sentRandom = state.sentRandom.toMutableSet()
             randomTimes = state.randomTimes.toMutableList()
-            randomCount = state.randomCount.coerceIn(1, 60)
+            // 迁移：优先使用 config 中的 randomCount
+            if (scheduleConfig.randomCount > 0) {
+                randomCount = scheduleConfig.randomCount
+            } else {
+                randomCount = state.randomCount.coerceIn(1, 60)
+            }
         } catch (e: Exception) {
             FileLogger.w(TAG, "loadState: 解析失败 ${e.localizedMessage}")
         }

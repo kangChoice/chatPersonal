@@ -3,13 +3,14 @@ package com.needai.chat
 import android.app.ActivityManager
 import android.content.Intent
 import android.os.Bundle
-import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.SideEffect
@@ -23,6 +24,10 @@ import com.needai.chat.util.FileLogger
 import com.needai.chat.data.local.datastore.SettingsDataStore
 import com.needai.chat.ui.navigation.MainScreen
 import com.needai.chat.ui.theme.NeedAiTheme
+import com.needai.chat.ui.util.AppToastHost
+import com.needai.chat.ui.util.LocalToast
+import com.needai.chat.ui.util.ToastState
+import com.needai.chat.ui.util.ToastType
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -32,6 +37,8 @@ class MainActivity : ComponentActivity() {
 
     @Inject lateinit var settingsDataStore: SettingsDataStore
     @Inject lateinit var authManager: IlinkAuthManager
+
+    private val toastState = ToastState()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -43,11 +50,16 @@ class MainActivity : ComponentActivity() {
                 SideEffect {
                     window.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(bgColor.toArgb()))
                 }
-                Surface(
-                    modifier = Modifier.fillMaxSize(),
-                    color = bgColor
-                ) {
-                    MainScreen(isDark = isDarkMode)
+                CompositionLocalProvider(LocalToast provides toastState) {
+                    Box(modifier = Modifier.fillMaxSize()) {
+                        Surface(
+                            modifier = Modifier.fillMaxSize(),
+                            color = bgColor
+                        ) {
+                            MainScreen(isDark = isDarkMode)
+                        }
+                        AppToastHost()
+                    }
                 }
             }
         }
@@ -75,7 +87,7 @@ class MainActivity : ComponentActivity() {
             action = IlinkBridgeService.ACTION_START
         }
         ContextCompat.startForegroundService(this, intent)
-        Toast.makeText(this, "ClawBot已连接", Toast.LENGTH_SHORT).show()
+        toastState.show("微信ClawBot已连接", ToastType.Success)
     }
 
     private fun isBridgeServiceRunning(): Boolean {
