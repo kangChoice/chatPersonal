@@ -10,7 +10,7 @@ import java.util.*
 
 object FileLogger {
 
-    private const val MAX_LOG_AGE_DAYS = 7
+    private const val MAX_LOG_AGE_DAYS = 3
     private const val MAX_LOG_FILE_SIZE = 5 * 1024 * 1024L
 
     enum class Level { DEBUG, INFO, WARN, ERROR }
@@ -27,6 +27,8 @@ object FileLogger {
     private var logDir: File? = null
     private var scope: CoroutineScope? = null
     private var isInitialized = false
+    private var currentLogFile: File? = null
+    private var currentLogDate: String? = null
 
     fun init(context: Context) {
         if (isInitialized) return
@@ -67,14 +69,26 @@ object FileLogger {
         val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
         val timeFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS", Locale.getDefault())
 
-        val baseName = dateFormat.format(Date(entry.timestamp))
-        val file = File(dir, "$baseName.log")
+        val dateStr = dateFormat.format(Date(entry.timestamp))
 
-        val targetFile = if (file.exists() && file.length() > MAX_LOG_FILE_SIZE) {
+        // 跨天或首次写入 → 确定当天的基��文件
+        if (dateStr != currentLogDate) {
+            currentLogDate = dateStr
+            currentLogFile = File(dir, "$dateStr.log")
+        }
+
+        // 当前文件超限 → 轮转到下一个序列号
+        if (currentLogFile!!.exists() && currentLogFile!!.length() > MAX_LOG_FILE_SIZE) {
             var seq = 1
-            while (File(dir, "$baseName.$seq.log").exists()) seq++
-            File(dir, "$baseName.$seq.log")
-        } else file
+            var next: File
+            do {
+                next = File(dir, "$dateStr.$seq.log")
+                seq++
+            } while (next.exists())
+            currentLogFile = next
+        }
+
+        val targetFile = currentLogFile!!
 
         val timestamp = timeFormat.format(Date(entry.timestamp))
         val levelChar = entry.level.name.first()

@@ -144,6 +144,9 @@ dependencies {
     // VAD
     implementation(libs.vad.silero)
 
+    // QR Code
+    implementation(libs.zxing.core)
+
     // Testing
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)

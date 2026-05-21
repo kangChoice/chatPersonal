@@ -47,7 +47,9 @@ object EncryptUtil {
         return try {
             val cipher = Cipher.getInstance(TRANSFORMATION)
             cipher.init(Cipher.ENCRYPT_MODE, getOrCreateKey())
-            cipher.doFinal(plaintext.toByteArray(Charsets.UTF_8))
+            val iv = cipher.iv
+            val ct = cipher.doFinal(plaintext.toByteArray(Charsets.UTF_8))
+            iv + ct
         } catch (e: Exception) {
             null
         }

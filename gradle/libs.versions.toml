@@ -84,6 +84,9 @@ turbine = { group = "app.cash.turbine", name = "turbine", version.ref = "turbine
 # VAD
 vad-silero = { group = "com.github.gkonovalov.android-vad", name = "silero", version.ref = "androidVad" }
 
+# QR Code
+zxing-core = { group = "com.google.zxing", name = "core", version = "3.5.3" }
+
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }

@@ -338,6 +338,35 @@ fun SettingsScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
+            // 微信 ClawBot
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                onClick = { navController.navigate(Screen.IlinkSetup.route) }
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("微信 ClawBot", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        Text(
+                            text = "将角色接入微信，在微信中与 AI 角色对话",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                        )
+                    }
+                    Icon(
+                        Icons.Default.AutoAwesome,
+                        contentDescription = "微信 ClawBot",
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
             // 语音通话
             Card(
                 modifier = Modifier.fillMaxWidth(),

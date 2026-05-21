@@ -30,6 +30,8 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.needai.chat.data.local.datastore.SettingsDataStore
 import com.needai.chat.ui.chat.ChatScreen
+import com.needai.chat.ui.ilink.IlinkSetupScreen
+import com.needai.chat.ui.ilink.IlinkStatusScreen
 import com.needai.chat.ui.multichat.MultiChatScreen
 import com.needai.chat.ui.onboarding.OnboardingOverlay
 import com.needai.chat.ui.settings.SettingsScreen
@@ -57,6 +59,8 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector?
     data object VoiceChat : Screen("voice_chat/{skillId}", "语音通话") {
         fun createRoute(skillId: String = "") = "voice_chat/$skillId"
     }
+    data object IlinkSetup : Screen("ilink_setup", "接入微信")
+    data object IlinkStatus : Screen("ilink_status", "ClawBot管理")
 
     companion object {
         fun skillEdit(skillId: String) = "skill_edit/$skillId"
@@ -250,6 +254,20 @@ fun MainScreen(isDark: Boolean = false) {
                         val skillId = backStackEntry.arguments?.getString("skillId") ?: ""
                         VoiceChatScreen(
                             skillId = skillId,
+                            onNavigateBack = { navController.popBackStack() }
+                        )
+                    }
+                    composable(Screen.IlinkSetup.route) {
+                        IlinkSetupScreen(
+                            onComplete = {
+                                navController.navigate(Screen.IlinkStatus.route) {
+                                    popUpTo(Screen.IlinkSetup.route) { inclusive = true }
+                                }
+                            }
+                        )
+                    }
+                    composable(Screen.IlinkStatus.route) {
+                        IlinkStatusScreen(
                             onNavigateBack = { navController.popBackStack() }
                         )
                     }
