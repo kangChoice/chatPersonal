@@ -10,6 +10,7 @@ import VoiceDemo from "@/components/sections/VoiceDemo";
 import VoiceChatDemo from "@/components/sections/VoiceChatDemo";
 import PolishDemo from "@/components/sections/PolishDemo";
 import SettingsDemo from "@/components/sections/SettingsDemo";
+import IlinkDemo from "@/components/sections/IlinkDemo";
 import Footer from "@/components/sections/Footer";
 import ScrollProgress from "@/components/ui/ScrollProgress";
 
@@ -26,6 +27,7 @@ export default function Home() {
       <VoiceChatDemo />
       <PolishDemo />
       <SettingsDemo />
+      <IlinkDemo />
       <Footer />
       <ScrollProgress />
     </main>

@@ -14,6 +14,7 @@ const sections = [
   { id: "voice-chat", label: "通话" },
   { id: "polish", label: "优化" },
   { id: "settings", label: "设置" },
+  { id: "ilink", label: "微信接入" },
   { id: "footer", label: "下载" },
 ];
 
