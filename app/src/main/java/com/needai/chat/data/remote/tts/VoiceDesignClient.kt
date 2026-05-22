@@ -54,13 +54,13 @@ class VoiceDesignClient(
                     "sample_rate" to 24000,
                     "response_format" to "wav"
                 )
-            )).toRequestBody(JSON_MEDIA_TYPE)
-
+            ))
+            android.util.Log.d(TAG, "createVoice 请求体: $requestBody")
             val request = Request.Builder()
                 .url(baseUrl)
                 .addHeader("Authorization", "Bearer $apiKey")
                 .addHeader("Content-Type", "application/json")
-                .post(requestBody)
+                .post(requestBody.toRequestBody(JSON_MEDIA_TYPE))
                 .build()
 
             val response = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
@@ -276,6 +276,7 @@ class VoiceDesignClient(
     )
 
     companion object {
+        private const val TAG = "VoiceDesignClient"
         private val JSON_MEDIA_TYPE = "application/json".toMediaType()
     }
 }

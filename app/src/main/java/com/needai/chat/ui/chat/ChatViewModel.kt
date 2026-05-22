@@ -78,6 +78,9 @@ class ChatViewModel @Inject constructor(
                     .catch { e -> _uiState.update { it.copy(error = "加载消息失败: ${e.localizedMessage}") } }
             }.collect { messages ->
                 _uiState.update { it.copy(messages = messages) }
+                if (!showCarousel.value && messages.any { !it.isRead }) {
+                    chatRepository.markMessagesAsReadBySession(_uiState.value.sessionId)
+                }
             }
         }
 
@@ -130,6 +133,12 @@ class ChatViewModel @Inject constructor(
                         isModelConfigured = isConfigured
                     )
                 }
+            }
+        }
+
+        viewModelScope.launch {
+            chatRepository.getUnreadCountsBySkill().collect { counts ->
+                _uiState.update { it.copy(unreadCounts = counts) }
             }
         }
     }
@@ -377,6 +386,7 @@ class ChatViewModel @Inject constructor(
         viewModelScope.launch {
             saveCurrentSession()
             skillRepository.setSelectedSkillId(skill.id)
+            chatRepository.markMessagesAsReadBySkill(skill.id)
             // 消息加载由 selectedSkillIdFlow 驱动，自动解析 sessionId 并加载消息
             _uiState.update {
                 it.copy(currentSkill = skill)

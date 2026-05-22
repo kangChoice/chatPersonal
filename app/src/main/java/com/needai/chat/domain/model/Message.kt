@@ -11,7 +11,8 @@ data class Message(
     val promptTokens: Int? = null,
     val completionTokens: Int? = null,
     val totalTokens: Int? = null,
-    val modelConfigId: String? = null
+    val modelConfigId: String? = null,
+    val isRead: Boolean = true
 )
 
 enum class MessageRole {

@@ -85,8 +85,9 @@ class TtsManagerImpl(
             parameters.voice.isNotBlank() -> parameters.voice
             else -> "longanyang"
         }
-        val effectiveModel = voiceModelResolver?.invoke(effectiveVoice) ?: parameters.model
-        return parameters.copy(voice = effectiveVoice, model = effectiveModel)
+        val rawModel = voiceModelResolver?.invoke(effectiveVoice) ?: parameters.model
+        android.util.Log.d(TAG, "resolveParams voiceId=$voiceId effectiveVoice=$effectiveVoice rawModel=$rawModel effectiveModel=$rawModel")
+        return parameters.copy(voice = effectiveVoice, model = rawModel)
     }
 
     // ======================================================================
@@ -136,6 +137,7 @@ class TtsManagerImpl(
         }
 
         val params = resolveParams(voiceId)
+        android.util.Log.d(TAG, "speak触发 voiceId=$voiceId model=${params.model} voice=${params.voice} text=${text.take(50)}")
         val player = PcmAudioPlayer(params.sampleRate)
         audioPlayer = player
 
@@ -231,6 +233,7 @@ class TtsManagerImpl(
                         }
 
                         ensurePersistentClient(req.voiceId)
+                        android.util.Log.d(TAG, "speakQueued处理 voiceId=${req.voiceId} text=${req.text.take(50)}")
                         synthesizeUsingClient(req.text, persistentClient!!)
                         withContext(Dispatchers.Main) { req.onDone?.invoke() }
                     }
@@ -294,6 +297,7 @@ class TtsManagerImpl(
         }
 
         val params = resolveParams(voiceId)
+        android.util.Log.d(TAG, "startStreaming触发 voiceId=$voiceId model=${params.model} voice=${params.voice}")
         val player = PcmAudioPlayer(params.sampleRate)
         audioPlayer = player
         player.play()

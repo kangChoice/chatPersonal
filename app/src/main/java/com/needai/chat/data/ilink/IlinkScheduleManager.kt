@@ -43,7 +43,8 @@ data class ScheduleConfig(
     val randomMessage: String = "在干嘛?要好好生活哦",
     val randomStartTime: String = "08:00",
     val randomEndTime: String = "18:00",
-    val randomCount: Int = 3
+    val randomCount: Int = 3,
+    val randomEnabled: Boolean = true
 )
 
 @Singleton
@@ -64,6 +65,7 @@ class IlinkScheduleManager @Inject constructor(
     private var sentRandom: MutableSet<String> = mutableSetOf()
     private var randomTimes: List<String> = emptyList()
     private var randomCount: Int = 3
+    private var randomEnabled: Boolean = true
     private var scheduleConfig: ScheduleConfig = ScheduleConfig()
     private var initialized = false
 
@@ -123,8 +125,8 @@ class IlinkScheduleManager @Inject constructor(
             }
         }
 
-        // 随机时间点
-        for (time in randomTimes) {
+        // 随机时间点（仅在启用时处理）
+        if (randomEnabled) for (time in randomTimes) {
             if (time !in sentRandom) {
                 val scheduled = LocalTime.parse(time, FMT)
                 if (!now.isBefore(scheduled)) {
@@ -146,6 +148,23 @@ class IlinkScheduleManager @Inject constructor(
 
     /** 获取随机消息数量 */
     fun getRandomCount(): Int = randomCount
+
+    /** 随机消息是否启用 */
+    fun isRandomEnabled(): Boolean = randomEnabled
+
+    /** 启用/禁用随机消息 */
+    suspend fun setRandomEnabled(enabled: Boolean) {
+        randomEnabled = enabled
+        scheduleConfig = scheduleConfig.copy(randomEnabled = enabled)
+        if (enabled) {
+            randomTimes = generateRandomTimes(scheduleConfig.randomStartTime, scheduleConfig.randomEndTime, sentRandom)
+        } else {
+            randomTimes = emptyList()
+        }
+        persistConfig()
+        persistState()
+        FileLogger.i(TAG, "setRandomEnabled: $enabled")
+    }
 
     /** 获取今日所有定时消息预览（时间, 消息文本），含时间前缀 */
     fun getTodaySchedulePreview(): List<Pair<String, String>> {
@@ -180,7 +199,7 @@ class IlinkScheduleManager @Inject constructor(
 
     /** 更新随机消息数量并重新生成时间点（保留已发送的） */
     suspend fun setRandomCount(count: Int) {
-        val clamped = count.coerceIn(0, 60)
+        val clamped = count.coerceIn(1, 60)
         if (clamped == randomCount) return
         randomCount = clamped
         scheduleConfig = scheduleConfig.copy(randomCount = clamped)
@@ -238,6 +257,7 @@ class IlinkScheduleManager @Inject constructor(
         if (totalMinutes <= 0) return emptyList()
 
         val count = min(randomCount, totalMinutes)
+        if (count <= 0) return emptyList()
         val segmentSize = totalMinutes / count
 
         val result = mutableListOf<Int>()
@@ -308,6 +328,10 @@ class IlinkScheduleManager @Inject constructor(
         if (json.isNotEmpty()) {
             try {
                 scheduleConfig = gson.fromJson(json, ScheduleConfig::class.java)
+                // 迁移：旧配置没有 randomEnabled 字段，Gson 默认 false
+                if (!json.contains("randomEnabled") && scheduleConfig.randomCount > 0) {
+                    scheduleConfig = scheduleConfig.copy(randomEnabled = true)
+                }
             } catch (e: Exception) {
                 FileLogger.w(TAG, "loadConfig: 解析失败 ${e.localizedMessage}")
             }

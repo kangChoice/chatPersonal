@@ -72,12 +72,11 @@ fun VoiceListScreen(
     val ttsPitch by settingsDataStore.ttsPitch.collectAsState(initial = 1.0f)
 
     // Build voice→model mapping for TTS model resolution
-    val customVoiceModelMap = remember(uiState.voices) {
-        uiState.voices.filter { it.targetModel.isNotBlank() }
-            .associate { it.voiceId to it.targetModel }
-    }
     val voiceModelResolver: (String) -> String? = { voiceId ->
-        SystemVoiceProvider.getModelForVoice(voiceId) ?: customVoiceModelMap[voiceId]
+        val sysModel = SystemVoiceProvider.getModelForVoice(voiceId)
+        val mapModel = viewModel.voiceModelMap.value[voiceId]
+        android.util.Log.d("VoiceListScreen", "resolver voiceId=$voiceId sysModel=$sysModel mapModel=$mapModel mapSize=${viewModel.voiceModelMap.value.size} keys=${viewModel.voiceModelMap.value.keys}")
+        sysModel ?: mapModel
     }
 
     // Distinct models from voice list for filter chips

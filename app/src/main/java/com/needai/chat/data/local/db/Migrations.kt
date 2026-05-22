@@ -15,11 +15,19 @@ import androidx.sqlite.db.SupportSQLiteDatabase
  */
 object Migrations {
 
-    // 示例：在 skills 表新增字段
-    // val MIGRATION_8_9 = object : Migration(8, 9) {
-    //     override fun migrate(db: SupportSQLiteDatabase) {
-    //         db.execSQL("ALTER TABLE skills ADD COLUMN newField TEXT DEFAULT NULL")
-    //     }
-    // }
+    val MIGRATION_7_8 = object : Migration(7, 8) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE skills ADD COLUMN enableMemory INTEGER NOT NULL DEFAULT 0")
+            db.execSQL("ALTER TABLE sessions ADD COLUMN summaryText TEXT DEFAULT NULL")
+            db.execSQL("ALTER TABLE sessions ADD COLUMN summaryEndMessageId INTEGER DEFAULT NULL")
+            db.execSQL("ALTER TABLE model_configs ADD COLUMN contextWindow INTEGER NOT NULL DEFAULT 8192")
+        }
+    }
+
+    val MIGRATION_8_9 = object : Migration(8, 9) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE messages ADD COLUMN isRead INTEGER NOT NULL DEFAULT 1")
+        }
+    }
 
 }

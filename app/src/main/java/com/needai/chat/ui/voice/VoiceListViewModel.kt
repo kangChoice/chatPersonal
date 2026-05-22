@@ -37,6 +37,9 @@ class VoiceListViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(VoiceListUiState())
     val uiState: StateFlow<VoiceListUiState> = _uiState.asStateFlow()
 
+    private val _voiceModelMap = MutableStateFlow<Map<String, String>>(emptyMap())
+    val voiceModelMap: StateFlow<Map<String, String>> = _voiceModelMap.asStateFlow()
+
     init {
         _uiState.update {
             it.copy(
@@ -44,6 +47,7 @@ class VoiceListViewModel @Inject constructor(
                 rawDeviceId = devicePrefixManager.getRawDeviceId()
             )
         }
+        loadVoices()
     }
 
     fun loadVoices() {
@@ -51,6 +55,10 @@ class VoiceListViewModel @Inject constructor(
             _uiState.update { it.copy(isLoading = true, error = null, apiKeyErrorType = null) }
             try {
                 val voices = voiceRepository.getVoices()
+                val map = voices.filter { it.targetModel.isNotBlank() }
+                    .associate { it.voiceId to it.targetModel }
+                android.util.Log.d("VoiceListViewModel", "loadVoices完成 voiceCount=${voices.size} mapSize=${map.size} keys=${map.keys}")
+                _voiceModelMap.value = map
                 _uiState.update { it.copy(voices = voices, isLoading = false) }
                 if (voices.isEmpty()) {
                     val check = voiceRepository.listRemoteVoices(null)

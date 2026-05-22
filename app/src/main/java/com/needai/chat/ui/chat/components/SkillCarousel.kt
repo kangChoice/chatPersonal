@@ -42,6 +42,7 @@ fun SkillCarousel(
     onSelectedIndexChanged: (Int) -> Unit,
     onSkillSelected: (Skill) -> Unit,
     voiceNameMap: Map<String, String> = emptyMap(),
+    unreadCounts: Map<String, Int> = emptyMap(),
     modifier: Modifier = Modifier
 ) {
     if (skills.isEmpty()) return
@@ -253,6 +254,30 @@ fun SkillCarousel(
                                     )
                                 }
                             }
+                        }
+                    }
+
+                    // Unread badge
+                    val unreadCount = unreadCounts[skill.id] ?: 0
+                    if (unreadCount > 0) {
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.TopEnd)
+                                .padding(top = 8.dp, end = 8.dp)
+                                .then(
+                                    if (unreadCount > 9) Modifier.width(26.dp).height(20.dp)
+                                    else Modifier.size(20.dp)
+                                )
+                                .clip(CircleShape)
+                                .background(Color.Red),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = if (unreadCount > 99) "99+" else unreadCount.toString(),
+                                color = Color.White,
+                                fontSize = if (unreadCount > 9) 10.sp else 11.sp,
+                                fontWeight = FontWeight.Bold
+                            )
                         }
                     }
                 }

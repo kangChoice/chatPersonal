@@ -27,5 +27,6 @@ data class ChatUiState(
     val isLoading: Boolean = false,
     val inputText: String = "",
     val sessionId: String = "",
-    val isCompressing: Boolean = false
+    val isCompressing: Boolean = false,
+    val unreadCounts: Map<String, Int> = emptyMap()
 )

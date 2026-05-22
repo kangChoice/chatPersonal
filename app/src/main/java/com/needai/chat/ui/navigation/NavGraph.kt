@@ -124,6 +124,24 @@ fun MainScreen(isDark: Boolean = false) {
         }
     }
 
+    // 监听来自 MainActivity 的导航事件（通知点击等）
+    LaunchedEffect(Unit) {
+        NavigationCommands.flow.collect { route ->
+            val currentRoute = navController.currentDestination?.route
+            navController.navigate(route) {
+                // 已在目标路由上 → pop 自身强制重建，确保 ViewModel 加载最新技能
+                if (currentRoute == route) {
+                    popUpTo(route) { inclusive = true }
+                } else {
+                    popUpTo(navController.graph.findStartDestination().id) {
+                        saveState = true
+                    }
+                }
+                launchSingleTop = true
+            }
+        }
+    }
+
     // 系统返回手势：非聊天 tab → 回到聊天页
     BackHandler(enabled = currentDestination?.route != Screen.Chat.route) {
         navController.navigate(Screen.Chat.route) {

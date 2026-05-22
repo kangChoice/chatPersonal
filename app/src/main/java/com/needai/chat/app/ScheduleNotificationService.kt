@@ -6,7 +6,12 @@ import android.os.IBinder
 import android.util.Log
 import com.needai.chat.data.local.datastore.AiNotificationManager
 import com.needai.chat.data.remote.client.RemoteModelClient
+import com.needai.chat.domain.model.ChatSession
+import com.needai.chat.domain.model.Message
+import com.needai.chat.domain.model.MessageRole
+import com.needai.chat.domain.repository.ChatRepository
 import com.needai.chat.domain.repository.ModelConfigRepository
+import com.needai.chat.domain.repository.SessionRepository
 import com.needai.chat.domain.repository.SkillRepository
 import com.needai.chat.domain.usecase.ChatMessage
 import com.needai.chat.util.FileLogger
@@ -19,6 +24,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import java.util.UUID
 import javax.inject.Inject
 
 /**
@@ -34,6 +40,8 @@ class ScheduleNotificationService : Service() {
     @Inject lateinit var modelConfigRepository: ModelConfigRepository
     @Inject lateinit var notificationHelper: AppNotificationHelper
     @Inject lateinit var aiNotificationManager: AiNotificationManager
+    @Inject lateinit var chatRepository: ChatRepository
+    @Inject lateinit var sessionRepository: SessionRepository
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var processingJob: Job? = null
@@ -84,14 +92,14 @@ class ScheduleNotificationService : Service() {
         val skill = skillRepository.getSkillById(config.skillId)
         if (skill == null) {
             Log.w(TAG, "角色 ${config.skillId} 不存在")
-            notificationHelper.showAiNotification(config.skillName, "角色已不存在，请更新定时任务配置", config.id.hashCode())
+            notificationHelper.showAiNotification(config.skillName, "角色已不存在，请更新定时任务配置", config.id.hashCode(), config.skillId)
             return
         }
 
         val modelConfig = modelConfigRepository.getModelConfig().first()
         if (modelConfig.remoteApiKey.isBlank()) {
             Log.w(TAG, "API Key 为空")
-            notificationHelper.showAiNotification(config.skillName, "定时消息生成失败：请先配置 API Key", config.id.hashCode())
+            notificationHelper.showAiNotification(config.skillName, "定时消息生成失败：请先配置 API Key", config.id.hashCode(), config.skillId)
             return
         }
 
@@ -105,13 +113,43 @@ class ScheduleNotificationService : Service() {
 
         if (result.isFailure) {
             Log.w(TAG, "AI 调用失败: ${result.exceptionOrNull()?.localizedMessage}")
-            notificationHelper.showAiNotification(config.skillName, "消息生成失败，请检查网络和 API Key 配置", config.id.hashCode())
+            notificationHelper.showAiNotification(config.skillName, "消息生成失败，请检查网络和 API Key 配置", config.id.hashCode(), config.skillId)
             return
         }
 
         val text = result.getOrThrow().trim()
         Log.d(TAG, "发送通知: skill=${config.skillName}, len=${text.length}")
-        notificationHelper.showAiNotification(config.skillName, text, config.id.hashCode())
+
+        // 找到或创建该技能的会话，插入 ASSISTANT 消息
+        val sessions = sessionRepository.getSessionsBySkillId(config.skillId, "single")
+        val latestSession = sessions.maxByOrNull { it.updatedAt }
+        val sessionId = latestSession?.id ?: UUID.randomUUID().toString()
+        val now = System.currentTimeMillis()
+        chatRepository.insertMessage(
+            Message(
+                sessionId = sessionId,
+                role = MessageRole.ASSISTANT,
+                content = text,
+                skillId = config.skillId,
+                timestamp = now,
+                isRead = false
+            )
+        )
+        sessionRepository.saveSession(
+            ChatSession(
+                id = sessionId,
+                skillId = config.skillId,
+                skillName = config.skillName,
+                skillAvatar = config.skillAvatar,
+                title = config.prompt.take(50).replace("\n", " "),
+                messageCount = (latestSession?.messageCount ?: 0) + 1,
+                createdAt = latestSession?.createdAt ?: now,
+                updatedAt = now
+            )
+        )
+        FileLogger.i(TAG, "聊天记录已插入: sessionId=${sessionId.take(8)}, skill=${config.skillName}")
+
+        notificationHelper.showAiNotification(config.skillName, text, config.id.hashCode(), config.skillId)
         FileLogger.i(TAG, "通知已发送: skill=${config.skillName}, len=${text.length}")
 
         aiNotificationManager.update(config.copy(lastTriggeredAt = System.currentTimeMillis()))

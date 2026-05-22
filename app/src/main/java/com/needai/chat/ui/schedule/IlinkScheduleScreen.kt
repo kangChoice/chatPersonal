@@ -117,12 +117,22 @@ fun IlinkScheduleScreen(
                 colors = CardDefaults.cardColors(containerColor = BgCard)
             ) {
                 Column(modifier = Modifier.padding(20.dp)) {
-                    Text(
-                        text = "随机消息",
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = TextPrimary
-                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "随机消息",
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = TextPrimary
+                        )
+                        Switch(
+                            checked = config.randomEnabled,
+                            onCheckedChange = { viewModel.setRandomEnabled(it) }
+                        )
+                    }
                     Spacer(Modifier.height(12.dp))
 
                     OutlinedTextField(
@@ -132,7 +142,8 @@ fun IlinkScheduleScreen(
                         singleLine = false,
                         maxLines = 3,
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp)
+                        shape = RoundedCornerShape(12.dp),
+                        enabled = config.randomEnabled
                     )
 
                     Spacer(Modifier.height(16.dp))
@@ -212,15 +223,16 @@ fun IlinkScheduleScreen(
                     Slider(
                         value = config.randomCount.toFloat(),
                         onValueChange = { viewModel.setRandomCount(it.toInt()) },
-                        valueRange = 0f..10f,
+                        valueRange = 1f..10f,
                         steps = 9,
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = config.randomEnabled
                     )
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Text("0", fontSize = 11.sp, color = TextTertiary)
+                        Text("1", fontSize = 11.sp, color = TextTertiary)
                         Text("10", fontSize = 11.sp, color = TextTertiary)
                     }
 
@@ -236,6 +248,19 @@ fun IlinkScheduleScreen(
                         fontSize = 11.sp,
                         color = TextTertiary
                     )
+
+                    Spacer(Modifier.height(12.dp))
+                    Button(
+                        onClick = {
+                            viewModel.testSendSchedule()
+                            toastState.show("测试消息已发送", ToastType.Success)
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = BrandPink),
+                        modifier = Modifier.fillMaxWidth().height(44.dp),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text("测试发送（带时间前缀）", fontSize = 14.sp)
+                    }
                 }
             }
 

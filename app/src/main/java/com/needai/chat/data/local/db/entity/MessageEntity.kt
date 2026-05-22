@@ -15,5 +15,6 @@ data class MessageEntity(
     val promptTokens: Int? = null,
     val completionTokens: Int? = null,
     val totalTokens: Int? = null,
-    val modelConfigId: String? = null
+    val modelConfigId: String? = null,
+    val isRead: Boolean = true
 )

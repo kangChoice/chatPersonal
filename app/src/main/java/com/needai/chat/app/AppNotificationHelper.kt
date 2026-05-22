@@ -19,6 +19,7 @@ class AppNotificationHelper @Inject constructor(
         private const val AI_NOTIFICATION_CHANNEL = "ai_notification"
         private const val AI_PROGRESS_CHANNEL = "ai_notification_progress"
         const val MESSAGE_NOTIFICATION_ID = 2001
+        const val EXTRA_SKILL_ID = "extra_skill_id"
     }
 
     init {
@@ -45,13 +46,16 @@ class AppNotificationHelper @Inject constructor(
         manager.createNotificationChannel(progressChannel)
     }
 
-    fun showAiNotification(title: String, content: String) {
-        showAiNotification(title, content, MESSAGE_NOTIFICATION_ID)
+    fun showAiNotification(title: String, content: String, skillId: String? = null) {
+        showAiNotification(title, content, MESSAGE_NOTIFICATION_ID, skillId)
     }
 
-    fun showAiNotification(title: String, content: String, notificationId: Int) {
+    fun showAiNotification(title: String, content: String, notificationId: Int, skillId: String? = null) {
         val openIntent = Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            if (skillId != null) {
+                putExtra(EXTRA_SKILL_ID, skillId)
+            }
         }
         val pendingIntent = PendingIntent.getActivity(
             context, notificationId, openIntent,

@@ -52,6 +52,12 @@ android {
             "\"${localProps["builtin.tts.api.key"] ?: ""}\"")
     }
 
+    testOptions {
+        unitTests {
+            isReturnDefaultValues = true
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false

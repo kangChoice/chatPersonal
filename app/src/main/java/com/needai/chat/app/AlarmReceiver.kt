@@ -7,7 +7,12 @@ import android.util.Log
 import com.needai.chat.data.local.datastore.AiNotificationManager
 import com.needai.chat.data.remote.client.RemoteModelClient
 import com.needai.chat.domain.model.AiNotificationConfig
+import com.needai.chat.domain.model.ChatSession
+import com.needai.chat.domain.model.Message
+import com.needai.chat.domain.model.MessageRole
+import com.needai.chat.domain.repository.ChatRepository
 import com.needai.chat.domain.repository.ModelConfigRepository
+import com.needai.chat.domain.repository.SessionRepository
 import com.needai.chat.domain.repository.SkillRepository
 import com.needai.chat.domain.usecase.ChatMessage
 import com.needai.chat.util.FileLogger
@@ -22,6 +27,7 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.ZoneId
+import java.util.UUID
 
 /**
  * AlarmManager 30 秒闹钟接收器。
@@ -38,6 +44,8 @@ class AlarmReceiver : BroadcastReceiver() {
         val modelConfigRepository: ModelConfigRepository
         val notificationHelper: AppNotificationHelper
         val aiNotificationManager: AiNotificationManager
+        val chatRepository: ChatRepository
+        val sessionRepository: SessionRepository
     }
 
     companion object {
@@ -59,6 +67,8 @@ class AlarmReceiver : BroadcastReceiver() {
                 val skillRepo = entryPoint.skillRepository
                 val modelConfigRepo = entryPoint.modelConfigRepository
                 val notifHelper = entryPoint.notificationHelper
+                val chatRepo = entryPoint.chatRepository
+                val sessionRepo = entryPoint.sessionRepository
 
                 val allConfigs = runBlocking { manager.getAll() }
                 val configs = allConfigs.filter { it.enabled }
@@ -92,7 +102,7 @@ class AlarmReceiver : BroadcastReceiver() {
 
                 for (config in dueConfigs) {
                     try {
-                        processConfig(config, skillRepo, modelConfigRepo, notifHelper, manager)
+                        processConfig(config, skillRepo, modelConfigRepo, notifHelper, manager, chatRepo, sessionRepo)
                     } catch (e: Exception) {
                         Log.w(TAG, "处理任务失败: ${config.skillName}, ${e.localizedMessage}", e)
                         FileLogger.w(TAG, "处理任务失败: ${config.skillName}, ${e.localizedMessage}")
@@ -112,7 +122,9 @@ class AlarmReceiver : BroadcastReceiver() {
         skillRepo: SkillRepository,
         modelConfigRepo: ModelConfigRepository,
         notifHelper: AppNotificationHelper,
-        manager: AiNotificationManager
+        manager: AiNotificationManager,
+        chatRepo: ChatRepository,
+        sessionRepo: SessionRepository
     ) {
         runBlocking {
             Log.d(TAG, "处理任务: skill=${config.skillName}, prompt=${config.prompt}")
@@ -121,14 +133,14 @@ class AlarmReceiver : BroadcastReceiver() {
             val skill = skillRepo.getSkillById(config.skillId)
             if (skill == null) {
                 Log.w(TAG, "角色 ${config.skillId} 不存在")
-                notifHelper.showAiNotification(config.skillName, "角色已不存在，请更新定时任务配置", config.id.hashCode())
+                notifHelper.showAiNotification(config.skillName, "角色已不存在，请更新定时任务配置", config.id.hashCode(), config.skillId)
                 return@runBlocking
             }
 
             val modelConfig = modelConfigRepo.getModelConfig().first()
             if (modelConfig.remoteApiKey.isBlank()) {
                 Log.w(TAG, "API Key 为空")
-                notifHelper.showAiNotification(config.skillName, "定时消息生成失败：请先配置 API Key", config.id.hashCode())
+                notifHelper.showAiNotification(config.skillName, "定时消息生成失败：请先配置 API Key", config.id.hashCode(), config.skillId)
                 return@runBlocking
             }
 
@@ -142,13 +154,43 @@ class AlarmReceiver : BroadcastReceiver() {
 
             if (result.isFailure) {
                 Log.w(TAG, "AI 调用失败: ${result.exceptionOrNull()?.localizedMessage}")
-                notifHelper.showAiNotification(config.skillName, "消息生成失败，请检查网络和 API Key 配置", config.id.hashCode())
+                notifHelper.showAiNotification(config.skillName, "消息生成失败，请检查网络和 API Key 配置", config.id.hashCode(), config.skillId)
                 return@runBlocking
             }
 
             val text = result.getOrThrow().trim()
             Log.d(TAG, "发送通知: skill=${config.skillName}, len=${text.length}")
-            notifHelper.showAiNotification(config.skillName, text, config.id.hashCode())
+
+            // 找到或创建该技能的会话，插入 ASSISTANT 消息
+            val sessions = sessionRepo.getSessionsBySkillId(config.skillId, "single")
+            val latestSession = sessions.maxByOrNull { it.updatedAt }
+            val sessionId = latestSession?.id ?: UUID.randomUUID().toString()
+            val now = System.currentTimeMillis()
+            chatRepo.insertMessage(
+                Message(
+                    sessionId = sessionId,
+                    role = MessageRole.ASSISTANT,
+                    content = text,
+                    skillId = config.skillId,
+                    timestamp = now,
+                    isRead = false
+                )
+            )
+            sessionRepo.saveSession(
+                ChatSession(
+                    id = sessionId,
+                    skillId = config.skillId,
+                    skillName = config.skillName,
+                    skillAvatar = config.skillAvatar,
+                    title = config.prompt.take(50).replace("\n", " "),
+                    messageCount = (latestSession?.messageCount ?: 0) + 1,
+                    createdAt = latestSession?.createdAt ?: now,
+                    updatedAt = now
+                )
+            )
+            FileLogger.i(TAG, "聊天记录已插入: sessionId=${sessionId.take(8)}, skill=${config.skillName}")
+
+            notifHelper.showAiNotification(config.skillName, text, config.id.hashCode(), config.skillId)
             FileLogger.i(TAG, "通知已发送: skill=${config.skillName}, len=${text.length}")
 
             manager.update(config.copy(lastTriggeredAt = System.currentTimeMillis()))

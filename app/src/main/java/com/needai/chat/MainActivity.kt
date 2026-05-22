@@ -18,11 +18,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.toArgb
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
+import com.needai.chat.app.AppNotificationHelper
 import com.needai.chat.data.ilink.IlinkAuthManager
 import com.needai.chat.data.ilink.IlinkBridgeService
+import com.needai.chat.domain.repository.SkillRepository
 import com.needai.chat.util.FileLogger
 import com.needai.chat.data.local.datastore.SettingsDataStore
 import com.needai.chat.ui.navigation.MainScreen
+import com.needai.chat.ui.navigation.NavigationCommands
+import com.needai.chat.ui.navigation.Screen
 import com.needai.chat.ui.theme.NeedAiTheme
 import com.needai.chat.ui.util.AppToastHost
 import com.needai.chat.ui.util.LocalToast
@@ -37,12 +41,14 @@ class MainActivity : ComponentActivity() {
 
     @Inject lateinit var settingsDataStore: SettingsDataStore
     @Inject lateinit var authManager: IlinkAuthManager
+    @Inject lateinit var skillRepository: SkillRepository
 
     private val toastState = ToastState()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        handleNotificationIntent(intent)
         setContent {
             val isDarkMode by settingsDataStore.isDarkMode.collectAsState(initial = false)
             NeedAiTheme(darkTheme = isDarkMode) {
@@ -62,6 +68,20 @@ class MainActivity : ComponentActivity() {
                     }
                 }
             }
+        }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        handleNotificationIntent(intent)
+    }
+
+    private fun handleNotificationIntent(intent: Intent?) {
+        val skillId = intent?.getStringExtra(AppNotificationHelper.EXTRA_SKILL_ID) ?: return
+        FileLogger.i("MainActivity", "handleNotificationIntent: skillId=$skillId")
+        lifecycleScope.launch {
+            skillRepository.setSelectedSkillId(skillId)
+            NavigationCommands.navigate(Screen.Chat.route)
         }
     }
 

@@ -28,7 +28,7 @@ object DatabaseModule {
             "needai_chat.db"
         )
             // 先前的版本未写 Migration，fallbackToDestructiveMigration 兜底旧版本
-            .addMigrations() // 在此注册 Migration：Migrations.MIGRATION_8_9, ...
+            .addMigrations(Migrations.MIGRATION_7_8, Migrations.MIGRATION_8_9)
             .fallbackToDestructiveMigration(true)
             .build()
     }

@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import java.util.UUID
 import javax.inject.Inject
+import com.needai.chat.data.local.db.dao.SkillUnreadCount
 import javax.inject.Singleton
 
 @Singleton
@@ -67,5 +68,19 @@ class ChatRepositoryImpl @Inject constructor(
     override suspend fun getTokenTotalsByTimeRange(startTime: Long, endTime: Long): TokenTotals {
         return messageDao.getTokenTotalsByTimeRange(startTime, endTime)
             ?: TokenTotals()
+    }
+
+    override suspend fun markMessagesAsReadBySkill(skillId: String) {
+        messageDao.markMessagesAsReadBySkill(skillId)
+    }
+
+    override suspend fun markMessagesAsReadBySession(sessionId: String) {
+        messageDao.markMessagesAsReadBySession(sessionId)
+    }
+
+    override fun getUnreadCountsBySkill(): Flow<Map<String, Int>> {
+        return messageDao.getUnreadCountsBySkill().map { list ->
+            list.associate { it.skillId to it.count }
+        }
     }
 }

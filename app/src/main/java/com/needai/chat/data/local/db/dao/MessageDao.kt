@@ -44,4 +44,13 @@ interface MessageDao {
 
     @Query("SELECT SUM(promptTokens) AS promptTokens, SUM(completionTokens) AS completionTokens, SUM(totalTokens) AS totalTokens FROM messages WHERE timestamp >= :startTime AND timestamp <= :endTime")
     suspend fun getTokenTotalsByTimeRange(startTime: Long, endTime: Long): TokenTotals?
+
+    @Query("UPDATE messages SET isRead = 1 WHERE skillId = :skillId AND isRead = 0")
+    suspend fun markMessagesAsReadBySkill(skillId: String)
+
+    @Query("UPDATE messages SET isRead = 1 WHERE sessionId = :sessionId AND isRead = 0")
+    suspend fun markMessagesAsReadBySession(sessionId: String)
+
+    @Query("SELECT skillId, COUNT(*) AS count FROM messages WHERE isRead = 0 AND skillId IS NOT NULL GROUP BY skillId")
+    fun getUnreadCountsBySkill(): Flow<List<SkillUnreadCount>>
 }

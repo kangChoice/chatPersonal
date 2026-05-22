@@ -22,7 +22,8 @@ object MessageMapper {
             promptTokens = entity.promptTokens,
             completionTokens = entity.completionTokens,
             totalTokens = entity.totalTokens,
-            modelConfigId = entity.modelConfigId
+            modelConfigId = entity.modelConfigId,
+            isRead = entity.isRead
         )
     }
 
@@ -38,7 +39,8 @@ object MessageMapper {
             promptTokens = message.promptTokens,
             completionTokens = message.completionTokens,
             totalTokens = message.totalTokens,
-            modelConfigId = message.modelConfigId
+            modelConfigId = message.modelConfigId,
+            isRead = message.isRead
         )
     }
 }

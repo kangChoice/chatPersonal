@@ -102,9 +102,8 @@ fun ChatScreen(
     val ttsPitch by settingsDataStore.ttsPitch.collectAsState(initial = 1.0f)
     val ttsAutoRead by settingsDataStore.ttsAutoRead.collectAsState(initial = false)
     val voiceAliases by settingsDataStore.voiceAliases.collectAsState(initial = emptyMap())
-    val voiceModelMap by viewModel.voiceModelMap.collectAsState()
     val voiceModelResolver: (String) -> String? = { voiceId ->
-        SystemVoiceProvider.getModelForVoice(voiceId) ?: voiceModelMap[voiceId]
+        SystemVoiceProvider.getModelForVoice(voiceId) ?: viewModel.voiceModelMap.value[voiceId]
     }
     val userAvatarVersion by settingsDataStore.userAvatarVersion.collectAsState(initial = 0)
 
@@ -289,7 +288,8 @@ fun ChatScreen(
                     viewModel.switchSkill(skill)
                     viewModel.showCarousel.value = false
                 },
-                voiceNameMap = voiceAliases
+                voiceNameMap = voiceAliases,
+                unreadCounts = uiState.unreadCounts
             )
         } else {
         Column(modifier = Modifier.fillMaxSize()) {

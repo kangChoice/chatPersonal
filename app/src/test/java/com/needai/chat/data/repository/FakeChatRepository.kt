@@ -22,6 +22,7 @@ class FakeChatRepository : ChatRepository {
         val id = nextId++
         val msg = message.copy(id = id)
         _messages.value = _messages.value + msg
+        if (!message.isRead) refreshUnreadCounts()
         return id
     }
 
@@ -58,5 +59,30 @@ class FakeChatRepository : ChatRepository {
 
     override suspend fun getTokenTotalsByTimeRange(startTime: Long, endTime: Long): TokenTotals {
         return TokenTotals(0, 0, 0)
+    }
+
+    private val _unreadCounts = MutableStateFlow<Map<String, Int>>(emptyMap())
+
+    override suspend fun markMessagesAsReadBySkill(skillId: String) {
+        _messages.value = _messages.value.map {
+            if (it.skillId == skillId && !it.isRead) it.copy(isRead = true) else it
+        }
+        refreshUnreadCounts()
+    }
+
+    override suspend fun markMessagesAsReadBySession(sessionId: String) {
+        _messages.value = _messages.value.map {
+            if (it.sessionId == sessionId && !it.isRead) it.copy(isRead = true) else it
+        }
+        refreshUnreadCounts()
+    }
+
+    override fun getUnreadCountsBySkill(): Flow<Map<String, Int>> = _unreadCounts
+
+    private fun refreshUnreadCounts() {
+        _unreadCounts.value = _messages.value
+            .filter { !it.isRead && it.skillId != null }
+            .groupBy { it.skillId!! }
+            .mapValues { it.value.size }
     }
 }

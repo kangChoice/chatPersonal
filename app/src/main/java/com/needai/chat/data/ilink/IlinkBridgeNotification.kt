@@ -48,7 +48,7 @@ class IlinkBridgeNotification @Inject constructor(
         )
 
         return NotificationCompat.Builder(context, CHANNEL_ID)
-            .setContentTitle("ClawBot 已连接")
+            .setContentTitle("微信ClawBot 已连接")
             .setContentText("角色：$skillName")
             .setSmallIcon(android.R.drawable.ic_dialog_info)
             .setOngoing(true)
@@ -58,7 +58,7 @@ class IlinkBridgeNotification @Inject constructor(
 
     fun buildConnecting(): Notification {
         return NotificationCompat.Builder(context, CHANNEL_ID)
-            .setContentTitle("ClawBot 连接中")
+            .setContentTitle("微信ClawBot 连接中")
             .setContentText("正在等待微信消息...")
             .setSmallIcon(android.R.drawable.ic_dialog_info)
             .setOngoing(true)
@@ -76,7 +76,7 @@ class IlinkBridgeNotification @Inject constructor(
 
     fun buildError(error: String): Notification {
         return NotificationCompat.Builder(context, CHANNEL_ID)
-            .setContentTitle("ClawBot 连接断开")
+            .setContentTitle("微信ClawBot 连接断开")
             .setContentText(error)
             .setSmallIcon(android.R.drawable.ic_dialog_alert)
             .setOngoing(false)

@@ -1,11 +1,16 @@
 package com.needai.chat.ui.schedule
 
+import android.content.Context
+import android.content.Intent
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.needai.chat.data.ilink.FixedScheduleItem
+import com.needai.chat.data.ilink.IlinkBridgeService
 import com.needai.chat.data.ilink.IlinkScheduleManager
 import com.needai.chat.data.ilink.ScheduleConfig
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -15,7 +20,8 @@ import javax.inject.Inject
 
 @HiltViewModel
 class IlinkScheduleViewModel @Inject constructor(
-    private val scheduleManager: IlinkScheduleManager
+    private val scheduleManager: IlinkScheduleManager,
+    @ApplicationContext private val context: Context
 ) : ViewModel() {
 
     private val _config = MutableStateFlow(ScheduleConfig())
@@ -80,5 +86,19 @@ class IlinkScheduleViewModel @Inject constructor(
             scheduleManager.setRandomCount(count)
             refreshConfig()
         }
+    }
+
+    fun setRandomEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            scheduleManager.setRandomEnabled(enabled)
+            refreshConfig()
+        }
+    }
+
+    fun testSendSchedule() {
+        val intent = Intent(context, IlinkBridgeService::class.java).apply {
+            action = IlinkBridgeService.ACTION_TEST_SCHEDULE
+        }
+        ContextCompat.startForegroundService(context, intent)
     }
 }
