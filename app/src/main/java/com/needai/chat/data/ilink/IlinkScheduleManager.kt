@@ -319,6 +319,13 @@ class IlinkScheduleManager @Inject constructor(
         FileLogger.i(TAG, "setRandomTimeRange: $startStr-$endStr, newTimes=$randomTimes")
     }
 
+    fun getTodayRandomTimes(): List<String> = randomTimes
+
+    fun isInitialized(): Boolean = initialized
+
+    fun isFixedSent(time: String): Boolean = time in sentFixed
+    fun isRandomSent(time: String): Boolean = time in sentRandom
+
     // ===== DataStore 持久化 =====
 
     private suspend fun loadConfig() {

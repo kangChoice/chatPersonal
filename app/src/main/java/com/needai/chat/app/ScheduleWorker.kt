@@ -15,7 +15,7 @@ class ScheduleWorker(
 ) : CoroutineWorker(context, workerParams) {
 
     companion object {
-        private const val TAG = "ScheduleWorker"
+        private const val TAG = "AISchedule:Fallback"
     }
 
     override suspend fun doWork(): Result {

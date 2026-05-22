@@ -25,6 +25,7 @@ class NeedAiApplication : Application() {
     private val applicationScope = CoroutineScope(Dispatchers.IO)
 
     @Inject lateinit var aiNotificationScheduler: AiNotificationScheduler
+    @Inject lateinit var clawBotScheduleScheduler: ClawBotScheduleScheduler
 
     override fun onCreate() {
         super.onCreate()
@@ -33,10 +34,15 @@ class NeedAiApplication : Application() {
         initializeConfigFile()
         initializeDefaults()
         scheduleAIAgentNotification()
+        scheduleClawBotNotifications()
     }
 
     private fun scheduleAIAgentNotification() {
         aiNotificationScheduler.start()
+    }
+
+    private fun scheduleClawBotNotifications() {
+        clawBotScheduleScheduler.start()
     }
 
     private fun setupCrashHandler() {

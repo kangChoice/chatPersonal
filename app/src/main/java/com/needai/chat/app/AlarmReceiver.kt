@@ -49,7 +49,7 @@ class AlarmReceiver : BroadcastReceiver() {
     }
 
     companion object {
-        private const val TAG = "AlarmReceiver"
+        private const val TAG = "AISchedule:Rcvr"
     }
 
     override fun onReceive(context: Context, intent: Intent) {
@@ -58,8 +58,6 @@ class AlarmReceiver : BroadcastReceiver() {
 
         Thread {
             try {
-                AiNotificationScheduler.reschedule(context)
-
                 val entryPoint = EntryPointAccessors.fromApplication(
                     context, AlarmReceiverEntryPoint::class.java
                 )
@@ -112,6 +110,7 @@ class AlarmReceiver : BroadcastReceiver() {
                 Log.w(TAG, "检查异常: ${e.localizedMessage}", e)
                 FileLogger.w(TAG, "检查异常: ${e.localizedMessage}")
             } finally {
+                AiNotificationScheduler.reschedule(context)
                 pendingResult.finish()
             }
         }.start()

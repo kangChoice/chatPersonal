@@ -1,63 +1,56 @@
 package com.needai.chat.ui.schedule
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.material3.*
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.needai.chat.ui.theme.BgPage
 import com.needai.chat.ui.theme.BrandBlue
-import com.needai.chat.ui.theme.TextPrimary
 import com.needai.chat.ui.theme.TextTertiary
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ScheduleTabContainer() {
     var selectedTab by remember { mutableStateOf(0) }
     val tabs = listOf("微信定时", "AI通知")
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("定时任务") },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = BgPage)
-            )
-        },
-        containerColor = BgPage
-    ) { padding ->
-        Column(
+    Column(
+        modifier = Modifier.fillMaxSize()
+    ) {
+        // 药丸风格 Tab 切换 — 底色透明，透出底层 FluidGlowBackground
+        Row(
             modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp, vertical = 12.dp),
+            horizontalArrangement = Arrangement.Center
         ) {
-            // Tab 切换
-            TabRow(
-                selectedTabIndex = selectedTab,
-                containerColor = BgPage,
-                contentColor = BrandBlue,
-                modifier = Modifier.padding(horizontal = 16.dp)
-            ) {
-                tabs.forEachIndexed { index, title ->
-                    Tab(
-                        selected = selectedTab == index,
-                        onClick = { selectedTab = index },
-                        text = {
-                            Text(
-                                text = title,
-                                fontWeight = if (selectedTab == index) FontWeight.Bold else FontWeight.Normal,
-                                fontSize = 14.sp
-                            )
-                        }
+            tabs.forEachIndexed { index, title ->
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(999.dp))
+                        .background(if (selectedTab == index) BrandBlue.copy(alpha = 0.2f) else Color.Transparent)
+                        .clickable { selectedTab = index }
+                        .padding(horizontal = 24.dp, vertical = 8.dp)
+                ) {
+                    Text(
+                        text = title,
+                        fontSize = 14.sp,
+                        fontWeight = if (selectedTab == index) FontWeight.Bold else FontWeight.Normal,
+                        color = if (selectedTab == index) BrandBlue else TextTertiary
                     )
                 }
             }
+        }
 
-            when (selectedTab) {
-                0 -> IlinkScheduleScreen()
-                1 -> AiNotificationScreen()
-            }
+        when (selectedTab) {
+            0 -> IlinkScheduleScreen()
+            1 -> AiNotificationScreen()
         }
     }
 }

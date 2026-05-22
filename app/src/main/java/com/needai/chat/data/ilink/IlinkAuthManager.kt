@@ -36,6 +36,7 @@ class IlinkAuthManager @Inject constructor(
         private val WECHAT_USER_ID = stringPreferencesKey("wechat_user_id")
         private val ILINK_SKILL_ID = stringPreferencesKey("ilink_skill_id")
         private val CONTEXT_TOKEN_CACHE = stringPreferencesKey("context_token_cache")
+        private val SYNC_BUF = stringPreferencesKey("sync_buf")
         private const val IV_CIPHER_SEPARATOR = ":"
     }
 
@@ -120,6 +121,20 @@ class IlinkAuthManager @Inject constructor(
         context.ilinkStore.edit { prefs ->
             prefs[CONTEXT_TOKEN_CACHE] = json
         }
+    }
+
+    /** 持久化 syncBuf（getUpdates 返回的服务端同步状态） */
+    suspend fun saveSyncBuf(syncBuf: String) {
+        context.ilinkStore.edit { prefs ->
+            prefs[SYNC_BUF] = syncBuf
+        }
+    }
+
+    /** 获取已持久化的 syncBuf，未存储返回 null */
+    suspend fun getSyncBuf(): String? {
+        return context.ilinkStore.data.map { prefs ->
+            prefs[SYNC_BUF]
+        }.first()
     }
 
     /** 获取绑定的微信用户 ID */

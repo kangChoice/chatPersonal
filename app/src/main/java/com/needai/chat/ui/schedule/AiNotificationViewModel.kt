@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.needai.chat.app.AiNotificationScheduler
 import com.needai.chat.app.ScheduleNotificationService
 import com.needai.chat.data.local.datastore.AiNotificationManager
 import com.needai.chat.domain.model.AiNotificationConfig
@@ -46,24 +47,28 @@ class AiNotificationViewModel @Inject constructor(
     fun add(config: AiNotificationConfig) {
         viewModelScope.launch {
             aiNotificationManager.add(config)
+            AiNotificationScheduler.reschedule(context)
         }
     }
 
     fun update(config: AiNotificationConfig) {
         viewModelScope.launch {
             aiNotificationManager.update(config)
+            AiNotificationScheduler.reschedule(context)
         }
     }
 
     fun delete(id: String) {
         viewModelScope.launch {
             aiNotificationManager.delete(id)
+            AiNotificationScheduler.reschedule(context)
         }
     }
 
     fun toggleEnabled(config: AiNotificationConfig) {
         viewModelScope.launch {
             aiNotificationManager.update(config.copy(enabled = !config.enabled))
+            AiNotificationScheduler.reschedule(context)
         }
     }
 

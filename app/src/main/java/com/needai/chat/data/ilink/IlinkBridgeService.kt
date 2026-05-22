@@ -8,8 +8,6 @@ import android.os.PowerManager
 import com.needai.chat.util.FileLogger
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.*
-import java.time.LocalDate
-import java.time.LocalTime
 import javax.inject.Inject
 
 /**
@@ -40,13 +38,11 @@ class IlinkBridgeService : Service() {
     // 不随新消息覆盖，保留首个 token 重复使用，到 ~8 次后刷新
     private val contextTokenCache = mutableMapOf<String, String>()
     private val contextTokenUsage = mutableMapOf<String, Int>()
-    private var lastScheduleCheckMs: Long = 0L
     private var syncBuf: String? = null
 
     companion object {
         private const val TAG = "IlinkBridgeSvc"
         private const val MAX_USAGE = 8  // context_token 10 条上限留 2 条余量
-        private const val SCHEDULE_CHECK_INTERVAL_MS = 30_000L
         const val ACTION_START = "com.needai.chat.action.ILINK_START"
         const val ACTION_STOP = "com.needai.chat.action.ILINK_STOP"
         const val ACTION_RECONNECT = "com.needai.chat.action.ILINK_RECONNECT"
@@ -168,12 +164,16 @@ class IlinkBridgeService : Service() {
                             startForeground(NOTIFICATION_ID, notificationHelper.buildConnected(skillName))
                         }
                         syncBuf = response.syncBuf
+                        if (syncBuf != null) {
+                            authManager.saveSyncBuf(syncBuf!!)
+                        }
                         for (msg in response.messages) {
                             FileLogger.i(TAG, "微信消息: msgId=${msg.msgId}, from=${msg.fromUserId.take(20)}, type=${msg.messageType}, text=${msg.text.take(100)}")
                             handleMessage(msg, token, syncBuf)
                         }
-                        // 消息全部处理成功后再推进游标
+                        // 消息全部处理成功后再推进游标，并持久化 context_token 供闹钟调度器使用
                         cursor = response.newCursor
+                        persistContextTokens()
                     }.onFailure { error ->
                         if (error is TokenExpiredException) {
                             FileLogger.w(TAG, "Token 过期，停止桥接")
@@ -189,20 +189,6 @@ class IlinkBridgeService : Service() {
                 } catch (e: Exception) {
                     FileLogger.w(TAG, "长轮询异常: ${e.localizedMessage}")
                     delay(5000)
-                }
-
-                // 检查定时消息（节流 30 秒）
-                val nowMs = System.currentTimeMillis()
-                if (nowMs - lastScheduleCheckMs >= SCHEDULE_CHECK_INTERVAL_MS) {
-                    scheduleManager.checkAndSend(
-                        now = LocalTime.now(),
-                        today = LocalDate.now().toString(),
-                        botToken = token,
-                        syncBuf = syncBuf,
-                        contextTokenCache = contextTokenCache,
-                        ilinkClient = ilinkClient
-                    )
-                    lastScheduleCheckMs = nowMs
                 }
             }
         }

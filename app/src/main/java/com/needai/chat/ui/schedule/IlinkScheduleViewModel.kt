@@ -5,6 +5,7 @@ import android.content.Intent
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.needai.chat.app.ClawBotScheduleScheduler
 import com.needai.chat.data.ilink.FixedScheduleItem
 import com.needai.chat.data.ilink.IlinkBridgeService
 import com.needai.chat.data.ilink.IlinkScheduleManager
@@ -45,6 +46,7 @@ class IlinkScheduleViewModel @Inject constructor(
                 messages[index] = item
                 scheduleManager.setFixedMessages(messages)
                 refreshConfig()
+                ClawBotScheduleScheduler.reschedule(context)
             }
         }
     }
@@ -53,6 +55,7 @@ class IlinkScheduleViewModel @Inject constructor(
         viewModelScope.launch {
             scheduleManager.setFixedMessages(_config.value.fixedMessages + item)
             refreshConfig()
+            ClawBotScheduleScheduler.reschedule(context)
         }
     }
 
@@ -63,6 +66,7 @@ class IlinkScheduleViewModel @Inject constructor(
                 messages.removeAt(index)
                 scheduleManager.setFixedMessages(messages)
                 refreshConfig()
+                ClawBotScheduleScheduler.reschedule(context)
             }
         }
     }
@@ -71,6 +75,7 @@ class IlinkScheduleViewModel @Inject constructor(
         viewModelScope.launch {
             scheduleManager.setRandomMessage(text)
             refreshConfig()
+            ClawBotScheduleScheduler.reschedule(context)
         }
     }
 
@@ -78,6 +83,7 @@ class IlinkScheduleViewModel @Inject constructor(
         viewModelScope.launch {
             scheduleManager.setRandomTimeRange(startTime, endTime)
             refreshConfig()
+            ClawBotScheduleScheduler.reschedule(context)
         }
     }
 
@@ -85,6 +91,7 @@ class IlinkScheduleViewModel @Inject constructor(
         viewModelScope.launch {
             scheduleManager.setRandomCount(count)
             refreshConfig()
+            ClawBotScheduleScheduler.reschedule(context)
         }
     }
 
@@ -92,6 +99,7 @@ class IlinkScheduleViewModel @Inject constructor(
         viewModelScope.launch {
             scheduleManager.setRandomEnabled(enabled)
             refreshConfig()
+            ClawBotScheduleScheduler.reschedule(context)
         }
     }
 

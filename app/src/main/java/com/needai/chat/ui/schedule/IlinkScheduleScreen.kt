@@ -38,23 +38,13 @@ fun IlinkScheduleScreen(
     var showDeleteDialog by remember { mutableStateOf(false) }
     var deleteIndex by remember { mutableStateOf(-1) }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("定时任务") },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = BgPage)
-            )
-        },
-        containerColor = BgPage
-    ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .verticalScroll(rememberScrollState())
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
             // 固定消息卡片
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -265,7 +255,6 @@ fun IlinkScheduleScreen(
             }
 
             Spacer(Modifier.height(32.dp))
-        }
     }
 
     // 添加/编辑对话框
