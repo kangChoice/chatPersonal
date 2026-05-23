@@ -16,7 +16,9 @@ import com.needai.chat.ui.theme.BrandBlue
 import com.needai.chat.ui.theme.TextTertiary
 
 @Composable
-fun ScheduleTabContainer() {
+fun ScheduleTabContainer(
+    onNavigateToIlinkSetup: () -> Unit = {}
+) {
     var selectedTab by remember { mutableStateOf(0) }
     val tabs = listOf("微信定时", "AI通知")
 
@@ -49,7 +51,7 @@ fun ScheduleTabContainer() {
         }
 
         when (selectedTab) {
-            0 -> IlinkScheduleScreen()
+            0 -> IlinkScheduleScreen(onNavigateToIlinkSetup = onNavigateToIlinkSetup)
             1 -> AiNotificationScreen()
         }
     }

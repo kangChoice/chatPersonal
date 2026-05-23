@@ -218,7 +218,7 @@ class IlinkClient @Inject constructor(
         syncBuf: String? = null
     ): Result<Boolean> = runCatching {
         val TAG = "IlinkClient"
-        FileLogger.i(TAG, "sendMessage: toUser=${toUserId.take(20)}, syncBuf=${syncBuf?.take(20) ?: "null"}, text=${text.take(100)}")
+        FileLogger.i(TAG, "sendMessage: toUser=${toUserId.take(20)}, syncBuf=${syncBuf?.take(20) ?: "null"}, text=${text.take(20)}")
         val requestBody = SendMessageRequest(
             msg = OutgoingMessage(
                 toUserId = toUserId,

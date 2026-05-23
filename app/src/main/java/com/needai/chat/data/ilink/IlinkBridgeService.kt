@@ -133,8 +133,6 @@ class IlinkBridgeService : Service() {
                 return@launch
             }
 
-            startForeground(NOTIFICATION_ID, notificationHelper.buildConnecting())
-
             // 恢复已持久化的 context_token 缓存
             val savedTokens = authManager.getContextTokens()
             if (savedTokens.isNotEmpty()) {
@@ -148,6 +146,7 @@ class IlinkBridgeService : Service() {
 
             var cursor: String? = null
             while (isActive) {
+
                 try {
                     val result = ilinkClient.getUpdates(cursor, token)
                     result.onSuccess { response ->
@@ -168,7 +167,7 @@ class IlinkBridgeService : Service() {
                             authManager.saveSyncBuf(syncBuf!!)
                         }
                         for (msg in response.messages) {
-                            FileLogger.i(TAG, "微信消息: msgId=${msg.msgId}, from=${msg.fromUserId.take(20)}, type=${msg.messageType}, text=${msg.text.take(100)}")
+                            FileLogger.i(TAG, "微信消息: msgId=${msg.msgId}, from=${msg.fromUserId.take(20)}, type=${msg.messageType}, text=${msg.text.take(20)}")
                             handleMessage(msg, token, syncBuf)
                         }
                         // 消息全部处理成功后再推进游标，并持久化 context_token 供闹钟调度器使用
@@ -224,7 +223,7 @@ class IlinkBridgeService : Service() {
         val result = wechatProcessor.process(msg.text)
         val replyText = if (result.error != null) "⚠️ ${result.error}" else result.text
 
-        FileLogger.i(TAG, "handleMessage: 回复 text=${replyText.take(60)}")
+        FileLogger.i(TAG, "handleMessage: 回复 text=${replyText.take(20)}")
         val sendResult = ilinkClient.sendMessage(
             toUserId = msg.fromUserId,
             text = replyText,

@@ -8,6 +8,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
@@ -59,11 +60,19 @@ fun PolishScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 BrandGradientText(
-                    text = if (selectedTab == 0) "角色优化" else "音色优化",
+                    text = when (selectedTab) {
+                        0 -> "角色优化"
+                        1 -> "音色优化"
+                        else -> "通知模板"
+                    },
                     fontSize = 22.sp
                 )
                 Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    val isBusy = if (selectedTab == 0) uiState.isPolishing else uiState.voiceIsPolishing
+                    val isBusy = when (selectedTab) {
+                        0 -> uiState.isPolishing
+                        1 -> uiState.voiceIsPolishing
+                        else -> uiState.templateIsPolishing
+                    }
                     Box(
                         modifier = Modifier
                             .size(36.dp)
@@ -149,6 +158,20 @@ fun PolishScreen(
                         fontSize = 13.sp,
                         fontWeight = if (selectedTab == 1) FontWeight.Bold else FontWeight.Normal,
                         color = if (selectedTab == 1) BrandMint else TextTertiary
+                    )
+                }
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(999.dp))
+                        .background(if (selectedTab == 2) BrandMint.copy(alpha = 0.2f) else Color.Transparent)
+                        .clickable { selectedTab = 2 }
+                        .padding(horizontal = 24.dp, vertical = 8.dp)
+                ) {
+                    Text(
+                        "通知模板",
+                        fontSize = 13.sp,
+                        fontWeight = if (selectedTab == 2) FontWeight.Bold else FontWeight.Normal,
+                        color = if (selectedTab == 2) BrandMint else TextTertiary
                     )
                 }
             }
@@ -290,7 +313,7 @@ fun PolishScreen(
                             }
                         }
                     }
-                } else {
+                } else if (selectedTab == 1) {
                     // === Voice Polish ===
                     Card(
                         modifier = Modifier.fillMaxWidth()
@@ -503,6 +526,174 @@ fun PolishScreen(
                                 }
                             }
                         }
+                    }
+                } else {
+                    // === Notification Template Polish ===
+                    Card(
+                        modifier = Modifier.fillMaxWidth()
+                            .border(0.5.dp, Color.White.copy(alpha = 0.5f), RoundedCornerShape(16.dp)),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(containerColor = GlassWhite)
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Text(
+                                text = "描述通知语气",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            OutlinedTextField(
+                                value = uiState.templateInputText,
+                                onValueChange = viewModel::setTemplateInputText,
+                                placeholder = {
+                                    Text("希望你可以说出中不中")
+                                },
+                                minLines = 3,
+                                maxLines = 5,
+                                modifier = Modifier.fillMaxWidth(),
+                                enabled = !uiState.templateIsPolishing
+                            )
+                            Spacer(modifier = Modifier.height(12.dp))
+                            if (uiState.templateIsPolishing) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(18.dp),
+                                        strokeWidth = 2.dp,
+                                        color = BrandBlue
+                                    )
+                                    Text(
+                                        text = "正在生成...",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = TextTertiary
+                                    )
+                                    Spacer(modifier = Modifier.weight(1f))
+                                    OutlinedButton(
+                                        onClick = viewModel::stopTemplatePolishing,
+                                        shape = RoundedCornerShape(999.dp)
+                                    ) {
+                                        Icon(
+                                            Icons.Default.Stop,
+                                            contentDescription = "停止",
+                                            modifier = Modifier.size(14.dp)
+                                        )
+                                        Spacer(Modifier.width(4.dp))
+                                        Text("停止")
+                                    }
+                                }
+                            } else {
+                                Button(
+                                    onClick = viewModel::polishTemplate,
+                                    modifier = Modifier.fillMaxWidth(),
+                                    colors = ButtonDefaults.buttonColors(containerColor = BrandBlue),
+                                    shape = RoundedCornerShape(999.dp)
+                                ) {
+                                    Icon(
+                                        Icons.Default.AutoAwesome,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Spacer(Modifier.width(6.dp))
+                                    Text("生成通知提示词")
+                                }
+                            }
+                        }
+                    }
+
+                    // Result card
+                    if (uiState.templatePolishedPrompt.isNotBlank()) {
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Card(
+                            modifier = Modifier.fillMaxWidth()
+                                .border(0.5.dp, BrandBlue.copy(alpha = 0.3f), RoundedCornerShape(16.dp)),
+                            shape = RoundedCornerShape(16.dp),
+                            colors = CardDefaults.cardColors(containerColor = BrandBlue.copy(alpha = 0.04f))
+                        ) {
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Text(
+                                        text = "优化结果",
+                                        style = MaterialTheme.typography.titleSmall,
+                                        fontWeight = FontWeight.Bold,
+                                        color = BrandBlue
+                                    )
+                                    Text(
+                                        text = "已生成 ${uiState.templateCharCount} 字",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                }
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Surface(
+                                    shape = MaterialTheme.shapes.small,
+                                    color = MaterialTheme.colorScheme.surfaceVariant,
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Text(
+                                        text = uiState.templatePolishedPrompt,
+                                        modifier = Modifier.padding(12.dp),
+                                        style = MaterialTheme.typography.bodyMedium
+                                    )
+                                }
+                            }
+                        }
+
+                        // 创建为模板
+                        var templateName by remember { mutableStateOf("") }
+                        Card(
+                            modifier = Modifier.fillMaxWidth()
+                                .border(0.5.dp, Color.White.copy(alpha = 0.5f), RoundedCornerShape(16.dp)),
+                            shape = RoundedCornerShape(16.dp),
+                            colors = CardDefaults.cardColors(containerColor = GlassWhite)
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(16.dp),
+                                verticalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                Text(
+                                    text = "保存为模板",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                OutlinedTextField(
+                                    value = templateName,
+                                    onValueChange = { templateName = it },
+                                    label = { Text("模板名称") },
+                                    placeholder = { Text("如：委屈的想念") },
+                                    singleLine = true,
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape = RoundedCornerShape(12.dp)
+                                )
+                                Button(
+                                    onClick = {
+                                        viewModel.saveAsTemplate(templateName) { success, msg ->
+                                            toastState.show(msg, if (success) ToastType.Success else ToastType.Error)
+                                        }
+                                    },
+                                    enabled = templateName.isNotBlank(),
+                                    modifier = Modifier.fillMaxWidth(),
+                                    colors = ButtonDefaults.buttonColors(containerColor = BrandBlue),
+                                    shape = RoundedCornerShape(999.dp)
+                                ) {
+                                    Text("创建为模板")
+                                }
+                            }
+                        }
+                    }
+
+                    if (uiState.templateError != null) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = uiState.templateError!!,
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodySmall
+                        )
                     }
                 }
             }

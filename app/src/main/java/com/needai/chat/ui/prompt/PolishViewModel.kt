@@ -4,9 +4,11 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.needai.chat.data.local.datastore.SettingsDataStore
 import com.needai.chat.domain.model.ModelConfig
+import com.needai.chat.domain.model.NotificationTemplate
 import com.needai.chat.domain.model.Skill
 import com.needai.chat.domain.model.StreamEvent
 import com.needai.chat.domain.repository.ModelConfigRepository
+import com.needai.chat.domain.repository.NotificationTemplateRepository
 import com.needai.chat.domain.repository.SkillRepository
 import com.needai.chat.domain.repository.VoiceRepository
 import com.needai.chat.util.DevicePrefixManager
@@ -40,6 +42,12 @@ data class PolishUiState(
     val voiceTargetModel: String = "cosyvoice-v3.5-flash",
     val isCreatingVoice: Boolean = false,
     val voiceCreateError: String? = null,
+    // Notification template polish
+    val templateInputText: String = "",
+    val templatePolishedPrompt: String = "",
+    val templateIsPolishing: Boolean = false,
+    val templateCharCount: Int = 0,
+    val templateError: String? = null,
     // API Key 错误弹窗
     val apiKeyErrorType: String? = null,
     val apiKeyErrorMessage: String = ""
@@ -51,7 +59,8 @@ class PolishViewModel @Inject constructor(
     private val skillRepository: SkillRepository,
     private val voiceRepository: VoiceRepository,
     private val devicePrefixManager: DevicePrefixManager,
-    private val settingsDataStore: SettingsDataStore
+    private val settingsDataStore: SettingsDataStore,
+    private val notificationTemplateRepository: NotificationTemplateRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(PolishUiState())
@@ -59,6 +68,7 @@ class PolishViewModel @Inject constructor(
 
     private var polishingJob: Job? = null
     private var voicePolishingJob: Job? = null
+    private var templatePolishingJob: Job? = null
 
     init {
         viewModelScope.launch {
@@ -315,6 +325,117 @@ class PolishViewModel @Inject constructor(
         _uiState.update { it.copy(apiKeyErrorType = null, apiKeyErrorMessage = "") }
     }
 
+    // ===== Notification Template Polish =====
+
+    fun setTemplateInputText(text: String) {
+        _uiState.update { it.copy(templateInputText = text, templateError = null) }
+    }
+
+    fun polishTemplate() {
+        val input = _uiState.value.templateInputText.trim()
+        if (input.isEmpty()) return
+
+        _uiState.update { it.copy(templateIsPolishing = true, templatePolishedPrompt = "", templateCharCount = 0, templateError = null) }
+
+        templatePolishingJob = viewModelScope.launch {
+            val config = modelConfigRepository.getModelConfig().first()
+            if (config.remoteBaseUrl.isBlank() || config.remoteApiKey.isBlank()) {
+                _uiState.update {
+                    it.copy(templateIsPolishing = false, templateError = "请先在设置中配置模型")
+                }
+                return@launch
+            }
+
+            val systemPrompt = buildString {
+                append("你是一个专业的AI通知提示词工程师。你的任务是帮用户将粗糙的想法优化成一条高质量的通知提示词，用于指导AI角色生成一条定时通知消息。\n\n")
+                append("格式要求：\n")
+                append("1. 提示词必须以\"以你角色的身份，用第一人称直接对我说一句话\"开头\n")
+                append("2. 明确表达情绪基调（如：温暖、委屈、撒娇、傲娇、关心等）\n")
+                append("3. 强调\"带上你的角色称呼\"\n")
+                append("4. 最后必须以\"不要描述场景和动作，只输出这一句话\"结尾\n")
+                append("5. 总长度控制在100-200字\n")
+                append("6. 只输出优化后的提示词本身，不要添加任何解释性文字\n\n")
+                append("参考格式：\n")
+                append("以你角色的身份，用第一人称直接对我说一句话。表达[情绪]。带上你的角色称呼。不要描述场景和动作，只输出这一句话。\n\n")
+                append("请优化用户提供的以下想法：")
+            }
+
+            try {
+                val modelClient = com.needai.chat.data.remote.client.RemoteModelClient(
+                    com.google.gson.Gson()
+                )
+                val messages = listOf(
+                    com.needai.chat.domain.usecase.ChatMessage(role = "system", content = systemPrompt),
+                    com.needai.chat.domain.usecase.ChatMessage(role = "user", content = input)
+                )
+                val defaultSkill = Skill(
+                    id = "template_polish",
+                    name = "通知模板优化",
+                    description = "",
+                    avatar = "📋",
+                    systemPrompt = systemPrompt,
+                    greeting = "",
+                    isBuiltin = true
+                )
+
+                val fullContent = StringBuilder()
+                modelClient.streamChat(messages, config, defaultSkill).collect { event ->
+                    when (event) {
+                        is StreamEvent.Token -> {
+                            fullContent.append(event.text)
+                            _uiState.update {
+                                it.copy(
+                                    templatePolishedPrompt = fullContent.toString(),
+                                    templateCharCount = fullContent.length
+                                )
+                            }
+                        }
+                        is StreamEvent.Done -> {
+                            _uiState.update { it.copy(templateIsPolishing = false) }
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
+                _uiState.update {
+                    it.copy(templateIsPolishing = false, templateError = "生成失败: ${e.localizedMessage ?: "未知错误"}")
+                }
+            }
+        }
+    }
+
+    fun stopTemplatePolishing() {
+        templatePolishingJob?.cancel()
+        templatePolishingJob = null
+        _uiState.update { it.copy(templateIsPolishing = false) }
+    }
+
+    fun clearTemplatePolishedPrompt() {
+        _uiState.update { it.copy(templatePolishedPrompt = "", templateCharCount = 0, templateError = null) }
+    }
+
+    fun saveAsTemplate(label: String, onResult: (Boolean, String) -> Unit) {
+        val prompt = _uiState.value.templatePolishedPrompt.trim()
+        if (label.isBlank()) {
+            onResult(false, "模板名称不能为空")
+            return
+        }
+        if (prompt.isBlank()) {
+            onResult(false, "请先生成通知提示词")
+            return
+        }
+        viewModelScope.launch {
+            val template = NotificationTemplate(
+                id = UUID.randomUUID().toString(),
+                label = label,
+                prompt = prompt,
+                isBuiltin = false
+            )
+            notificationTemplateRepository.insertTemplate(template)
+            onResult(true, "模板「${label}」已创建")
+        }
+    }
+
     fun createSkill(name: String, description: String, systemPrompt: String, avatar: String, greeting: String, temperature: Double, onResult: ((Boolean, String) -> Unit)? = null) {
         viewModelScope.launch {
             val skill = Skill(
@@ -338,6 +459,8 @@ class PolishViewModel @Inject constructor(
         voicePolishingJob = null
         polishingJob?.cancel()
         polishingJob = null
+        templatePolishingJob?.cancel()
+        templatePolishingJob = null
         _uiState.update { PolishUiState() }
     }
 
@@ -350,10 +473,10 @@ class PolishViewModel @Inject constructor(
     }
 
     fun clearAll(selectedTab: Int) {
-        if (selectedTab == 0) {
-            _uiState.update { it.copy(inputText = "", polishedPrompt = "", charCount = 0, error = null) }
-        } else {
-            _uiState.update { it.copy(voiceInputText = "", voicePolishedPrompt = "", voiceCharCount = 0, voiceError = null) }
+        when (selectedTab) {
+            0 -> _uiState.update { it.copy(inputText = "", polishedPrompt = "", charCount = 0, error = null) }
+            1 -> _uiState.update { it.copy(voiceInputText = "", voicePolishedPrompt = "", voiceCharCount = 0, voiceError = null) }
+            2 -> _uiState.update { it.copy(templateInputText = "", templatePolishedPrompt = "", templateCharCount = 0, templateError = null) }
         }
     }
 }

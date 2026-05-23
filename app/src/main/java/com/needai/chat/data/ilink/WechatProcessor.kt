@@ -89,7 +89,7 @@ class WechatProcessor @Inject constructor(
             }
 
             val reply = fullContent.toString()
-            FileLogger.i(TAG, "AI 回复完成, 长度=${reply.length}: ${reply.take(100)}")
+            FileLogger.i(TAG, "AI 回复完成, 长度=${reply.length}: ${reply.take(20)}")
             if (reply.isBlank()) {
                 ProcessResult(text = "", error = "AI 返回了空回复")
             } else {

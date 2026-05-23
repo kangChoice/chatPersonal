@@ -77,15 +77,9 @@ object FileLogger {
             currentLogFile = File(dir, "$dateStr.log")
         }
 
-        // 当前文件超限 → 轮转到下一个序列号
+        // 当前文件超限 → 删除重新记录当天日志
         if (currentLogFile!!.exists() && currentLogFile!!.length() > MAX_LOG_FILE_SIZE) {
-            var seq = 1
-            var next: File
-            do {
-                next = File(dir, "$dateStr.$seq.log")
-                seq++
-            } while (next.exists())
-            currentLogFile = next
+            currentLogFile!!.delete()
         }
 
         val targetFile = currentLogFile!!

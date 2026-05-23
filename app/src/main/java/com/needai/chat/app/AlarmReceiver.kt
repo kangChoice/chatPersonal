@@ -68,6 +68,11 @@ class AlarmReceiver : BroadcastReceiver() {
                 val chatRepo = entryPoint.chatRepository
                 val sessionRepo = entryPoint.sessionRepository
 
+                if (!runBlocking { manager.isGlobalEnabled() }) {
+                    Log.d(TAG, "AI 通知全局关闭，跳过")
+                    return@Thread
+                }
+
                 val allConfigs = runBlocking { manager.getAll() }
                 val configs = allConfigs.filter { it.enabled }
 

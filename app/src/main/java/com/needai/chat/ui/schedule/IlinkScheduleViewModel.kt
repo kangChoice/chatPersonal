@@ -103,6 +103,14 @@ class IlinkScheduleViewModel @Inject constructor(
         }
     }
 
+    fun setFixedEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            scheduleManager.setFixedEnabled(enabled)
+            refreshConfig()
+            ClawBotScheduleScheduler.reschedule(context)
+        }
+    }
+
     fun testSendSchedule() {
         val intent = Intent(context, IlinkBridgeService::class.java).apply {
             action = IlinkBridgeService.ACTION_TEST_SCHEDULE

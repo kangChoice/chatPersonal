@@ -1,15 +1,20 @@
 package com.needai.chat.ui.schedule
 
 import android.Manifest
+import android.app.AlarmManager
 import android.app.NotificationManager
 import android.content.Intent
 import android.os.Build
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.core.app.ActivityCompat
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -17,22 +22,27 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.NotificationsOff
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.needai.chat.domain.model.AiNotificationConfig
+import com.needai.chat.domain.model.NotificationTemplate
 import com.needai.chat.domain.model.Skill
 import com.needai.chat.ui.theme.BgCard
 import com.needai.chat.ui.theme.BgPage
 import com.needai.chat.ui.theme.BrandBlue
 import com.needai.chat.ui.theme.BrandMint
+import com.needai.chat.ui.theme.BrandPink
 import com.needai.chat.ui.theme.StatusRed
 import com.needai.chat.ui.theme.TextPrimary
 import com.needai.chat.ui.theme.TextSecondary
@@ -44,7 +54,9 @@ fun AiNotificationScreen(
     viewModel: AiNotificationViewModel = hiltViewModel()
 ) {
     val configs by viewModel.configs.collectAsStateWithLifecycle()
+    val globalEnabled by viewModel.globalEnabled.collectAsStateWithLifecycle()
     val availableSkills by viewModel.availableSkills.collectAsStateWithLifecycle()
+    val templates by viewModel.templates.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
     var showEditDialog by remember { mutableStateOf(false) }
@@ -59,6 +71,11 @@ fun AiNotificationScreen(
                 manager.areNotificationsEnabled()
             } else true
         )
+    }
+
+    val canScheduleExactAlarms = remember {
+        val am = context.getSystemService(AlarmManager::class.java)
+        am.canScheduleExactAlarms()
     }
 
     var pendingToggleConfig by remember { mutableStateOf<AiNotificationConfig?>(null) }
@@ -123,7 +140,7 @@ fun AiNotificationScreen(
                             color = StatusRed
                         )
                         Text(
-                            text = "定时通知需要通知权限才能弹出提醒",
+                            text = "AI定时通知需要通知权限才能弹出提醒",
                             fontSize = 12.sp,
                             color = TextSecondary
                         )
@@ -159,15 +176,21 @@ fun AiNotificationScreen(
                         color = TextPrimary
                     )
 
-                    if (configs.isNotEmpty()) {
-                        Button(
-                            onClick = { viewModel.testTrigger() },
-                            colors = ButtonDefaults.buttonColors(containerColor = BrandBlue),
-                            shape = RoundedCornerShape(8.dp),
-                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
-                            modifier = Modifier.height(32.dp)
-                        ) {
-                            Text("测试", fontSize = 12.sp)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Switch(
+                            checked = globalEnabled,
+                            onCheckedChange = { viewModel.setGlobalEnabled(it) }
+                        )
+                        if (globalEnabled && configs.isNotEmpty()) {
+                            Button(
+                                onClick = { viewModel.testTrigger() },
+                                colors = ButtonDefaults.buttonColors(containerColor = BrandBlue),
+                                shape = RoundedCornerShape(8.dp),
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                                modifier = Modifier.height(32.dp)
+                            ) {
+                                Text("通知测试", fontSize = 12.sp)
+                            }
                         }
                     }
                 }
@@ -184,6 +207,7 @@ fun AiNotificationScreen(
                     configs.forEach { config ->
                         AiNotificationRow(
                             config = config,
+                            templates = templates,
                             onEdit = {
                                 editingConfig = config
                                 showEditDialog = true
@@ -221,6 +245,87 @@ fun AiNotificationScreen(
                 }
             }
         }
+
+        // 精确闹钟权限卡片
+        Spacer(Modifier.height(16.dp))
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(12.dp),
+            colors = CardDefaults.cardColors(containerColor = BrandBlue.copy(alpha = 0.08f))
+        ) {
+            Row(
+                modifier = Modifier.padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    Icons.Default.Warning,
+                    contentDescription = null,
+                    tint = BrandBlue,
+                    modifier = Modifier.size(24.dp)
+                )
+                Spacer(Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "请检查精确闹钟权限是否开启",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = BrandBlue
+                    )
+                    Text(
+                        text = if (canScheduleExactAlarms) "定时通知将准时触发" else "若未开启，定时通知可能延迟",
+                        fontSize = 12.sp,
+                        color = TextSecondary
+                    )
+                }
+                TextButton(onClick = {
+                    val intent = Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM).apply {
+                        data = android.net.Uri.parse("package:${context.packageName}")
+                    }
+                    context.startActivity(intent)
+                }) {
+                    Text("去设置")
+                }
+            }
+        }
+
+        Spacer(Modifier.height(16.dp))
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(12.dp),
+            colors = CardDefaults.cardColors(containerColor = BrandBlue.copy(alpha = 0.08f))
+        ) {
+            Row(
+                modifier = Modifier.padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    Icons.Default.Warning,
+                    contentDescription = null,
+                    tint = BrandBlue,
+                    modifier = Modifier.size(24.dp)
+                )
+                Spacer(Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "省电白名单建议",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = BrandBlue
+                    )
+                    Text(
+                        text = "将本应用加入省电白名单，避免后台被系统限制导致定时通知失效",
+                        fontSize = 12.sp,
+                        color = TextSecondary
+                    )
+                }
+                TextButton(onClick = {
+                    val intent = Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
+                    context.startActivity(intent)
+                }) {
+                    Text("去设置")
+                }
+            }
+        }
     }
 
     // 添加/编辑对话框
@@ -228,6 +333,7 @@ fun AiNotificationScreen(
         AiNotificationEditDialog(
             initial = editingConfig,
             skills = availableSkills,
+            templates = templates,
             onDismiss = { showEditDialog = false },
             onSave = { config ->
                 if (editingConfig != null) {
@@ -271,6 +377,7 @@ fun AiNotificationScreen(
 @Composable
 private fun AiNotificationRow(
     config: AiNotificationConfig,
+    templates: List<NotificationTemplate>,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
     onToggle: () -> Unit
@@ -306,12 +413,30 @@ private fun AiNotificationRow(
                     fontSize = 13.sp,
                     color = BrandBlue
                 )
-                Text(
-                    text = "提示：${config.prompt}",
-                    fontSize = 12.sp,
-                    color = TextSecondary,
-                    maxLines = 1
-                )
+                val matchedTemplate = templates.find { it.prompt == config.prompt }
+                if (matchedTemplate != null) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Surface(
+                            shape = RoundedCornerShape(999.dp),
+                            color = BrandPink.copy(alpha = 0.12f)
+                        ) {
+                            Text(
+                                text = matchedTemplate.label,
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 3.dp),
+                                fontSize = 12.sp,
+                                color = BrandPink,
+                                maxLines = 1
+                            )
+                        }
+                    }
+                } else {
+                    Text(
+                        text = config.prompt.orEmpty(),
+                        fontSize = 12.sp,
+                        color = TextSecondary,
+                        maxLines = 1
+                    )
+                }
                 if (config.lastTriggeredAt != null) {
                     val timeStr = java.text.SimpleDateFormat("MM-dd HH:mm:ss", java.util.Locale.getDefault())
                         .format(java.util.Date(config.lastTriggeredAt))
@@ -352,12 +477,12 @@ private fun AiNotificationRow(
 private fun AiNotificationEditDialog(
     initial: AiNotificationConfig?,
     skills: List<Skill>,
+    templates: List<NotificationTemplate>,
     onDismiss: () -> Unit,
     onSave: (AiNotificationConfig) -> Unit
 ) {
     var selectedSkill by remember { mutableStateOf<Skill?>(null) }
 
-    // 新建时，skills 可能还未加载完成，这里需要等待
     LaunchedEffect(skills) {
         if (initial != null && selectedSkill == null) {
             selectedSkill = skills.find { it.id == initial.skillId }
@@ -369,7 +494,10 @@ private fun AiNotificationEditDialog(
     var prompt by remember { mutableStateOf(initial?.prompt ?: "") }
     var hourError by remember { mutableStateOf(false) }
     var minuteError by remember { mutableStateOf(false) }
+    var skillError by remember { mutableStateOf(false) }
+    var promptError by remember { mutableStateOf(false) }
     var showSkillPicker by remember { mutableStateOf(false) }
+    var showTemplateSheet by remember { mutableStateOf(false) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -383,21 +511,29 @@ private fun AiNotificationEditDialog(
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 // 角色选择
                 Text(
-                    text = "角色",
+                    text = "角色 *",
                     fontSize = 14.sp,
-                    color = TextSecondary
+                    color = if (skillError) StatusRed else TextSecondary
                 )
                 Surface(
-                    onClick = { showSkillPicker = true },
+                    onClick = { showSkillPicker = true; skillError = false },
                     shape = RoundedCornerShape(12.dp),
                     color = BgPage,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    border = if (skillError) androidx.compose.foundation.BorderStroke(1.dp, StatusRed) else null
                 ) {
                     Text(
                         text = selectedSkill?.let { "${it.avatar} ${it.name}" } ?: "点击选择角色",
                         modifier = Modifier.padding(12.dp),
                         fontSize = 14.sp,
                         color = if (selectedSkill != null) TextPrimary else TextTertiary
+                    )
+                }
+                if (skillError) {
+                    Text(
+                        text = "请选择一个角色",
+                        fontSize = 12.sp,
+                        color = StatusRed
                     )
                 }
 
@@ -440,42 +576,98 @@ private fun AiNotificationEditDialog(
                     )
                 }
 
+                // 快速模板
+                Text(
+                    text = "语气模板",
+                    fontSize = 13.sp,
+                    color = TextSecondary
+                )
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    templates.take(6).forEach { template ->
+                        Surface(
+                            onClick = { prompt = template.prompt },
+                            shape = RoundedCornerShape(16.dp),
+                            color = if (prompt == template.prompt) BrandBlue else BrandBlue.copy(alpha = 0.08f)
+                        ) {
+                            Text(
+                                text = template.label,
+                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
+                                fontSize = 12.sp,
+                                color = if (prompt == template.prompt) androidx.compose.ui.graphics.Color.White else BrandBlue,
+                                maxLines = 1
+                            )
+                        }
+                    }
+                    if (templates.size > 6) {
+                        Surface(
+                            onClick = { showTemplateSheet = true },
+                            shape = RoundedCornerShape(16.dp),
+                            color = BrandMint.copy(alpha = 0.08f)
+                        ) {
+                            Text(
+                                text = "更多模板",
+                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
+                                fontSize = 12.sp,
+                                color = BrandMint
+                            )
+                        }
+                    }
+                }
+
                 // 提示文本
                 OutlinedTextField(
                     value = prompt,
-                    onValueChange = { prompt = it },
-                    label = { Text("提示文本") },
-                    placeholder = { Text("如：请给我发一条早安问候") },
+                    onValueChange = { prompt = it; promptError = false },
+                    label = { Text("提示文本 *") },
+                    placeholder = { Text("或自定义提示...") },
                     singleLine = false,
                     maxLines = 3,
+                    isError = promptError,
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
-                    supportingText = { Text("AI 将以角色身份回应这段提示") }
+                    supportingText = {
+                        if (promptError) {
+                            Text("提示文本不能为空", color = StatusRed, fontSize = 12.sp)
+                        } else {
+                            Text("AI 将以角色第一人称语气回应，输出一句话")
+                        }
+                    }
                 )
             }
         },
         confirmButton = {
-            Button(onClick = {
-                val hour = hourText.toIntOrNull()
-                val min = minuteText.toIntOrNull()
-                hourError = hour == null || hour !in 0..23
-                minuteError = min == null || min !in 0..59
+            val isValid = selectedSkill != null && prompt.isNotBlank() && hourText.isNotBlank() && minuteText.isNotBlank() && !hourError && !minuteError
+            Button(
+                onClick = {
+                    val hour = hourText.toIntOrNull()
+                    val min = minuteText.toIntOrNull()
+                    hourError = hour == null || hour !in 0..23
+                    minuteError = min == null || min !in 0..59
+                    skillError = selectedSkill == null
+                    promptError = prompt.isBlank()
 
-                if (!hourError && !minuteError && hour != null && min != null && prompt.isNotBlank() && selectedSkill != null) {
-                    val config = AiNotificationConfig(
-                        id = initial?.id ?: java.util.UUID.randomUUID().toString(),
-                        skillId = selectedSkill!!.id,
-                        skillName = selectedSkill!!.name,
-                        skillAvatar = selectedSkill!!.avatar,
-                        prompt = prompt.trim(),
-                        hour = hour,
-                        minute = min,
-                        enabled = initial?.enabled ?: true,
-                        createdAt = initial?.createdAt ?: System.currentTimeMillis()
-                    )
-                    onSave(config)
-                }
-            }) {
+                    if (!hourError && !minuteError && !skillError && !promptError && hour != null && min != null) {
+                        val config = AiNotificationConfig(
+                            id = initial?.id ?: java.util.UUID.randomUUID().toString(),
+                            skillId = selectedSkill!!.id,
+                            skillName = selectedSkill!!.name,
+                            skillAvatar = selectedSkill!!.avatar,
+                            prompt = prompt.trim(),
+                            hour = hour,
+                            minute = min,
+                            enabled = initial?.enabled ?: true,
+                            createdAt = initial?.createdAt ?: System.currentTimeMillis()
+                        )
+                        onSave(config)
+                    }
+                },
+                enabled = isValid
+            ) {
                 Text("保存")
             }
         },
@@ -535,5 +727,141 @@ private fun AiNotificationEditDialog(
                 }
             }
         )
+    }
+
+    // 更多模板 BottomSheet
+    if (showTemplateSheet) {
+        TemplatePickerSheet(
+            templates = templates,
+            selectedPrompt = prompt,
+            onSelect = { selected ->
+                prompt = selected.prompt
+                showTemplateSheet = false
+            },
+            onDismiss = { showTemplateSheet = false }
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun TemplatePickerSheet(
+    templates: List<NotificationTemplate>,
+    selectedPrompt: String,
+    onSelect: (NotificationTemplate) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var searchText by remember { mutableStateOf("") }
+
+    val filtered = remember(templates, searchText) {
+        if (searchText.isBlank()) templates
+        else templates.filter { it.label.contains(searchText, ignoreCase = true) || it.prompt.contains(searchText, ignoreCase = true) }
+    }
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp)
+                .padding(bottom = 32.dp)
+        ) {
+            Text(
+                text = "选择模板",
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold,
+                color = TextPrimary
+            )
+            Spacer(Modifier.height(12.dp))
+
+            // 搜索框
+            OutlinedTextField(
+                value = searchText,
+                onValueChange = { searchText = it },
+                placeholder = { Text("搜索模板...") },
+                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = TextTertiary) },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp)
+            )
+            Spacer(Modifier.height(12.dp))
+
+            if (filtered.isEmpty()) {
+                Text(
+                    text = "暂无匹配模板",
+                    fontSize = 14.sp,
+                    color = TextTertiary,
+                    modifier = Modifier.padding(vertical = 24.dp)
+                )
+            } else {
+                LazyColumn(
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                    modifier = Modifier.heightIn(max = 400.dp)
+                ) {
+                    items(filtered, key = { it.id }) { template ->
+                        Surface(
+                            onClick = { onSelect(template) },
+                            shape = RoundedCornerShape(12.dp),
+                            color = if (selectedPrompt == template.prompt) BrandBlue.copy(alpha = 0.08f) else BgPage
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text(
+                                            text = template.label,
+                                            fontSize = 14.sp,
+                                            fontWeight = FontWeight.Medium,
+                                            color = TextPrimary
+                                        )
+                                        if (template.isBuiltin) {
+                                            Spacer(Modifier.width(8.dp))
+                                            Surface(
+                                                shape = RoundedCornerShape(999.dp),
+                                                color = BrandMint.copy(alpha = 0.2f)
+                                            ) {
+                                                Text(
+                                                    text = "内置",
+                                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.dp),
+                                                    fontSize = 9.sp,
+                                                    color = BrandMint
+                                                )
+                                            }
+                                        }
+                                    }
+                                    Spacer(Modifier.height(4.dp))
+                                    Text(
+                                        text = template.prompt,
+                                        fontSize = 12.sp,
+                                        color = TextSecondary,
+                                        maxLines = 2,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                                if (selectedPrompt == template.prompt) {
+                                    Spacer(Modifier.width(8.dp))
+                                    Surface(
+                                        shape = CircleShape,
+                                        color = BrandBlue,
+                                        modifier = Modifier.size(20.dp)
+                                    ) {
+                                        Box(contentAlignment = Alignment.Center) {
+                                            Text("✓", fontSize = 12.sp, color = androidx.compose.ui.graphics.Color.White)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 }

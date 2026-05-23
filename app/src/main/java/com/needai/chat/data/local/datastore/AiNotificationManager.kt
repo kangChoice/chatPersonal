@@ -25,11 +25,16 @@ class AiNotificationManager @Inject constructor(
 ) {
     companion object {
         private val CONFIGS_KEY = stringPreferencesKey("ai_notification_configs")
+        private val GLOBAL_ENABLED_KEY = stringPreferencesKey("ai_notification_global_enabled")
     }
 
     val configs: Flow<List<AiNotificationConfig>> = context.aiNotificationStore.data.map { prefs ->
         val json = prefs[CONFIGS_KEY] ?: "[]"
         parseConfigs(json)
+    }
+
+    val globalEnabled: Flow<Boolean> = context.aiNotificationStore.data.map { prefs ->
+        prefs[GLOBAL_ENABLED_KEY]?.toBooleanStrictOrNull() ?: true
     }
 
     suspend fun add(config: AiNotificationConfig) {
@@ -62,6 +67,17 @@ class AiNotificationManager @Inject constructor(
     suspend fun getAll(): List<AiNotificationConfig> {
         val json = context.aiNotificationStore.data.map { it[CONFIGS_KEY] ?: "[]" }.first()
         return parseConfigs(json)
+    }
+
+    suspend fun isGlobalEnabled(): Boolean {
+        val value = context.aiNotificationStore.data.map { it[GLOBAL_ENABLED_KEY] }.first()
+        return value?.toBooleanStrictOrNull() ?: true
+    }
+
+    suspend fun setGlobalEnabled(enabled: Boolean) {
+        context.aiNotificationStore.edit { prefs ->
+            prefs[GLOBAL_ENABLED_KEY] = enabled.toString()
+        }
     }
 
     private fun parseConfigs(json: String): List<AiNotificationConfig> {

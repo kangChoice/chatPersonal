@@ -4,16 +4,18 @@ import androidx.room.Database
 import androidx.room.RoomDatabase
 import com.needai.chat.data.local.db.dao.MessageDao
 import com.needai.chat.data.local.db.dao.ModelConfigDao
+import com.needai.chat.data.local.db.dao.NotificationTemplateDao
 import com.needai.chat.data.local.db.dao.SessionDao
 import com.needai.chat.data.local.db.dao.SkillDao
 import com.needai.chat.data.local.db.entity.MessageEntity
 import com.needai.chat.data.local.db.entity.ModelConfigEntity
+import com.needai.chat.data.local.db.entity.NotificationTemplateEntity
 import com.needai.chat.data.local.db.entity.SessionEntity
 import com.needai.chat.data.local.db.entity.SkillEntity
 
 @Database(
-    entities = [SkillEntity::class, MessageEntity::class, SessionEntity::class, ModelConfigEntity::class],
-    version = 9,
+    entities = [SkillEntity::class, MessageEntity::class, SessionEntity::class, ModelConfigEntity::class, NotificationTemplateEntity::class],
+    version = 10,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -21,4 +23,5 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun messageDao(): MessageDao
     abstract fun sessionDao(): SessionDao
     abstract fun modelConfigDao(): ModelConfigDao
+    abstract fun notificationTemplateDao(): NotificationTemplateDao
 }

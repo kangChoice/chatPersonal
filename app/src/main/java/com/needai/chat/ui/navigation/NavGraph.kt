@@ -279,7 +279,9 @@ fun MainScreen(isDark: Boolean = false) {
                         )
                     }
                     composable(Screen.IlinkSchedule.route) {
-                        ScheduleTabContainer()
+                        ScheduleTabContainer(
+                            onNavigateToIlinkSetup = { navController.navigate("ilink_setup") }
+                        )
                     }
                     composable(Screen.IlinkSetup.route) {
                         IlinkSetupScreen(

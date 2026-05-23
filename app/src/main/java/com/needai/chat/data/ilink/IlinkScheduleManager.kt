@@ -44,7 +44,8 @@ data class ScheduleConfig(
     val randomStartTime: String = "08:00",
     val randomEndTime: String = "18:00",
     val randomCount: Int = 3,
-    val randomEnabled: Boolean = true
+    val randomEnabled: Boolean = true,
+    val fixedEnabled: Boolean = true
 )
 
 @Singleton
@@ -66,6 +67,7 @@ class IlinkScheduleManager @Inject constructor(
     private var randomTimes: List<String> = emptyList()
     private var randomCount: Int = 3
     private var randomEnabled: Boolean = true
+    private var fixedEnabled: Boolean = true
     private var scheduleConfig: ScheduleConfig = ScheduleConfig()
     private var initialized = false
 
@@ -104,8 +106,8 @@ class IlinkScheduleManager @Inject constructor(
 
         var changed = false
 
-        // 固定时间点
-        for (item in scheduleConfig.fixedMessages) {
+        // 固定时间点（仅在启用时处理）
+        if (fixedEnabled) for (item in scheduleConfig.fixedMessages) {
             val time = item.time
             val text = item.message
             if (time !in sentFixed) {
@@ -166,11 +168,24 @@ class IlinkScheduleManager @Inject constructor(
         FileLogger.i(TAG, "setRandomEnabled: $enabled")
     }
 
+    /** 固定消息是否启用 */
+    fun isFixedEnabled(): Boolean = fixedEnabled
+
+    /** 启用/禁用固定消息 */
+    suspend fun setFixedEnabled(enabled: Boolean) {
+        fixedEnabled = enabled
+        scheduleConfig = scheduleConfig.copy(fixedEnabled = enabled)
+        persistConfig()
+        FileLogger.i(TAG, "setFixedEnabled: $enabled")
+    }
+
     /** 获取今日所有定时消息预览（时间, 消息文本），含时间前缀 */
     fun getTodaySchedulePreview(): List<Pair<String, String>> {
         val result = mutableListOf<Pair<String, String>>()
-        for (item in scheduleConfig.fixedMessages) {
-            result.add(item.time to item.message)
+        if (fixedEnabled) {
+            for (item in scheduleConfig.fixedMessages) {
+                result.add(item.time to item.message)
+            }
         }
         for (time in randomTimes) {
             result.add(time to scheduleConfig.randomMessage)
@@ -339,6 +354,11 @@ class IlinkScheduleManager @Inject constructor(
                 if (!json.contains("randomEnabled") && scheduleConfig.randomCount > 0) {
                     scheduleConfig = scheduleConfig.copy(randomEnabled = true)
                 }
+                if (!json.contains("fixedEnabled")) {
+                    scheduleConfig = scheduleConfig.copy(fixedEnabled = true)
+                }
+                randomEnabled = scheduleConfig.randomEnabled
+                fixedEnabled = scheduleConfig.fixedEnabled
             } catch (e: Exception) {
                 FileLogger.w(TAG, "loadConfig: 解析失败 ${e.localizedMessage}")
             }

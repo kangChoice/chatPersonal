@@ -63,6 +63,13 @@ class AiNotificationScheduler @Inject constructor(
                     context, RescheduleEntryPoint::class.java
                 )
                 val manager = entryPoint.aiNotificationManager
+
+                if (!runBlocking { manager.isGlobalEnabled() }) {
+                    Log.d(TAG, "AI 通知全局关闭，取消闹钟")
+                    alarmManager.cancel(pendingIntent)
+                    return
+                }
+
                 val configs = runBlocking { manager.getAll().filter { it.enabled } }
 
                 if (configs.isEmpty()) {
@@ -105,8 +112,9 @@ class AiNotificationScheduler @Inject constructor(
                     val nowEpochMs = System.currentTimeMillis()
                     val todayStartMs = nowEpochMs - (currentMinutes * 60_000L)
                     triggerTimeMs = todayStartMs + (nextMinutes * 60_000L) + 10_000L
-                    Log.d(TAG, "下一次闹钟: ${nextMinutes / 60}:${String.format("%02d", nextMinutes % 60)}")
-                    FileLogger.i(TAG, "reschedule: 下一次闹钟=${nextMinutes / 60}:${String.format("%02d", nextMinutes % 60)}, triggerTimeMs=$triggerTimeMs, hasMissed=false")
+                    val displayMinutes = nextMinutes % (24 * 60)
+                    Log.d(TAG, "下一次闹钟: ${displayMinutes / 60}:${String.format("%02d", displayMinutes % 60)}")
+                    FileLogger.i(TAG, "reschedule: 下一次闹钟=${displayMinutes / 60}:${String.format("%02d", displayMinutes % 60)}, triggerTimeMs=$triggerTimeMs, hasMissed=false")
                 }
 
                 val showIntent = PendingIntent.getActivity(
@@ -116,10 +124,17 @@ class AiNotificationScheduler @Inject constructor(
                     },
                     PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
                 )
-                alarmManager.setAlarmClock(
-                    AlarmManager.AlarmClockInfo(triggerTimeMs, showIntent),
-                    pendingIntent
-                )
+                if (alarmManager.canScheduleExactAlarms()) {
+                    alarmManager.setAlarmClock(
+                        AlarmManager.AlarmClockInfo(triggerTimeMs, showIntent),
+                        pendingIntent
+                    )
+                    FileLogger.d(TAG, "reschedule: 使用精确闹钟")
+                } else {
+                    alarmManager.set(AlarmManager.RTC_WAKEUP, triggerTimeMs, pendingIntent)
+                    Log.d(TAG, "无精确闹钟权限，使用普通闹钟替代")
+                    FileLogger.w(TAG, "reschedule: 无精确闹钟权限，降级为普通闹钟")
+                }
             } catch (e: Exception) {
                 Log.w(TAG, "reschedule 异常: ${e.localizedMessage}")
             }

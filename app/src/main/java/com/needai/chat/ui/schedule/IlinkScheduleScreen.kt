@@ -1,5 +1,8 @@
 package com.needai.chat.ui.schedule
 
+import android.app.AlarmManager
+import android.content.Intent
+import android.provider.Settings
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -9,6 +12,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -16,35 +20,104 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import kotlinx.coroutines.launch
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.needai.chat.app.ClawBotScheduleReceiver
 import com.needai.chat.data.ilink.FixedScheduleItem
 import com.needai.chat.ui.theme.*
+import dagger.hilt.android.EntryPointAccessors
 import com.needai.chat.ui.util.LocalToast
 import com.needai.chat.ui.util.ToastType
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun IlinkScheduleScreen(
+    onNavigateToIlinkSetup: () -> Unit = {},
     viewModel: IlinkScheduleViewModel = hiltViewModel()
 ) {
+    val context = LocalContext.current
     val config by viewModel.config.collectAsStateWithLifecycle()
     val toastState = LocalToast.current
 
+    val canScheduleExactAlarms = remember {
+        val am = context.getSystemService(AlarmManager::class.java)
+        am.canScheduleExactAlarms()
+    }
     var showEditDialog by remember { mutableStateOf(false) }
     var editIndex by remember { mutableStateOf(-1) }            // -1 = add mode
     var showDeleteDialog by remember { mutableStateOf(false) }
     var deleteIndex by remember { mutableStateOf(-1) }
+
+    val lifecycleOwner = androidx.compose.ui.platform.LocalLifecycleOwner.current
+    var hasClawBotToken by remember { mutableStateOf<Boolean?>(null) }
+    val checkScope = rememberCoroutineScope()
+    DisposableEffect(lifecycleOwner) {
+        suspend fun checkToken(): Boolean {
+            val entryPoint = EntryPointAccessors.fromApplication(
+                context, ClawBotScheduleReceiver.ClawBotReceiverEntryPoint::class.java
+            )
+            return entryPoint.authManager.getToken() != null
+        }
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+                checkScope.launch { hasClawBotToken = checkToken() }
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        checkScope.launch { hasClawBotToken = checkToken() }
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
             .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
+            // ClawBot 未连接提醒
+            if (hasClawBotToken == false) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = StatusRed.copy(alpha = 0.1f))
+                ) {
+                    Row(
+                        modifier = Modifier.padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            Icons.Default.Warning,
+                            contentDescription = null,
+                            tint = StatusRed,
+                            modifier = Modifier.size(24.dp)
+                        )
+                        Spacer(Modifier.width(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "微信 ClawBot 未连接",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = StatusRed
+                            )
+                            Text(
+                                text = "请先连接 ClawBot 以启用微信定时消息功能",
+                                fontSize = 12.sp,
+                                color = TextSecondary
+                            )
+                        }
+                        TextButton(onClick = onNavigateToIlinkSetup) {
+                            Text("去连接")
+                        }
+                    }
+                }
+            }
+
             // 固定消息卡片
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -52,12 +125,22 @@ fun IlinkScheduleScreen(
                 colors = CardDefaults.cardColors(containerColor = BgCard)
             ) {
                 Column(modifier = Modifier.padding(20.dp)) {
-                    Text(
-                        text = "固定消息",
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = TextPrimary
-                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "固定消息",
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = TextPrimary
+                        )
+                        Switch(
+                            checked = config.fixedEnabled,
+                            onCheckedChange = { viewModel.setFixedEnabled(it) }
+                        )
+                    }
                     Spacer(Modifier.height(12.dp))
 
                     if (config.fixedMessages.isEmpty()) {
@@ -91,7 +174,8 @@ fun IlinkScheduleScreen(
                             showEditDialog = true
                         },
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp)
+                        shape = RoundedCornerShape(12.dp),
+                        enabled = config.fixedEnabled
                     ) {
                         Icon(Icons.Default.Add, contentDescription = null)
                         Spacer(Modifier.width(8.dp))
@@ -228,18 +312,10 @@ fun IlinkScheduleScreen(
 
                     Spacer(Modifier.height(8.dp))
                     Text(
-                        text = "定时任务依赖 context_token，该凭证有效期内可回复最多 10 条消息。若连续 10 次定时消息期间未收到用户回复，后续定时任务将因 token 耗尽而失效。",
+                        text = "若连续 10 次微信定时消息期间未收到用户回复，后续定时任务将因 token 耗尽而失效。",
                         fontSize = 11.sp,
                         color = TextTertiary
                     )
-                    Spacer(Modifier.height(4.dp))
-                    Text(
-                        text = "为确保定时任务正常工作，请在系统设置中将本应用加入省电白名单，避免后台被系统限制。",
-                        fontSize = 11.sp,
-                        color = TextTertiary
-                    )
-
-                    Spacer(Modifier.height(12.dp))
                     Button(
                         onClick = {
                             viewModel.testSendSchedule()
@@ -254,6 +330,86 @@ fun IlinkScheduleScreen(
                 }
             }
 
+            // 精确闹钟权限卡片
+            Spacer(Modifier.height(16.dp))
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(containerColor = BrandBlue.copy(alpha = 0.08f))
+            ) {
+                Row(
+                    modifier = Modifier.padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        Icons.Default.Warning,
+                        contentDescription = null,
+                        tint = BrandBlue,
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Spacer(Modifier.width(12.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "请检查精确闹钟权限是否开启",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = BrandBlue
+                        )
+                        Text(
+                            text = if (canScheduleExactAlarms) "定时消息将准时触发" else "若未开启，定时消息可能延迟",
+                            fontSize = 12.sp,
+                            color = TextSecondary
+                        )
+                    }
+                    TextButton(onClick = {
+                        val intent = Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM).apply {
+                            data = android.net.Uri.parse("package:${context.packageName}")
+                        }
+                        context.startActivity(intent)
+                    }) {
+                        Text("去设置")
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(16.dp))
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(containerColor = BrandBlue.copy(alpha = 0.08f))
+            ) {
+                Row(
+                    modifier = Modifier.padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        Icons.Default.Warning,
+                        contentDescription = null,
+                        tint = BrandBlue,
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Spacer(Modifier.width(12.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "省电白名单建议",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = BrandBlue
+                        )
+                        Text(
+                            text = "将本应用加入省电白名单，避免后台被系统限制导致定时任务失效",
+                            fontSize = 12.sp,
+                            color = TextSecondary
+                        )
+                    }
+                    TextButton(onClick = {
+                        val intent = Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
+                        context.startActivity(intent)
+                    }) {
+                        Text("去设置")
+                    }
+                }
+            }
             Spacer(Modifier.height(32.dp))
     }
 
@@ -364,6 +520,7 @@ private fun FixedMessageEditDialog(
     var message by remember { mutableStateOf(initial?.message ?: "") }
     var hourError by remember { mutableStateOf(false) }
     var minuteError by remember { mutableStateOf(false) }
+    var messageError by remember { mutableStateOf(false) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -403,24 +560,33 @@ private fun FixedMessageEditDialog(
                 }
                 OutlinedTextField(
                     value = message,
-                    onValueChange = { message = it },
-                    label = { Text("消息内容") },
+                    onValueChange = { message = it; messageError = false },
+                    label = { Text("消息内容 *") },
+                    placeholder = { Text("请输入消息内容...") },
                     singleLine = false,
                     maxLines = 4,
-                    modifier = Modifier.fillMaxWidth()
+                    isError = messageError,
+                    modifier = Modifier.fillMaxWidth(),
+                    supportingText = if (messageError) {{ Text("消息内容不能为空", color = MaterialTheme.colorScheme.error, fontSize = 12.sp) }} else null
                 )
             }
         },
         confirmButton = {
-            Button(onClick = {
-                val h = hour.toIntOrNull()
-                val m = minute.toIntOrNull()
-                hourError = h == null || h !in 0..23
-                minuteError = m == null || m !in 0..59
-                if (!hourError && !minuteError && message.isNotBlank()) {
-                    onSave(FixedScheduleItem(time = String.format("%02d:%02d", h!!, m!!), message = message))
-                }
-            }) {
+            val timeValid = hour.toIntOrNull()?.let { it in 0..23 } == true && minute.toIntOrNull()?.let { it in 0..59 } == true
+            val isValid = timeValid && message.isNotBlank()
+            Button(
+                onClick = {
+                    val h = hour.toIntOrNull()
+                    val m = minute.toIntOrNull()
+                    hourError = h == null || h !in 0..23
+                    minuteError = m == null || m !in 0..59
+                    messageError = message.isBlank()
+                    if (!hourError && !minuteError && !messageError) {
+                        onSave(FixedScheduleItem(time = String.format("%02d:%02d", h!!, m!!), message = message.trim()))
+                    }
+                },
+                enabled = isValid
+            ) {
                 Text("保存")
             }
         },

@@ -1,14 +1,17 @@
 package com.needai.chat.app
 
 import android.app.Application
-import androidx.room.Room
+import android.content.Intent
+import androidx.core.content.ContextCompat
 import com.google.gson.Gson
 import com.needai.chat.BuildConfig
-import com.needai.chat.data.local.config.BuiltinChatModel
+import com.needai.chat.data.ilink.IlinkAuthManager
+import com.needai.chat.data.ilink.IlinkBridgeService
 import com.needai.chat.data.local.config.ModelConfigFileManager
 import com.needai.chat.data.local.datastore.SettingsDataStore
 import com.needai.chat.data.local.db.AppDatabase
 import com.needai.chat.data.local.db.entity.ModelConfigEntity
+import com.needai.chat.data.local.db.entity.NotificationTemplateEntity
 import com.needai.chat.data.local.db.entity.SkillEntity
 import com.needai.chat.util.AvatarUtils
 import com.needai.chat.util.FileLogger
@@ -24,6 +27,8 @@ class NeedAiApplication : Application() {
 
     private val applicationScope = CoroutineScope(Dispatchers.IO)
 
+    @Inject lateinit var db: AppDatabase
+    @Inject lateinit var authManager: IlinkAuthManager
     @Inject lateinit var aiNotificationScheduler: AiNotificationScheduler
     @Inject lateinit var clawBotScheduleScheduler: ClawBotScheduleScheduler
 
@@ -35,6 +40,7 @@ class NeedAiApplication : Application() {
         initializeDefaults()
         scheduleAIAgentNotification()
         scheduleClawBotNotifications()
+        startIlinkBridgeIfAuthenticated()
     }
 
     private fun scheduleAIAgentNotification() {
@@ -43,6 +49,20 @@ class NeedAiApplication : Application() {
 
     private fun scheduleClawBotNotifications() {
         clawBotScheduleScheduler.start()
+    }
+
+    private fun startIlinkBridgeIfAuthenticated() {
+        applicationScope.launch {
+            if (!authManager.isAuthenticated()) {
+                FileLogger.i("NeedAiApplication", "iLink: 未授权，跳过自动连接")
+                return@launch
+            }
+            FileLogger.i("NeedAiApplication", "iLink: 自动启动桥接")
+            val intent = Intent(this@NeedAiApplication, IlinkBridgeService::class.java).apply {
+                action = IlinkBridgeService.ACTION_START
+            }
+            ContextCompat.startForegroundService(this@NeedAiApplication, intent)
+        }
     }
 
     private fun setupCrashHandler() {
@@ -70,12 +90,6 @@ class NeedAiApplication : Application() {
                 ttsConfig = ttsConfig.copy(apiKey = BuildConfig.BUILTIN_TTS_API_KEY)
             }
 
-            val db = Room.databaseBuilder(
-                this@NeedAiApplication,
-                AppDatabase::class.java,
-                "needai_chat.db"
-            ).fallbackToDestructiveMigration().build()
-
             if (db.skillDao().getCount() == 0) {
                 val now = System.currentTimeMillis()
                 db.skillDao().upsertSkill(
@@ -93,6 +107,31 @@ class NeedAiApplication : Application() {
                         updatedAt = now
                     )
                 )
+            }
+
+            // 种子内置通知模板
+            if (db.notificationTemplateDao().getCount() == 0) {
+                val now = System.currentTimeMillis()
+                listOf(
+                    "builtin_miss" to ("想念" to "以你角色的身份，用第一人称直接对我说一句话。表达你想我了，语气温暖。带上你的角色称呼。不要描述场景和动作，只输出这一句话。"),
+                    "builtin_sad_miss" to ("伤心的想念" to "以你角色的身份，用第一人称直接对我说一句话。表达你想我了，但我老是不理你，你很委屈。带上你的角色称呼。不要描述场景和动作，只输出这一句话。"),
+                    "builtin_pout" to ("撒娇" to "以你角色的身份，用第一人称直接对我说一句撒娇的话，想引起我注意、让我来陪你。带上你的角色称呼。不要描述场景和动作，只输出这一句话。"),
+                    "builtin_morning" to ("早安" to "以你角色的身份，用第一人称直接对我说一句早安问候，可以带点关心或撒娇。带上你的角色称呼。不要描述场景和动作，只输出这一句话。"),
+                    "builtin_night" to ("晚安" to "以你角色的身份，用第一人称直接对我说一句晚安，语气温柔。带上你的角色称呼。不要描述场景和动作，只输出这一句话。"),
+                    "builtin_care" to ("日常关心" to "以你角色的身份，用第一人称直接对我说一句日常关心的话，比如问我在干嘛、有没有好好吃饭。带上你的角色称呼。不要描述场景和动作，只输出这一句话。"),
+                    "builtin_tsundere" to ("傲娇" to "以你角色的身份，用第一人称直接对我说一句傲娇的话——明明想了却嘴硬不承认。带上你的角色称呼。不要描述场景和动作，只输出这一句话。"),
+                ).forEach { (id, pair) ->
+                    db.notificationTemplateDao().upsertTemplate(
+                        NotificationTemplateEntity(
+                            id = id,
+                            label = pair.first,
+                            prompt = pair.second,
+                            isBuiltin = true,
+                            createdAt = now,
+                            updatedAt = now
+                        )
+                    )
+                }
             }
 
             // 从 JSON 读取内置语言模型配置，替代硬编码
@@ -115,8 +154,6 @@ class NeedAiApplication : Application() {
                     )
                 )
             }
-
-            db.close()
 
             // 初始化默认角色头像
             AvatarUtils.initDefaultAvatar(this@NeedAiApplication)

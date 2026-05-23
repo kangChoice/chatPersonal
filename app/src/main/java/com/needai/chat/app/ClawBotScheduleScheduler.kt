@@ -77,7 +77,10 @@ class ClawBotScheduleScheduler @Inject constructor(
                         it.time.isNotBlank() && it.message.isNotBlank()
                     }
 
-                    if (fixedMessages.isEmpty() && !config.randomEnabled) {
+                    val fixedEnabled = config.fixedEnabled && fixedMessages.isNotEmpty()
+                    val hasAnySchedule = fixedEnabled || config.randomEnabled
+
+                    if (!hasAnySchedule) {
                         Log.d(TAG, "无启用的定时配置，取消闹钟")
                         alarmManager.cancel(pendingIntent)
                         return@runBlocking
@@ -88,12 +91,14 @@ class ClawBotScheduleScheduler @Inject constructor(
 
                     // 收集所有定时时间点
                     val allScheduledMinutes = mutableListOf<Int>()
-                    for (item in fixedMessages) {
-                        val parts = item.time.split(":")
-                        val minutes = parts[0].toIntOrNull()?.let { h ->
-                            parts.getOrNull(1)?.toIntOrNull()?.let { m -> h * 60 + m }
-                        } ?: continue
-                        allScheduledMinutes.add(minutes)
+                    if (fixedEnabled) {
+                        for (item in fixedMessages) {
+                            val parts = item.time.split(":")
+                            val minutes = parts[0].toIntOrNull()?.let { h ->
+                                parts.getOrNull(1)?.toIntOrNull()?.let { m -> h * 60 + m }
+                            } ?: continue
+                            allScheduledMinutes.add(minutes)
+                        }
                     }
                     if (config.randomEnabled) {
                         for (time in scheduleManager.getTodayRandomTimes()) {
@@ -106,14 +111,14 @@ class ClawBotScheduleScheduler @Inject constructor(
                     }
 
                     // 先检查过去5分钟内是否有遗漏任务（已发送的不会重复触发）
-                    val hasMissed = fixedMessages.any { item ->
+                    val hasMissed = (fixedEnabled && fixedMessages.any { item ->
                         val parts = item.time.split(":")
                         val minutes = parts[0].toIntOrNull()?.let { h ->
                             parts.getOrNull(1)?.toIntOrNull()?.let { m -> h * 60 + m }
                         } ?: 0
                         val diff = currentMinutes - minutes
                         diff in 0..5 && !scheduleManager.isFixedSent(item.time)
-                    } || (config.randomEnabled && scheduleManager.getTodayRandomTimes().any { time ->
+                    }) || (config.randomEnabled && scheduleManager.getTodayRandomTimes().any { time ->
                         val parts = time.split(":")
                         val minutes = parts[0].toIntOrNull()?.let { h ->
                             parts.getOrNull(1)?.toIntOrNull()?.let { m -> h * 60 + m }
@@ -144,8 +149,9 @@ class ClawBotScheduleScheduler @Inject constructor(
                         val nowEpochMs = System.currentTimeMillis()
                         val todayStartMs = nowEpochMs - (currentMinutes * 60_000L)
                         triggerTimeMs = todayStartMs + (nextMinutes * 60_000L) + 10_000L
-                        Log.d(TAG, "下一次闹钟: ${nextMinutes / 60}:${String.format("%02d", nextMinutes % 60)}")
-                        FileLogger.i(TAG, "reschedule: 下一次闹钟=${nextMinutes / 60}:${String.format("%02d", nextMinutes % 60)}, triggerTimeMs=$triggerTimeMs, hasMissed=false")
+                        val displayMinutes = nextMinutes % (24 * 60)
+                        Log.d(TAG, "下一次闹钟: ${displayMinutes / 60}:${String.format("%02d", displayMinutes % 60)}")
+                        FileLogger.i(TAG, "reschedule: 下一次闹钟=${displayMinutes / 60}:${String.format("%02d", displayMinutes % 60)}, triggerTimeMs=$triggerTimeMs, hasMissed=false")
                     }
 
                     val showIntent = PendingIntent.getActivity(
@@ -155,10 +161,17 @@ class ClawBotScheduleScheduler @Inject constructor(
                         },
                         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
                     )
-                    alarmManager.setAlarmClock(
-                        AlarmManager.AlarmClockInfo(triggerTimeMs, showIntent),
-                        pendingIntent
-                    )
+                    if (alarmManager.canScheduleExactAlarms()) {
+                        alarmManager.setAlarmClock(
+                            AlarmManager.AlarmClockInfo(triggerTimeMs, showIntent),
+                            pendingIntent
+                        )
+                        FileLogger.d(TAG, "reschedule: 使用精确闹钟")
+                    } else {
+                        alarmManager.set(AlarmManager.RTC_WAKEUP, triggerTimeMs, pendingIntent)
+                        Log.d(TAG, "无精确闹钟权限，使用普通闹钟替代")
+                        FileLogger.w(TAG, "reschedule: 无精确闹钟权限，降级为普通闹钟")
+                    }
                 }
             } catch (e: Exception) {
                 Log.w(TAG, "reschedule 异常: ${e.localizedMessage}")

@@ -44,8 +44,10 @@ import androidx.navigation.NavController
 import com.needai.chat.data.local.datastore.SettingsDataStore
 import com.needai.chat.data.remote.tts.CosyVoiceParameters
 import com.needai.chat.data.remote.tts.SystemVoiceProvider
+import com.needai.chat.domain.model.NotificationTemplate
 import com.needai.chat.domain.model.Skill
 import com.needai.chat.domain.model.VoiceInfo
+import com.needai.chat.ui.skills.components.NotificationTemplateCard
 import com.needai.chat.ui.voice.VoiceListViewModel
 import com.needai.chat.ui.voice.components.CreateVoiceDialog
 import com.needai.chat.ui.voice.components.VoiceCard
@@ -76,7 +78,8 @@ private fun isSystemVoice(voiceId: String): Boolean =
 fun SkillAndVoiceScreen(
     navController: NavController,
     skillViewModel: SkillViewModel = hiltViewModel(),
-    voiceViewModel: VoiceListViewModel = hiltViewModel()
+    voiceViewModel: VoiceListViewModel = hiltViewModel(),
+    templateViewModel: NotificationTemplateViewModel = hiltViewModel()
 ) {
     var selectedTab by remember { mutableStateOf(0) }
     val snackbarHostState = remember { SnackbarHostState() }
@@ -206,6 +209,14 @@ fun SkillAndVoiceScreen(
     }
 
     // ======================================================================
+    // Template 状态
+    // ======================================================================
+    val templates by templateViewModel.templates.collectAsStateWithLifecycle()
+    var showTemplateEditDialog by remember { mutableStateOf(false) }
+    var editingTemplate by remember { mutableStateOf<NotificationTemplate?>(null) }
+    var templateToDelete by remember { mutableStateOf<NotificationTemplate?>(null) }
+
+    // ======================================================================
     // UI
     // ======================================================================
     Box(modifier = Modifier.fillMaxSize()) {
@@ -252,7 +263,11 @@ fun SkillAndVoiceScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         BrandGradientText(
-                            text = if (selectedTab == 0) "角色管理" else "音色管理",
+                            text = when (selectedTab) {
+                                0 -> "角色管理"
+                                1 -> "音色管理"
+                                else -> "模板管理"
+                            },
                             fontSize = 22.sp
                         )
 
@@ -291,7 +306,7 @@ fun SkillAndVoiceScreen(
                                 ) {
                                     Text("☰", color = TextSecondary, fontSize = 14.sp)
                                 }
-                            } else {
+                            } else if (selectedTab == 1) {
                                 Box(
                                     modifier = Modifier
                                         .size(36.dp)
@@ -358,6 +373,21 @@ fun SkillAndVoiceScreen(
                                             }
                                         )
                                     }
+                                }
+                            } else {
+                                Box(
+                                    modifier = Modifier
+                                        .size(36.dp)
+                                        .clip(CircleShape)
+                                        .background(GlassWhite)
+                                        .border(0.5.dp, Color.White.copy(alpha = 0.5f), CircleShape)
+                                        .clickable {
+                                            editingTemplate = null
+                                            showTemplateEditDialog = true
+                                        },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text("+", color = BrandBlue, fontSize = 18.sp, fontWeight = FontWeight.Light)
                                 }
                             }
                         }
@@ -461,6 +491,20 @@ fun SkillAndVoiceScreen(
                             color = if (selectedTab == 1) BrandMint else TextTertiary
                         )
                     }
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(999.dp))
+                            .background(if (selectedTab == 2) BrandMint.copy(alpha = 0.2f) else Color.Transparent)
+                            .clickable { selectedTab = 2 }
+                            .padding(horizontal = 24.dp, vertical = 8.dp)
+                    ) {
+                        Text(
+                            "模板管理",
+                            fontSize = 13.sp,
+                            fontWeight = if (selectedTab == 2) FontWeight.Bold else FontWeight.Normal,
+                            color = if (selectedTab == 2) BrandMint else TextTertiary
+                        )
+                    }
                 }
 
                 // Tab content
@@ -535,7 +579,7 @@ fun SkillAndVoiceScreen(
                             }
                         }
                     }
-                } else {
+                } else if (selectedTab == 1) {
                     // ==============================
                     // 音色管理
                     // ==============================
@@ -673,6 +717,49 @@ fun SkillAndVoiceScreen(
                                     onEditBindings = {
                                         editingBindingsVoice = voice
                                         selectedBindingSkillIds = (voiceSkillBindings[voice.voiceId] ?: emptyList()).map { it.id }.toSet()
+                                    }
+                                )
+                            }
+                        }
+                    }
+                } else {
+                    // ==============================
+                    // 模板管理
+                    // ==============================
+                    if (templates.isEmpty()) {
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text(
+                                    text = "暂无模板",
+                                    fontSize = 16.sp,
+                                    color = TextTertiary,
+                                    fontWeight = FontWeight.Medium
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    text = "点击右上角 + 创建",
+                                    fontSize = 13.sp,
+                                    color = TextTertiary.copy(alpha = 0.6f)
+                                )
+                            }
+                        }
+                    } else {
+                        LazyColumn(
+                            modifier = Modifier.fillMaxSize(),
+                            contentPadding = PaddingValues(vertical = 8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            items(templates, key = { it.id }) { template ->
+                                NotificationTemplateCard(
+                                    template = template,
+                                    onEdit = if (template.isBuiltin) null else {
+                                        { editingTemplate = template; showTemplateEditDialog = true }
+                                    },
+                                    onDelete = if (template.isBuiltin) null else {
+                                        { templateToDelete = template }
                                     }
                                 )
                             }
@@ -960,6 +1047,49 @@ fun SkillAndVoiceScreen(
                 },
                 dismissButton = {
                     TextButton(onClick = { showDeleteAllDialog = false }) { Text("取消", color = TextSecondary) }
+                }
+            )
+        }
+
+        // Template dialogs
+        if (showTemplateEditDialog) {
+            NotificationTemplateEditDialog(
+                initial = editingTemplate,
+                onDismiss = {
+                    showTemplateEditDialog = false
+                    editingTemplate = null
+                },
+                onSave = { template ->
+                    if (editingTemplate != null) {
+                        templateViewModel.updateTemplate(template)
+                    } else {
+                        templateViewModel.createTemplate(template.label, template.prompt) { _, _ -> }
+                    }
+                    showTemplateEditDialog = false
+                    editingTemplate = null
+                }
+            )
+        }
+
+        if (templateToDelete != null) {
+            AlertDialog(
+                onDismissRequest = { templateToDelete = null },
+                icon = { Icon(Icons.Default.Delete, contentDescription = null, tint = BrandPink) },
+                title = { Text("删除模板", fontWeight = FontWeight.Bold, color = TextPrimary) },
+                text = {
+                    Text("确定要删除「${templateToDelete!!.label}」吗？此操作不可撤销。")
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            templateViewModel.deleteTemplate(templateToDelete!!.id)
+                            templateToDelete = null
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = BrandPink)
+                    ) { Text("删除") }
+                },
+                dismissButton = {
+                    TextButton(onClick = { templateToDelete = null }) { Text("取消") }
                 }
             )
         }

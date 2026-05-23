@@ -6,6 +6,7 @@ import com.needai.chat.data.local.db.AppDatabase
 import com.needai.chat.data.local.db.Migrations
 import com.needai.chat.data.local.db.dao.MessageDao
 import com.needai.chat.data.local.db.dao.ModelConfigDao
+import com.needai.chat.data.local.db.dao.NotificationTemplateDao
 import com.needai.chat.data.local.db.dao.SessionDao
 import com.needai.chat.data.local.db.dao.SkillDao
 import dagger.Module
@@ -27,9 +28,8 @@ object DatabaseModule {
             AppDatabase::class.java,
             "needai_chat.db"
         )
-            // 先前的版本未写 Migration，fallbackToDestructiveMigration 兜底旧版本
-            .addMigrations(Migrations.MIGRATION_7_8, Migrations.MIGRATION_8_9)
-            .fallbackToDestructiveMigration(true)
+            // 注册所有历史迁移，确保任意旧版本都能平滑升级
+            .addMigrations(Migrations.MIGRATION_4_5, Migrations.MIGRATION_5_6, Migrations.MIGRATION_6_7, Migrations.MIGRATION_7_8, Migrations.MIGRATION_8_9, Migrations.MIGRATION_9_10)
             .build()
     }
 
@@ -44,4 +44,7 @@ object DatabaseModule {
 
     @Provides
     fun provideModelConfigDao(database: AppDatabase): ModelConfigDao = database.modelConfigDao()
+
+    @Provides
+    fun provideNotificationTemplateDao(database: AppDatabase): NotificationTemplateDao = database.notificationTemplateDao()
 }
