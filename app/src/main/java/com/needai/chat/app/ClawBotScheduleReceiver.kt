@@ -4,7 +4,9 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.util.Log
+import androidx.core.content.ContextCompat
 import com.needai.chat.data.ilink.IlinkAuthManager
+import com.needai.chat.data.ilink.IlinkBridgeService
 import com.needai.chat.data.ilink.IlinkClient
 import com.needai.chat.data.ilink.IlinkScheduleManager
 import com.needai.chat.util.FileLogger
@@ -81,8 +83,20 @@ class ClawBotScheduleReceiver : BroadcastReceiver() {
                 FileLogger.w(TAG, "处理异常: ${e.localizedMessage}")
             } finally {
                 ClawBotScheduleScheduler.reschedule(context)
+                tryStartBridgeService(context)
                 pendingResult.finish()
             }
         }.start()
+    }
+
+    private fun tryStartBridgeService(context: Context) {
+        try {
+            val intent = Intent(context, IlinkBridgeService::class.java).apply {
+                action = IlinkBridgeService.ACTION_START
+            }
+            ContextCompat.startForegroundService(context, intent)
+        } catch (e: Exception) {
+            Log.w(TAG, "启动BridgeService失败: ${e.localizedMessage}")
+        }
     }
 }

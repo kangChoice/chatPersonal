@@ -63,6 +63,12 @@ class ScheduleNotificationService : Service() {
             return START_NOT_STICKY
         }
 
+        if (!notificationHelper.canShowNotifications()) {
+            Log.w(TAG, "通知权限未开启，跳过")
+            stopSelfSafe()
+            return START_NOT_STICKY
+        }
+
         processingJob = scope.launch {
             try {
                 val configs = aiNotificationManager.getAll().filter { it.enabled }

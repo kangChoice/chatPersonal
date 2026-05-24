@@ -5,6 +5,8 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.os.Build
+import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.needai.chat.MainActivity
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -46,11 +48,24 @@ class AppNotificationHelper @Inject constructor(
         manager.createNotificationChannel(progressChannel)
     }
 
+    fun canShowNotifications(): Boolean {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            manager.areNotificationsEnabled()
+        } else {
+            true
+        }
+    }
+
     fun showAiNotification(title: String, content: String, skillId: String? = null) {
         showAiNotification(title, content, MESSAGE_NOTIFICATION_ID, skillId)
     }
 
     fun showAiNotification(title: String, content: String, notificationId: Int, skillId: String? = null) {
+        if (!canShowNotifications()) {
+            Log.w("AppNotification", "通知权限未开启，跳过通知: title=$title")
+            return
+        }
         val openIntent = Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
             if (skillId != null) {

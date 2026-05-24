@@ -11,6 +11,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.launch
 import java.util.UUID
+import java.util.concurrent.atomic.AtomicBoolean
 
 class CosyVoiceClient(
     private val apiKey: String,
@@ -207,10 +208,16 @@ class CosyVoiceClient(
     }
 
     fun cancel() {
-        nativeNui.cancelStreamInputTts()
+        if (nativeReleased.get()) return
+        try {
+            nativeNui.cancelStreamInputTts()
+        } catch (e: Exception) {
+            Log.e(TAG, "cancel error", e)
+        }
     }
 
     fun release() {
+        if (!nativeReleased.compareAndSet(false, true)) return
         try {
             nativeNui.cancelStreamInputTts()
             nativeNui.release()
@@ -232,5 +239,6 @@ class CosyVoiceClient(
 
     companion object {
         private const val TAG = "CosyVoiceClient"
+        private val nativeReleased = AtomicBoolean(false)
     }
 }

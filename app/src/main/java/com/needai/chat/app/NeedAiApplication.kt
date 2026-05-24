@@ -61,7 +61,11 @@ class NeedAiApplication : Application() {
             val intent = Intent(this@NeedAiApplication, IlinkBridgeService::class.java).apply {
                 action = IlinkBridgeService.ACTION_START
             }
-            ContextCompat.startForegroundService(this@NeedAiApplication, intent)
+            try {
+                ContextCompat.startForegroundService(this@NeedAiApplication, intent)
+            } catch (e: RuntimeException) {
+                FileLogger.w("NeedAiApplication", "iLink: 无法从后台启动前台Service，等待App进入前台后由MainActivity启动: ${e.localizedMessage}")
+            }
         }
     }
 

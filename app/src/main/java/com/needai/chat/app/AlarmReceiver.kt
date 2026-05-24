@@ -4,6 +4,8 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.util.Log
+import androidx.core.content.ContextCompat
+import com.needai.chat.data.ilink.IlinkBridgeService
 import com.needai.chat.data.local.datastore.AiNotificationManager
 import com.needai.chat.data.remote.client.RemoteModelClient
 import com.needai.chat.domain.model.AiNotificationConfig
@@ -68,6 +70,12 @@ class AlarmReceiver : BroadcastReceiver() {
                 val chatRepo = entryPoint.chatRepository
                 val sessionRepo = entryPoint.sessionRepository
 
+                if (!notifHelper.canShowNotifications()) {
+                    Log.d(TAG, "通知权限未开启，跳过 AI 通知处理")
+                    FileLogger.w(TAG, "通知权限未开启，跳过")
+                    return@Thread
+                }
+
                 if (!runBlocking { manager.isGlobalEnabled() }) {
                     Log.d(TAG, "AI 通知全局关闭，跳过")
                     return@Thread
@@ -116,9 +124,21 @@ class AlarmReceiver : BroadcastReceiver() {
                 FileLogger.w(TAG, "检查异常: ${e.localizedMessage}")
             } finally {
                 AiNotificationScheduler.reschedule(context)
+                tryStartBridgeService(context)
                 pendingResult.finish()
             }
         }.start()
+    }
+
+    private fun tryStartBridgeService(context: Context) {
+        try {
+            val intent = Intent(context, IlinkBridgeService::class.java).apply {
+                action = IlinkBridgeService.ACTION_START
+            }
+            ContextCompat.startForegroundService(context, intent)
+        } catch (e: Exception) {
+            Log.w(TAG, "启动BridgeService失败: ${e.localizedMessage}")
+        }
     }
 
     private fun processConfig(

@@ -73,11 +73,6 @@ fun AiNotificationScreen(
         )
     }
 
-    val canScheduleExactAlarms = remember {
-        val am = context.getSystemService(AlarmManager::class.java)
-        am.canScheduleExactAlarms()
-    }
-
     var pendingToggleConfig by remember { mutableStateOf<AiNotificationConfig?>(null) }
 
     val permissionLauncher = rememberLauncherForActivityResult(
@@ -246,86 +241,8 @@ fun AiNotificationScreen(
             }
         }
 
-        // 精确闹钟权限卡片
         Spacer(Modifier.height(16.dp))
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(12.dp),
-            colors = CardDefaults.cardColors(containerColor = BrandBlue.copy(alpha = 0.08f))
-        ) {
-            Row(
-                modifier = Modifier.padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    Icons.Default.Warning,
-                    contentDescription = null,
-                    tint = BrandBlue,
-                    modifier = Modifier.size(24.dp)
-                )
-                Spacer(Modifier.width(12.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "请检查精确闹钟权限是否开启",
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = BrandBlue
-                    )
-                    Text(
-                        text = if (canScheduleExactAlarms) "定时通知将准时触发" else "若未开启，定时通知可能延迟",
-                        fontSize = 12.sp,
-                        color = TextSecondary
-                    )
-                }
-                TextButton(onClick = {
-                    val intent = Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM).apply {
-                        data = android.net.Uri.parse("package:${context.packageName}")
-                    }
-                    context.startActivity(intent)
-                }) {
-                    Text("去设置")
-                }
-            }
-        }
-
-        Spacer(Modifier.height(16.dp))
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(12.dp),
-            colors = CardDefaults.cardColors(containerColor = BrandBlue.copy(alpha = 0.08f))
-        ) {
-            Row(
-                modifier = Modifier.padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    Icons.Default.Warning,
-                    contentDescription = null,
-                    tint = BrandBlue,
-                    modifier = Modifier.size(24.dp)
-                )
-                Spacer(Modifier.width(12.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "省电白名单建议",
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = BrandBlue
-                    )
-                    Text(
-                        text = "将本应用加入省电白名单，避免后台被系统限制导致定时通知失效",
-                        fontSize = 12.sp,
-                        color = TextSecondary
-                    )
-                }
-                TextButton(onClick = {
-                    val intent = Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
-                    context.startActivity(intent)
-                }) {
-                    Text("去设置")
-                }
-            }
-        }
+        SchedulePermissionCards()
     }
 
     // 添加/编辑对话框
