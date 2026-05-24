@@ -187,8 +187,10 @@ class IlinkScheduleManager @Inject constructor(
                 result.add(item.time to item.message)
             }
         }
-        for (time in randomTimes) {
-            result.add(time to scheduleConfig.randomMessage)
+        if (randomEnabled) {
+            for (time in randomTimes) {
+                result.add(time to scheduleConfig.randomMessage)
+            }
         }
         result.sortBy { it.first }
         return result
